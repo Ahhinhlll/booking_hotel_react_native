@@ -7,11 +7,14 @@ import {
   FlatList,
   Platform,
   StatusBar,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { fetchProvinces } from "../services/HeaderServices";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type Province = {
   code: string;
@@ -68,21 +71,64 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
   // Collapsed header (chỉ có search và notification)
   if (isCollapsed) {
     return (
-      <View className="bg-white px-6 py-4 pt-12 border-b border-gray-100">
-        <View className="flex-row items-center">
+      <View
+        style={{
+          backgroundColor: "#FFFFFF",
+          width: SCREEN_WIDTH,
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+          paddingTop: Platform.OS === "ios" ? 50 : 40,
+          borderBottomWidth: 1,
+          borderBottomColor: "#F3F4F6",
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            width: "100%",
+            marginTop: 6,
+          }}
+        >
           <TouchableOpacity
-            className="flex-1 bg-gray-100 rounded-full px-6 py-2 flex-row items-center mr-4"
+            style={{
+              flex: 1,
+              backgroundColor: "#F3F4F6",
+              borderRadius: 25,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              marginRight: 16,
+            }}
             onPress={openSearchScreen}
           >
             <Ionicons name="search" size={18} color="#9CA3AF" />
-            <Text className="flex-1 ml-2 text-gray-500 text-sm">
+            <Text
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                color: "#6B7280",
+                fontSize: 14,
+              }}
+            >
               Tên khách sạn, hoặc quận/huyện
             </Text>
           </TouchableOpacity>
           <TouchableOpacity>
-            <View className="relative">
-              <Ionicons name="notifications-outline" size={24} color="#333" />
-              <View className="absolute -top-1 -right-1 bg-red-500 w-3 h-3 rounded-full" />
+            <View style={{ position: "relative" }}>
+              <Ionicons name="notifications-outline" size={28} color="#333" />
+              <View
+                style={{
+                  position: "absolute",
+                  top: 3,
+                  right: 4,
+                  backgroundColor: "#EF4444",
+                  width: 8,
+                  height: 8,
+                  borderRadius: 6,
+                }}
+              />
             </View>
           </TouchableOpacity>
         </View>
@@ -92,48 +138,100 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
 
   // Full header (expanded)
   return (
-    <View className="bg-orange-400 px-6 py-4 pt-12">
-      {!isCollapsed && (
-        <>
-          {/* Top section with location and notification */}
-          <View className="flex-row items-start justify-between mb-4">
-            <View>
-              <Text className="text-white text-sm px-1">
-                Khám phá khách sạn và ưu đãi tại
-              </Text>
-              <TouchableOpacity
-                className="flex-row items-center mt-1"
-                onPress={() => setShowDropdown(true)}
-              >
-                <Ionicons name="location" size={18} color="#FF6B35" />
-                <Text className="text-white font-semibold ml-1 mr-2">
-                  {selectedProvince}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color="white" />
-              </TouchableOpacity>
-            </View>
+    <View
+      style={{
+        backgroundColor: "#FB923C",
+        width: SCREEN_WIDTH,
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        paddingTop: Platform.OS === "ios" ? 50 : 40,
+      }}
+      className="py-5"
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+          width: "100%",
+        }}
+      >
+        {/* Bên trái */}
+        <View style={{ flexDirection: "column" }}>
+          <Text
+            style={{
+              color: "#FFFFFF",
+              fontSize: 14,
+              marginBottom: 4,
+              marginTop: 6,
+            }}
+          >
+            Khám phá khách sạn và ưu đãi tại
+          </Text>
 
-            <TouchableOpacity>
-              <View className="relative">
-                <Ionicons
-                  name="notifications-outline"
-                  size={24}
-                  color="white"
-                />
-                <View className="absolute -top-1 -right-1 bg-red-500 w-3 h-3 rounded-full" />
-              </View>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+            onPress={() => setShowDropdown(true)}
+          >
+            <Ionicons name="location" size={18} color="#D95500" />
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontWeight: "600",
+                marginLeft: 4,
+                marginRight: 8,
+              }}
+            >
+              {selectedProvince}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Chuông ở bên phải, căn giữa theo 2 dòng */}
+        <TouchableOpacity>
+          <View style={{ position: "relative" }}>
+            <Ionicons name="notifications-outline" size={28} color="white" />
+            <View
+              style={{
+                position: "absolute",
+                top: 3,
+                right: 4,
+                backgroundColor: "#EF4444",
+                width: 8,
+                height: 8,
+                borderRadius: 6,
+              }}
+            />
           </View>
-        </>
-      )}
+        </TouchableOpacity>
+      </View>
 
       {/* Search bar */}
       <TouchableOpacity
-        className="bg-white rounded-full px-6 py-3 flex-row items-center"
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderRadius: 25,
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          width: "100%",
+        }}
         onPress={openSearchScreen}
       >
         <Ionicons name="search" size={20} color="#9CA3AF" />
-        <Text className="flex-1 ml-3 text-gray-500">
+        <Text
+          style={{
+            flex: 1,
+            marginLeft: 12,
+            color: "#6B7280",
+          }}
+        >
           Tên khách sạn, hoặc quận/huyện
         </Text>
       </TouchableOpacity>
@@ -145,11 +243,40 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
         animationType="slide"
         onRequestClose={() => setShowDropdown(false)}
       >
-        <View className="flex-1 bg-black bg-opacity-50 justify-end">
-          <View className="bg-white rounded-t-xl max-h-96">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "flex-end",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderTopLeftRadius: 12,
+              borderTopRightRadius: 12,
+              maxHeight: 384,
+            }}
+          >
             {/* Modal Header */}
-            <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-              <Text className="text-lg font-semibold">Chọn tỉnh thành</Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "#E5E7EB",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "600",
+                }}
+              >
+                Chọn tỉnh thành
+              </Text>
               <TouchableOpacity onPress={() => setShowDropdown(false)}>
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
@@ -157,9 +284,19 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
 
             {/* Loading indicator */}
             {loading && (
-              <View className="p-4 items-center">
+              <View
+                style={{
+                  padding: 16,
+                  alignItems: "center",
+                }}
+              >
                 <ActivityIndicator size="large" color="#FB923C" />
-                <Text className="mt-2 text-gray-500">
+                <Text
+                  style={{
+                    marginTop: 8,
+                    color: "#6B7280",
+                  }}
+                >
                   Đang tải danh sách tỉnh thành...
                 </Text>
               </View>
@@ -172,16 +309,31 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
                 keyExtractor={(item) => item.code}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    className="p-4 border-b border-gray-100"
+                    style={{
+                      padding: 16,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#F3F4F6",
+                    }}
                     onPress={() => handleProvinceSelect(item)}
                   >
-                    <View className="flex-row items-center">
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
                       <Ionicons
                         name="location-outline"
                         size={20}
                         color="#6B7280"
                       />
-                      <Text className="ml-3 text-base text-gray-800">
+                      <Text
+                        style={{
+                          marginLeft: 12,
+                          fontSize: 16,
+                          color: "#1F2937",
+                        }}
+                      >
                         {item.name}
                       </Text>
                       {selectedProvince === item.name && (

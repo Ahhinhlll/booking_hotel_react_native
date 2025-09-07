@@ -81,7 +81,7 @@ export default function ShortcutIcons() {
   ];
 
   return (
-    <View className="bg-white px-4 py-4">
+    <View className="bg-white px-4 py-8">
       {/* Top shortcuts */}
       <ScrollView
         horizontal
@@ -91,7 +91,7 @@ export default function ShortcutIcons() {
         {shortcuts.map((item) => (
           <TouchableOpacity key={item.id} className="items-center mr-4 w-16">
             <View
-              className={`relative ${item.bgColor} w-12 h-12 rounded-xl items-center justify-center`}
+              className={`relative ${item.bgColor} w-12 h-12 rounded-xl items-center justify-center mt-2`}
             >
               <Ionicons
                 name={item.icon as any}
@@ -99,7 +99,7 @@ export default function ShortcutIcons() {
                 color={item.iconColor}
               />
               {item.hasHotBadge && (
-                <View className="absolute -top-1 -right-1 bg-red-500 px-1 py-0.5 rounded">
+                <View className="absolute -top-1 -right-3 bg-red-500 px-1 py-0.5 rounded-full">
                   <Text className="text-white text-xs font-bold">HOT</Text>
                 </View>
               )}

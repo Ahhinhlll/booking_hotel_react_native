@@ -1,9 +1,11 @@
-import { View, Animated } from "react-native";
+import { View, Animated, Dimensions } from "react-native";
 import { useState, useRef } from "react";
 import HomeHeader from "../../components/HomeHeader";
 import ShortcutIcons from "../../components/ShortcutIcons";
 import PromoBanner from "../../components/PromoBanner";
 import HotelSection from "../../components/HotelSection";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Mock data for hotels
 const flashSaleHotels = [
@@ -94,21 +96,31 @@ export default function HomeScreen() {
   );
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View style={{ flex: 1, backgroundColor: "#F9FAFB", width: SCREEN_WIDTH }}>
       {/* Fixed Header */}
-      <View className="absolute top-0 left-0 right-0 z-10">
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          width: SCREEN_WIDTH,
+          zIndex: 10,
+        }}
+      >
         <HomeHeader isCollapsed={isHeaderCollapsed} />
       </View>
 
       {/* Scrollable Content */}
       <Animated.ScrollView
-        className="flex-1"
+        style={{ flex: 1, width: SCREEN_WIDTH }}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         {/* Placeholder for header space */}
-        <View style={{ height: isHeaderCollapsed ? 85 : 140 }} />
+        <View style={{ height: isHeaderCollapsed ? 100 : 150 }} />
+
         {/* Shortcut Icons */}
         <ShortcutIcons />
 
@@ -133,7 +145,7 @@ export default function HomeScreen() {
         />
 
         {/* Bottom padding for tab bar */}
-        <View className="h-20" />
+        <View style={{ height: 80 }} />
       </Animated.ScrollView>
     </View>
   );
