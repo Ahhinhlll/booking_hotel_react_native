@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
 
 export default function RoomsLayout() {
-  return <Stack screenOptions={{ headerShown: true, presentation: "card" }} />;
+  return <Stack screenOptions={{ headerShown: false, presentation: "card" }} />;
 }

@@ -1,6 +1,5 @@
 import { View, Text, Image, ScrollView } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import Header from "../../components/Header";
 import { rooms } from "../../mockData";
 
 export default function RoomDetail() {
@@ -13,8 +12,6 @@ export default function RoomDetail() {
 
   return (
     <View className="flex-1 bg-white">
-      <Header title={`Chi tiết phòng ${room.name}`} />
-
       <ScrollView className="flex-1 p-4">
         <Image
           source={room.image}
