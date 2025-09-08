@@ -63,6 +63,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Tài khoản",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" color={color} size={size} />
           ),
