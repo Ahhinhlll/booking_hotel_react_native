@@ -19,6 +19,7 @@ interface PromoBannerSliderProps {
 }
 
 const { width } = Dimensions.get("window");
+const screenWidth = Math.round(width);
 
 const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
   bannerImages,
@@ -29,7 +30,10 @@ const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
   useEffect(() => {
     const interval = setInterval(() => {
       const nextIndex = (currentIndex + 1) % bannerImages.length;
-      scrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
+      scrollRef.current?.scrollTo({
+        x: nextIndex * (screenWidth - 32),
+        animated: true,
+      });
       setCurrentIndex(nextIndex);
     }, 3000);
 
@@ -59,13 +63,13 @@ const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: width - 32,
+    width: screenWidth - 32,
     height: 200,
     borderRadius: 12,
     overflow: "hidden",
   },
   image: {
-    width: width - 32,
+    width: screenWidth - 32,
     height: 200,
     borderRadius: 12,
   },

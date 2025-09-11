@@ -22,7 +22,7 @@ export default function ProfileHeader({ userData }: ProfileHeaderProps) {
   const router = useRouter();
 
   const handleEditProfile = () => {
-    router.push("..");
+    router.push("/(profile)/update-profile");
   };
 
   return (

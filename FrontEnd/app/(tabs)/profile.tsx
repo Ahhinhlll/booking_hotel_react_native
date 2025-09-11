@@ -37,18 +37,17 @@ export default function ProfileScreen() {
     fetchUser();
   }, []);
 
-  const handleFavoriteHotels = async () => {
+  const handleFavoriteHotels = () => {
     if (!userData) return;
-
-    router.push("..");
+    router.push("/(tabs)/booked");
   };
 
   const handleAccountSettings = () => {
-    router.push("..");
+    router.push("/(tabs)/profile");
   };
 
   const handleNotifications = () => {
-    router.push("..");
+    router.push("/(tabs)/profile");
   };
 
   const handleLanguage = () => {
@@ -70,11 +69,11 @@ export default function ProfileScreen() {
   };
 
   const handleFAQ = () => {
-    router.push("..");
+    router.push("/(tabs)/profile");
   };
 
   const handleTerms = () => {
-    router.push("..");
+    router.push("/(tabs)/profile");
   };
 
   const handleVersion = () => {
@@ -87,13 +86,11 @@ export default function ProfileScreen() {
   };
 
   const handleContact = () => {
-    router.push("..");
+    router.push("/(tabs)/profile");
   };
 
-  // ProfileScreen.tsx
   const handleLogout = async () => {
     setIsLoading(true);
-
     try {
       const res = await AuthService.logout();
       if (res.success) {
@@ -119,214 +116,189 @@ export default function ProfileScreen() {
     }
   };
 
-  const showLogoutConfirm = () => {
-    Toast.show({
-      type: "info",
-      text1: "Bạn có chắc chắn muốn đăng xuất?",
-      text2: "Nhấn vào thông báo này để xác nhận",
-      position: "bottom",
-      visibilityTime: 4000,
-      bottomOffset: 100,
-      onPress: performLogout,
-    });
-  };
-
-  const performLogout = async () => {
-    setIsLoading(true);
-
-    try {
-      Toast.show({
-        type: "info",
-        text1: "Đang đăng xuất...",
-        text2: "Vui lòng đợi trong giây lát",
-        position: "top",
-        visibilityTime: 1000,
-      });
-
-      await AuthService.logout();
-
-      Toast.show({
-        type: "success",
-        text1: "Đăng xuất thành công!",
-        text2: "Hẹn gặp lại bạn",
-        position: "top",
-        onHide: () => {
-          router.replace("/auth/login");
-        },
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-      Toast.show({
-        type: "error",
-        text1: "Lỗi đăng xuất",
-        text2: "Đã xảy ra lỗi khi đăng xuất",
-        position: "top",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
-    <View className="flex-1 bg-[#FEF3E7]">
-      {/* Custom Header */}
+    <View className="flex-1 bg-[#F5F5F5]">
+      {/* Sửa lại để ProfileHeader có màu nền khớp với ảnh */}
       <ProfileHeader userData={userData} />
-
       <ScrollView
-        className="flex-1"
+        className="flex-1 bg-white"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         {/* Section: Trang của tôi */}
-        <View className="mt-4">
-          <Text className="text-lg font-bold text-gray-800 px-5 mb-3">
+        <View className="mt-6 px-4" style={{ marginTop: 18 }}>
+          <Text className="text-lg font-bold text-gray-800 mb-3">
             Trang của tôi
           </Text>
-
-          <TouchableOpacity
-            className="bg-white flex-row items-center px-5 py-4"
-            onPress={handleFavoriteHotels}
-          >
-            <Ionicons name="heart-outline" size={24} color="#6B7280" />
-            <Text className="flex-1 text-base text-gray-800 ml-4">
-              Khách sạn yêu thích
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
+          <View className="bg-white rounded-lg shadow-sm">
+            <TouchableOpacity
+              className="flex-row items-center py-4"
+              onPress={handleFavoriteHotels}
+            >
+              <Ionicons
+                name="heart-outline"
+                size={24}
+                color="#6B7280"
+                style={{ marginRight: 16 }}
+              />
+              <Text className="flex-1 text-base text-gray-800">
+                Khách sạn yêu thích
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Section: Cài đặt */}
-        <View className="mt-6">
-          <Text className="text-lg font-bold text-gray-800 px-5 mb-3">
-            Cài đặt
-          </Text>
-
-          <View className="bg-white">
+        <View className="mt-6 px-4">
+          <Text className="text-lg font-bold text-gray-800 mb-3">Cài đặt</Text>
+          <View className="bg-white rounded-lg shadow-sm">
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center py-4 border-b border-gray-100"
               onPress={handleAccountSettings}
             >
-              <Ionicons name="settings-outline" size={24} color="#6B7280" />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color="#6B7280"
+                style={{ marginRight: 16 }}
+              />
+              <Text className="flex-1 text-base text-gray-800">
                 Thiết lập tài khoản
               </Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
-
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center py-4 border-b border-gray-100"
               onPress={handleNotifications}
             >
               <Ionicons
                 name="notifications-outline"
                 size={24}
                 color="#6B7280"
+                style={{ marginRight: 16 }}
               />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
-                Thông báo
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <Text className="flex-1 text-base text-gray-800">Thông báo</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center py-4 border-b border-gray-100"
               onPress={handleLanguage}
             >
-              <Ionicons name="language-outline" size={24} color="#6B7280" />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
-                Ngôn ngữ
+              <Ionicons
+                name="language-outline"
+                size={24}
+                color="#6B7280"
+                style={{ marginRight: 16 }}
+              />
+              <Text className="flex-1 text-base text-gray-800">Ngôn ngữ</Text>
+              <Text
+                className="text-sm mr-2 font-semibold"
+                style={{ color: "#fb8537" }}
+              >
+                Tiếng Việt
               </Text>
-              <Text className="text-orange-500 text-sm mr-2">Tiếng Việt</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
-
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4"
+              className="flex-row items-center py-4"
               onPress={handleRegion}
             >
-              <Ionicons name="location-outline" size={24} color="#6B7280" />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
-                Khu vực
+              <Ionicons
+                name="location-outline"
+                size={24}
+                color="#6B7280"
+                style={{ marginRight: 16 }}
+              />
+              <Text className="flex-1 text-base text-gray-800">Khu vực</Text>
+              <Text
+                className="text-sm mr-2 font-semibold"
+                style={{ color: "#fb8537" }}
+              >
+                Hưng Yên
               </Text>
-              <Text className="text-orange-500 text-sm mr-2">Hưng Yên</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Section: Thông tin */}
-        <View className="mt-6">
-          <Text className="text-lg font-bold text-gray-800 px-5 mb-3">
+        <View className="mt-6 px-4">
+          <Text className="text-lg font-bold text-gray-800 mb-3">
             Thông tin
           </Text>
-
-          <View className="bg-white">
+          <View className="bg-white rounded-lg shadow-sm">
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center py-4 border-b border-gray-100"
               onPress={handleFAQ}
             >
-              <Ionicons name="help-circle-outline" size={24} color="#6B7280" />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
-                Hỏi đáp
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <Ionicons
+                name="help-circle-outline"
+                size={24}
+                color="#6B7280"
+                style={{ marginRight: 16 }}
+              />
+              <Text className="flex-1 text-base text-gray-800">Hỏi đáp</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center py-4 border-b border-gray-100"
               onPress={handleTerms}
             >
               <Ionicons
                 name="shield-checkmark-outline"
                 size={24}
                 color="#6B7280"
+                style={{ marginRight: 16 }}
               />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
+              <Text className="flex-1 text-base text-gray-800">
                 Điều khoản & Chính sách bảo mật
               </Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
-
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center py-4 border-b border-gray-100"
               onPress={handleVersion}
             >
               <Ionicons
                 name="information-circle-outline"
                 size={24}
                 color="#6B7280"
+                style={{ marginRight: 16 }}
               />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
-                Phiên bản
-              </Text>
+              <Text className="flex-1 text-base text-gray-800">Phiên bản</Text>
               <Text className="text-gray-500 text-sm mr-2">15.71.1</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
-
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4"
+              className="flex-row items-center py-4"
               onPress={handleContact}
             >
-              <Ionicons name="call-outline" size={24} color="#6B7280" />
-              <Text className="flex-1 text-base text-gray-800 ml-4">
-                Liên hệ
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <Ionicons
+                name="call-outline"
+                size={24}
+                color="#6B7280"
+                style={{ marginRight: 16 }}
+              />
+              <Text className="flex-1 text-base text-gray-800">Liên hệ</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Logout Button */}
-        <TouchableOpacity
-          className="bg-white mx-5 mt-6 mb-4 flex-row items-center justify-center py-4 rounded-lg"
-          onPress={handleLogout}
-          disabled={isLoading}
-        >
-          <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-          <Text className="text-base font-semibold text-red-500 ml-2">
-            {isLoading ? "Đang đăng xuất..." : "Đăng xuất"}
+        {/* Section: Đăng xuất */}
+        <View className="mt-6 px-4">
+          <Text className="text-lg font-bold text-gray-800 mb-3">
+            Đăng xuất
           </Text>
-        </TouchableOpacity>
+          <View className="bg-white rounded-lg shadow-sm">
+            <TouchableOpacity
+              className="flex-row items-center py-4"
+              onPress={handleLogout}
+            >
+              <Ionicons
+                name="log-out-outline"
+                size={24}
+                color="#EF4444"
+                style={{ marginRight: 16 }}
+              />
+              <Text className="flex-1 text-base font-semibold text-red-500">
+                Đăng xuất
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
