@@ -60,13 +60,14 @@ const PromoBannerSlider: React.FC<PromoBannerSliderProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: width - 32,
-    height: 150,
+    height: 200,
     borderRadius: 12,
     overflow: "hidden",
   },
   image: {
     width: width - 32,
-    height: 150,
+    height: 200,
+    borderRadius: 12,
   },
 });
 

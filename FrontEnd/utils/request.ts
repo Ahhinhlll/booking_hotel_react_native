@@ -1,17 +1,17 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
-const API_DOMAIN = "http://172.20.10.10:3333/api/";
+const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 
 const instance = axios.create({
-  baseURL: API_DOMAIN,
+  baseURL: `${API_URL}/api`,
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
   },
 });
 
-//
 instance.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem("token");
   if (token) {

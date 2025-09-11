@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { getImageUrl } from "../utils/getImageUrl";
 
 interface ProfileHeaderProps {
   userData: {
@@ -22,15 +23,6 @@ export default function ProfileHeader({ userData }: ProfileHeaderProps) {
 
   const handleEditProfile = () => {
     router.push("..");
-  };
-  //lấy ảnh
-  const getProductImage = (imageArray?: string | string[]) => {
-    if (Array.isArray(imageArray) && imageArray.length > 0) {
-      console.log(`http://172.20.10.10:3333${imageArray[0]}`);
-      return `http://172.20.10.10:3333${imageArray[0]}`;
-    } else if (typeof imageArray === "string") {
-      return `http://172.20.10.10:3333${imageArray}`;
-    }
   };
 
   return (
@@ -54,7 +46,7 @@ export default function ProfileHeader({ userData }: ProfileHeaderProps) {
           <View className="w-16 h-16 rounded-full overflow-hidden bg-gray-300 mr-4">
             {userData?.anhNguoiDung && (
               <Image
-                source={{ uri: getProductImage(userData.anhNguoiDung) }}
+                source={{ uri: getImageUrl(userData?.anhNguoiDung) }}
                 className="w-16 h-16"
                 resizeMode="cover"
               />
