@@ -80,10 +80,10 @@ export default function LoginScreen() {
         // Hiển thị thông báo thành công
         Toast.show({
           type: "success",
-          text1: "Đăng nhập thành công 🎉",
+          text1: "Đăng nhập thành công",
           text2: `Chào mừng ${result.data.user?.hoTen || "bạn"}`,
           position: "top",
-          visibilityTime: 2000,
+          visibilityTime: 1000,
         });
 
         console.log("Attempting to navigate...");
@@ -91,7 +91,7 @@ export default function LoginScreen() {
         setTimeout(() => {
           console.log("Navigating to tabs...");
           router.replace("/(tabs)");
-        }, 1500);
+        }, 500);
       } else {
         console.log("Login failed:", result);
         Toast.show({

@@ -4,10 +4,10 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Image } from "react-native";
 
 interface ProfileHeaderProps {
   userData: {
@@ -23,12 +23,13 @@ export default function ProfileHeader({ userData }: ProfileHeaderProps) {
   const handleEditProfile = () => {
     router.push("..");
   };
-  // lấy ảnh
+  //lấy ảnh
   const getProductImage = (imageArray?: string | string[]) => {
     if (Array.isArray(imageArray) && imageArray.length > 0) {
-      return `http://localhost:3333${imageArray[0]}`;
+      console.log(`http://172.20.10.10:3333${imageArray[0]}`);
+      return `http://172.20.10.10:3333${imageArray[0]}`;
     } else if (typeof imageArray === "string") {
-      return `http://localhost:3333${imageArray}`;
+      return `http://172.20.10.10:3333${imageArray}`;
     }
   };
 

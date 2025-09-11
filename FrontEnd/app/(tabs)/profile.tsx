@@ -100,7 +100,7 @@ export default function ProfileScreen() {
         Toast.show({
           type: "success",
           text1: "Đăng xuất thành công!",
-          text2: "Hẹn gặp lại bạn 👋",
+          text2: "Hẹn gặp lại bạn",
           position: "top",
           onHide: () => {
             router.replace("/auth/login");

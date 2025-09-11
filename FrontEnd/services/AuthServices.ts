@@ -23,7 +23,6 @@ export const AuthService = {
         }
       }
 
-      // Trả về với field token để phù hợp với login.tsx
       return {
         success: true,
         data: {
