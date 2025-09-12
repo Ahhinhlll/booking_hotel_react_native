@@ -11,7 +11,7 @@ sequelize
   .then(async () => {
     console.log("Kết nối database thành công");
     await initializeRoles();
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server đang chạy tại: http://localhost:${PORT}/api-docs/`);
     });
   })

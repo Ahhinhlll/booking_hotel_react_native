@@ -26,7 +26,11 @@ const app = express();
 
 app.use(
   cors({
-    origin: "*",
+    // In a production environment, you should specify the exact domain of your frontend.
+    // For development, reflecting the origin is a common practice, but be aware of security implications.
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],

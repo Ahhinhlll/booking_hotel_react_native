@@ -1,10 +1,11 @@
 import Constants from "expo-constants";
 
 // Thử lấy từ nhiều nguồn khác nhau
-const IMAGE_URL =
+const IMAGE_URL = (
   Constants.expoConfig?.extra?.EXPO_PUBLIC_IMAGE_URL ||
   Constants.manifest?.extra?.EXPO_PUBLIC_IMAGE_URL ||
-  process.env.EXPO_PUBLIC_IMAGE_URL;
+  process.env.EXPO_PUBLIC_IMAGE_URL
+)?.replace("3334", "3333");
 
 console.log("IMAGE_URL:", IMAGE_URL);
 

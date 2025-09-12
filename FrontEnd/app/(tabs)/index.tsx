@@ -7,75 +7,6 @@ import HotelSection from "../../components/HotelSection";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Mock data for hotels
-const flashSaleHotels = [
-  {
-    id: "1",
-    name: "Keypad Resident - Vinhomes...",
-    rating: 5.0,
-    reviews: 17,
-    location: "Văn Giang",
-    originalPrice: 300000,
-    currentPrice: 299000,
-    duration: "2 giờ",
-    discount: 29,
-    image: require("../../assets/images/react-logo.png"),
-    featured: true,
-  },
-];
-
-const specialDeals = [
-  {
-    id: "2",
-    name: "Dat Vostro Homestay",
-    rating: 4.2,
-    reviews: 3,
-    location: "Văn Giang",
-    originalPrice: 250000,
-    currentPrice: 200000,
-    duration: "2 giờ",
-    image: require("../../assets/images/react-logo.png"),
-  },
-  {
-    id: "3",
-    name: "Keypad Resident",
-    rating: 5.0,
-    reviews: 17,
-    location: "Văn Giang",
-    originalPrice: 300000,
-    currentPrice: 299000,
-    duration: "2 giờ",
-    discount: 29,
-    image: require("../../assets/images/react-logo.png"),
-  },
-];
-
-const go2joyHotels = [
-  {
-    id: "4",
-    name: "Dat Vostro Homestay",
-    rating: 4.2,
-    reviews: 3,
-    location: "Văn Giang",
-    originalPrice: 250000,
-    currentPrice: 200000,
-    duration: "2 giờ",
-    image: require("../../assets/images/react-logo.png"),
-  },
-  {
-    id: "5",
-    name: "Keypad Resident",
-    rating: 5.0,
-    reviews: 17,
-    location: "Văn Giang",
-    originalPrice: 300000,
-    currentPrice: 299000,
-    duration: "2 giờ",
-    discount: 29,
-    image: require("../../assets/images/react-logo.png"),
-  },
-];
-
 export default function HomeScreen() {
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -128,20 +59,28 @@ export default function HomeScreen() {
         <PromoBanner />
 
         {/* Flash Sale Section */}
-        <HotelSection title="Flash Sale" hotels={flashSaleHotels} />
+        <HotelSection title="Flash Sale" limit={5} />
 
         {/* Special Deals Section */}
         <HotelSection
           title="Ưu đãi đặc biệt"
-          subtitle="Xem tất cả >"
-          hotels={specialDeals}
+          subtitle="Khuyến mại hấp dẫn"
+          limit={5}
         />
 
         {/* Go2Joy Suggestions */}
         <HotelSection
           title="Go2Joy gợi ý"
-          subtitle="Xem tất cả >"
-          hotels={go2joyHotels}
+          subtitle="Được đề xuất cho bạn"
+          limit={5}
+        />
+
+        {/* Nearby Hotels */}
+        <HotelSection
+          title="Khách sạn gần bạn"
+          subtitle="Trong khu vực Hưng Yên"
+          searchQuery="Hưng Yên"
+          limit={5}
         />
 
         {/* Bottom padding for tab bar */}

@@ -1,16 +1,19 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   StatusBar,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-function PromotionInviteScreen({ onBack }: { onBack: () => void }) {
+export default function PromotionInviteScreen({
+  onBack,
+}: {
+  onBack?: () => void;
+}) {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFF6ED" }}>
       <StatusBar
@@ -32,12 +35,14 @@ function PromotionInviteScreen({ onBack }: { onBack: () => void }) {
           backgroundColor: "#FFF6ED",
         }}
       >
-        <TouchableOpacity
-          onPress={onBack}
-          style={{ padding: 8, marginRight: 8 }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FB923C" />
-        </TouchableOpacity>
+        {onBack && (
+          <TouchableOpacity
+            onPress={onBack}
+            style={{ padding: 8, marginRight: 8 }}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FB923C" />
+          </TouchableOpacity>
+        )}
         <Text style={{ fontSize: 20, fontWeight: "bold", color: "#1F2937" }}>
           Mời bạn mới nhận 50K Joy Xu
         </Text>
@@ -230,184 +235,3 @@ function PromotionInviteScreen({ onBack }: { onBack: () => void }) {
     </View>
   );
 }
-
-export default function PromotionsScreen() {
-  const [showInvite, setShowInvite] = useState(false);
-  if (showInvite)
-    return <PromotionInviteScreen onBack={() => setShowInvite(false)} />;
-  return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="transparent"
-        translucent
-      />
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Header */}
-        <View
-          style={{
-            paddingTop:
-              Platform.OS === "ios"
-                ? 50
-                : StatusBar.currentHeight
-                  ? StatusBar.currentHeight + 10
-                  : 40,
-            paddingHorizontal: 16,
-            paddingBottom: 10,
-            backgroundColor: "#fff",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 22,
-              fontWeight: "bold",
-              color: "#1F2937",
-              marginBottom: 12,
-            }}
-          >
-            Ưu đãi độc quyền
-          </Text>
-        </View>
-        {/* Box group */}
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginHorizontal: 16,
-            marginBottom: 18,
-          }}
-        >
-          <View style={styles.box}>
-            <Ionicons name="ticket-outline" size={28} color="#FB923C" />
-            <Text style={styles.boxNumber}>3</Text>
-            <Text style={styles.boxLabel}>Ưu đãi</Text>
-          </View>
-          <View style={styles.box}>
-            <Ionicons name="card-outline" size={28} color="#FB923C" />
-            <Text style={styles.boxNumber}>0</Text>
-            <Text style={styles.boxLabel}>Joy Xu</Text>
-          </View>
-          <View style={styles.box}>
-            <Ionicons name="ribbon-outline" size={28} color="#FB923C" />
-            <Text style={styles.boxNumber}>0</Text>
-            <Text style={styles.boxLabel}>Tem</Text>
-          </View>
-        </View>
-        {/* Banner nhận quà */}
-        <TouchableOpacity
-          onPress={() => setShowInvite(true)}
-          style={{
-            backgroundColor: "#FFF6ED",
-            borderRadius: 16,
-            marginHorizontal: 16,
-            padding: 18,
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 18,
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                color: "#FB923C",
-                fontWeight: "bold",
-                fontSize: 16,
-                marginBottom: 2,
-              }}
-            >
-              Nhận quà yêu 50K
-            </Text>
-            <Text style={{ color: "#374151", fontSize: 14 }}>
-              Mời bạn bè nhận ngay quà siêu chất cùng Go2Joy
-            </Text>
-          </View>
-          <Ionicons
-            name="happy-outline"
-            size={48}
-            color="#FB923C"
-            style={{ marginLeft: 8 }}
-          />
-        </TouchableOpacity>
-        {/* Menu */}
-        <View style={{ marginHorizontal: 8 }}>
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons
-              name="megaphone-outline"
-              size={22}
-              color="#FB923C"
-              style={{ marginRight: 12 }}
-            />
-            <Text style={styles.menuText}>Chương trình</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons
-              name="calendar-outline"
-              size={22}
-              color="#FB923C"
-              style={{ marginRight: 12 }}
-            />
-            <Text style={styles.menuText}>Sự kiện</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.menuItem, { opacity: 0.5 }]}
-            disabled
-          >
-            <Ionicons
-              name="gift-outline"
-              size={22}
-              color="#FB923C"
-              style={{ marginRight: 12 }}
-            />
-            <Text style={styles.menuText}>Game hot nhận thưởng</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  box: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    alignItems: "center",
-    flex: 1,
-    marginHorizontal: 4,
-    paddingVertical: 16,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-  },
-  boxNumber: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#FB923C",
-    marginTop: 4,
-  },
-  boxLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 10,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-  },
-  menuText: {
-    fontSize: 16,
-    color: "#1F2937",
-    fontWeight: "500",
-  },
-});
