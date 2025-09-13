@@ -1,5 +1,5 @@
 import "dotenv/config";
-import os from 'os';
+import os from "os";
 
 // Function to get the local IPv4 address of the machine
 function getLocalIpAddress() {
@@ -9,17 +9,19 @@ function getLocalIpAddress() {
     if (iface) {
       for (const alias of iface) {
         // Find the first non-internal IPv4 address
-        if (alias.family === 'IPv4' && !alias.internal) {
+        if (alias.family === "IPv4" && !alias.internal) {
+          console.log(`Local IP address: ${alias.address}`);
           return alias.address;
         }
       }
     }
   }
   // Fallback for cases where no IP is found (e.g., no network connection)
-  return 'localhost';
+  return "localhost";
 }
 
 const ipAddress = getLocalIpAddress();
+console.log(ipAddress);
 const port = 3333;
 // Use the dynamically found IP address for the API URL
 const apiUrl = `http://${ipAddress}:${port}`;

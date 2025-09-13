@@ -9,6 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getImageUrl } from "../utils/getImageUrl";
+import { useEffect } from "react";
 
 interface ProfileHeaderProps {
   userData: {
@@ -20,6 +21,8 @@ interface ProfileHeaderProps {
 
 export default function ProfileHeader({ userData }: ProfileHeaderProps) {
   const router = useRouter();
+
+  useEffect(() => console.log("User Data in ProfileHeader:", userData), []);
 
   const handleEditProfile = () => {
     router.push("/(profile)/update-profile");

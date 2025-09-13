@@ -35,6 +35,8 @@ export default function ProfileScreen() {
       }
     };
     fetchUser();
+
+    console.log("User Data in ProfileScreen:", userData);
   }, []);
 
   const handleFavoriteHotels = () => {
@@ -99,6 +101,7 @@ export default function ProfileScreen() {
           text1: "Đăng xuất thành công!",
           text2: "Hẹn gặp lại bạn",
           position: "top",
+          visibilityTime: 1000,
           onHide: () => {
             router.replace("/auth/login");
           },

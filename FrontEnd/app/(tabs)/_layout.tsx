@@ -54,6 +54,7 @@ export default function TabsLayout() {
         name="promotion"
         options={{
           title: "Ưu đãi",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="pricetag" color={color} size={size} />
           ),

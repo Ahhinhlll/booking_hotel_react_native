@@ -7,6 +7,10 @@ const IMAGE_URL = (
   process.env.EXPO_PUBLIC_IMAGE_URL
 )?.replace("3334", "3333");
 
+console.log("a: ", Constants.expoConfig?.extra?.EXPO_PUBLIC_IMAGE_URL);
+console.log("b: ", Constants.manifest?.extra?.EXPO_PUBLIC_IMAGE_URL);
+console.log("c: ", process.env.EXPO_PUBLIC_IMAGE_URL);
+
 console.log("IMAGE_URL:", IMAGE_URL);
 
 export const getImageUrl = (path?: string | string[]) => {
