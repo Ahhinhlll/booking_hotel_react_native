@@ -27,6 +27,16 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const db = require("../models");
+    const { maTT } = req.body;
+    if (!maTT) {
+      return res.status(400).json({ message: "Thiếu mã thanh toán (maTT)" });
+    }
+    // Kiểm tra ThanhToan tồn tại
+    const thanhToan = await db.ThanhToan.findByPk(maTT);
+    if (!thanhToan) {
+      return res.status(400).json({ message: "Thanh toán không tồn tại" });
+    }
     const newItem = await ChiTietThanhToan.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

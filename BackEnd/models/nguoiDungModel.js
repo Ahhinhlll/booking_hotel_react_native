@@ -56,7 +56,7 @@ const NguoiDung = sequelize.define(
     },
     maVaiTro: {
       type: DataTypes.STRING,
-      defaultValue: "U00",
+      defaultValue: "VT03",
       references: {
         model: "VaiTro",
         key: "maVaiTro",

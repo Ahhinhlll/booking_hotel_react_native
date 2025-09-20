@@ -32,6 +32,15 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { tenLoai } = req.body;
+    if (!tenLoai) {
+      return res.status(400).json({ message: "Thiếu tên loại phụ phí" });
+    }
+    // Kiểm tra tên loại phụ phí đã tồn tại chưa
+    const existed = await LoaiPhuPhi.findOne({ where: { tenLoai } });
+    if (existed) {
+      return res.status(400).json({ message: "Tên loại phụ phí đã tồn tại" });
+    }
     const newItem = await LoaiPhuPhi.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

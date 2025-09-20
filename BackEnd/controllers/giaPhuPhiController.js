@@ -63,6 +63,22 @@ exports.remove = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { maLoaiPhuPhi, maKS } = req.body;
+    if (!maLoaiPhuPhi || !maKS) {
+      return res
+        .status(400)
+        .json({ message: "Thiếu mã loại phụ phí hoặc mã khách sạn" });
+    }
+    // Kiểm tra LoaiPhuPhi tồn tại
+    const loaiPhuPhi = await db.LoaiPhuPhi.findByPk(maLoaiPhuPhi);
+    if (!loaiPhuPhi) {
+      return res.status(400).json({ message: "Loại phụ phí không tồn tại" });
+    }
+    // Kiểm tra KhachSan tồn tại
+    const khachSan = await db.KhachSan.findByPk(maKS);
+    if (!khachSan) {
+      return res.status(400).json({ message: "Khách sạn không tồn tại" });
+    }
     const newItem = await GiaPhuPhi.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

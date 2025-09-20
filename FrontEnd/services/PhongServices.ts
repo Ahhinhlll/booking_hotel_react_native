@@ -29,7 +29,7 @@ export const PhongServices = {
 
   // Lấy danh sách phòng theo khách sạn
   getByKhachSan: async (maKS: string) => {
-    const res = await request.get<PhongData[]>(`/phong/search?q=&maKS=${maKS}`);
+    const res = await request.get<PhongData[]>(`/phong/getbykhachsan/${maKS}`);
     return res.data;
   },
 

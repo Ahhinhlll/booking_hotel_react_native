@@ -32,6 +32,15 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { maDatPhong } = req.body;
+    if (!maDatPhong) {
+      return res.status(400).json({ message: "Thiếu mã đặt phòng" });
+    }
+    // Kiểm tra DatPhong tồn tại
+    const datPhong = await db.DatPhong.findByPk(maDatPhong);
+    if (!datPhong) {
+      return res.status(400).json({ message: "Đặt phòng không tồn tại" });
+    }
     const newItem = await ThanhToan.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

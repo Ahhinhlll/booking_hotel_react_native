@@ -36,6 +36,15 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { tenKS } = req.body;
+    if (!tenKS) {
+      return res.status(400).json({ message: "Thiếu tên khách sạn" });
+    }
+    // Kiểm tra tên khách sạn đã tồn tại chưa
+    const existed = await KhachSan.findOne({ where: { tenKS } });
+    if (existed) {
+      return res.status(400).json({ message: "Tên khách sạn đã tồn tại" });
+    }
     const newItem = await KhachSan.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

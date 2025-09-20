@@ -28,19 +28,55 @@ exports.insert = async (req, res) => {
   try {
     const { hoTen, email, matKhau, sdt, diaChi, anhNguoiDung, maVaiTro } =
       req.body;
+
+    // Validate bắt buộc
+    if (!hoTen || !email || !matKhau || !sdt) {
+      return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+    }
+
+    // Validate email
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
+    }
+
+    // Validate số điện thoại
+    if (!/^\d+$/.test(sdt)) {
+      return res.status(400).json({ message: "Số điện thoại không hợp lệ" });
+    }
+
+    // Check tồn tại
+    if (await NguoiDung.findOne({ where: { email } })) {
+      return res.status(400).json({ message: "Email đã tồn tại" });
+    }
+    if (await NguoiDung.findOne({ where: { sdt } })) {
+      return res.status(400).json({ message: "Số điện thoại đã tồn tại" });
+    }
+
+    // Kiểm tra vai trò
+    const db = require("../models");
+    const vaiTroCode = maVaiTro || "VT03";
+    const vaiTro = await db.VaiTro.findByPk(vaiTroCode);
+    if (!vaiTro) {
+      return res.status(400).json({ message: "Vai trò không tồn tại" });
+    }
+
+    // Tạo user
     const nguoiDung = await NguoiDung.create({
       hoTen,
       email,
       matKhau,
       sdt,
       diaChi,
-      anhNguoiDung,
-      maVaiTro: maVaiTro || "VT03", // Mặc định là User nếu không có
+      anhNguoiDung: anhNguoiDung || "/uploads/1758162302817.png",
+      maVaiTro: vaiTroCode,
       trangThai: "Hoạt động",
     });
+
     res.status(201).json(nguoiDung);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Insert user error:", error);
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -120,11 +156,9 @@ exports.updatePassword = async (req, res) => {
     });
 
     if (!nguoiDung) {
-      return res
-        .status(404)
-        .json({
-          message: "Không tìm thấy tài khoản với email hoặc số điện thoại này",
-        });
+      return res.status(404).json({
+        message: "Không tìm thấy tài khoản với email hoặc số điện thoại này",
+      });
     }
 
     // Kiểm tra mật khẩu cũ

@@ -22,8 +22,8 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    // Kiểm tra định dạng file
-    const filetypes = /jpeg|jpg|png|gif|svg/;
+    // Cho phép thêm webp
+    const filetypes = /jpeg|jpg|png|gif|svg|webp/;
     const extname = filetypes.test(
       path.extname(file.originalname).toLowerCase()
     );
@@ -32,7 +32,11 @@ const upload = multer({
     if (extname && mimetype) {
       return cb(null, true);
     } else {
-      cb("Error: Chỉ cho phép upload file ảnh! (jpg, jpeg, png, gif, svg)");
+      cb(
+        new Error(
+          "Chỉ cho phép upload file ảnh! (jpg, jpeg, png, gif, svg, webp)"
+        )
+      );
     }
   },
 }).array("images", 10);
@@ -60,7 +64,7 @@ exports.getAllImages = (req, res) => {
 
     // Chỉ lọc file ảnh (jpg, jpeg, png, gif, svg)
     const imageFiles = files.filter((file) =>
-      /\.(jpg|jpeg|png|gif|svg)$/i.test(file)
+      /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(file)
     );
 
     // Trả về đường dẫn ảnh

@@ -26,6 +26,22 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { maDP, maLoaiPhuPhi } = req.body;
+    if (!maDP || !maLoaiPhuPhi) {
+      return res
+        .status(400)
+        .json({ message: "Thiếu mã đặt phòng hoặc mã loại phụ phí" });
+    }
+    // Kiểm tra DatPhong tồn tại
+    const datPhong = await db.DatPhong.findByPk(maDP);
+    if (!datPhong) {
+      return res.status(400).json({ message: "Đặt phòng không tồn tại" });
+    }
+    // Kiểm tra LoaiPhuPhi tồn tại
+    const loaiPhuPhi = await db.LoaiPhuPhi.findByPk(maLoaiPhuPhi);
+    if (!loaiPhuPhi) {
+      return res.status(400).json({ message: "Loại phụ phí không tồn tại" });
+    }
     const newItem = await PhuPhi.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

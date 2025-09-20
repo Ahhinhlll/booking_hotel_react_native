@@ -32,6 +32,22 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { maND, maKS } = req.body;
+    if (!maND || !maKS) {
+      return res
+        .status(400)
+        .json({ message: "Thiếu mã người dùng hoặc mã khách sạn" });
+    }
+    // Kiểm tra NguoiDung tồn tại
+    const nguoiDung = await db.NguoiDung.findByPk(maND);
+    if (!nguoiDung) {
+      return res.status(400).json({ message: "Người dùng không tồn tại" });
+    }
+    // Kiểm tra KhachSan tồn tại
+    const khachSan = await db.KhachSan.findByPk(maKS);
+    if (!khachSan) {
+      return res.status(400).json({ message: "Khách sạn không tồn tại" });
+    }
     const newItem = await DanhGia.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

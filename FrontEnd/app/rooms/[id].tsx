@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 // import { KhachSanServices, KhachSanData } from "../../services/KhachSanServices";
 import { PhongServices, PhongData } from "../../services/PhongServices";
+import { getImageUrl } from "../../utils/getImageUrl";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -31,7 +32,14 @@ export default function RoomListScreen() {
 
   const loadHotelAndRooms = async () => {
     try {
-      const roomList = await PhongServices.getByKhachSan(id as string);
+      console.log("[RoomListScreen] id param:", id);
+      if (!id || typeof id !== "string") {
+        Alert.alert("Lỗi", "Thiếu mã khách sạn hoặc mã không hợp lệ");
+        router.back();
+        return;
+      }
+      const roomList = await PhongServices.getByKhachSan(id);
+      console.log("[RoomListScreen] roomList:", roomList);
       setRooms(roomList);
     } catch (error) {
       console.error("Error loading rooms info:", error);
@@ -247,98 +255,110 @@ export default function RoomListScreen() {
         contentContainerStyle={{ paddingBottom: 20 }}
       >
         {filteredRooms.map((room) => (
-          <View
+          <TouchableOpacity
             key={room.maPhong}
-            style={{
-              backgroundColor: "#FFFFFF",
-              marginHorizontal: 16,
-              marginTop: 16,
-              borderRadius: 12,
-              elevation: 2,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            }}
+            activeOpacity={0.9}
+            onPress={() =>
+              router.push({
+                pathname: "/room-detail/[maPhong]",
+                params: { maPhong: room.maPhong },
+              })
+            }
           >
-            {/* Room Image */}
-            <View style={{ position: "relative" }}>
-              <Image
-                source={{
-                  uri: Array.isArray(room.anh)
-                    ? room.anh[0]
-                    : room.anh || "https://via.placeholder.com/300x200",
-                }}
-                style={{
-                  width: SCREEN_WIDTH - 32,
-                  height: 200,
-                  borderTopLeftRadius: 12,
-                  borderTopRightRadius: 12,
-                }}
-                resizeMode="cover"
-              />
-            </View>
-
-            {/* Room Info */}
-            <View style={{ padding: 16 }}>
-              {/* Room Title */}
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "bold",
-                  color: "#1F2937",
-                  marginBottom: 8,
-                }}
-              >
-                {room.tenPhong}
-              </Text>
-
-              {/* Room Details */}
-              <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 4 }}>
-                {room.dienTich} • {room.thongTin}
-              </Text>
-              <Text
-                style={{ fontSize: 14, color: "#6B7280", marginBottom: 12 }}
-              >
-                {room.moTa}
-              </Text>
-
-              {/* Price Section */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  {/* Giá phòng nếu có */}
-                  {/* Có thể lấy từ room.GiaPhongs nếu backend trả về */}
-                </View>
-
-                {/* Book Button */}
-                <TouchableOpacity
-                  onPress={() => handleBookRoom(room)}
+            <View
+              style={{
+                backgroundColor: "#FFFFFF",
+                marginHorizontal: 16,
+                marginTop: 16,
+                borderRadius: 12,
+                elevation: 2,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+              }}
+            >
+              {/* Room Image */}
+              <View style={{ position: "relative" }}>
+                <Image
+                  source={{
+                    uri: Array.isArray(room.anh)
+                      ? getImageUrl(room.anh[0])
+                      : getImageUrl(room.anh),
+                  }}
                   style={{
-                    backgroundColor: "#FB923C",
-                    borderRadius: 20,
-                    paddingHorizontal: 24,
-                    paddingVertical: 12,
+                    width: SCREEN_WIDTH - 32,
+                    height: 200,
+                    borderTopLeftRadius: 12,
+                    borderTopRightRadius: 12,
+                  }}
+                  resizeMode="cover"
+                />
+              </View>
+
+              {/* Room Info */}
+              <View style={{ padding: 16 }}>
+                {/* Room Title */}
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: "bold",
+                    color: "#1F2937",
+                    marginBottom: 8,
                   }}
                 >
-                  <Text
+                  {room.tenPhong}
+                </Text>
+
+                {/* Room Details */}
+                <Text
+                  style={{ fontSize: 14, color: "#6B7280", marginBottom: 4 }}
+                >
+                  {room.dienTich} • {room.thongTin}
+                </Text>
+                <Text
+                  style={{ fontSize: 14, color: "#6B7280", marginBottom: 12 }}
+                >
+                  {room.moTa}
+                </Text>
+
+                {/* Price Section */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    {/* Giá phòng nếu có */}
+                    {/* Có thể lấy từ room.GiaPhongs nếu backend trả về */}
+                  </View>
+
+                  {/* Book Button */}
+                  <TouchableOpacity
+                    onPress={() => handleBookRoom(room)}
                     style={{
-                      color: "#FFFFFF",
-                      fontSize: 14,
-                      fontWeight: "bold",
+                      backgroundColor: "#FB923C",
+                      borderRadius: 20,
+                      paddingHorizontal: 24,
+                      paddingVertical: 12,
                     }}
                   >
-                    Đặt phòng
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={{
+                        color: "#FFFFFF",
+                        fontSize: 14,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Đặt phòng
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </View>

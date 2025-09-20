@@ -32,6 +32,15 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { maPhong } = req.body;
+    if (!maPhong) {
+      return res.status(400).json({ message: "Thiếu mã phòng" });
+    }
+    // Kiểm tra Phong tồn tại
+    const phong = await db.Phong.findByPk(maPhong);
+    if (!phong) {
+      return res.status(400).json({ message: "Phòng không tồn tại" });
+    }
     const newItem = await GiaPhong.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

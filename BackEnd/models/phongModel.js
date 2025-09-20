@@ -49,10 +49,10 @@ const Phong = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
       get() {
-        return this.getDataValue("anh") || null;
+        return JSON.parse(this.getDataValue("anh") || "[]");
       },
       set(value) {
-        this.setDataValue("anh", value);
+        this.setDataValue("anh", JSON.stringify([].concat(value)));
       },
     },
   },
@@ -75,6 +75,12 @@ Phong.associate = (models) => {
   });
   Phong.hasMany(models.GiaPhong, {
     foreignKey: "maPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
+  Phong.hasMany(models.GiaPhuPhi, {
+    foreignKey: "maPhong",
+    as: "GiaPhuPhis",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });

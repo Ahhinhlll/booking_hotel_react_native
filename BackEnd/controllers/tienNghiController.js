@@ -26,6 +26,15 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { tenTienNghi } = req.body;
+    if (!tenTienNghi) {
+      return res.status(400).json({ message: "Thiếu tên tiện nghi" });
+    }
+    // Kiểm tra tên tiện nghi đã tồn tại chưa
+    const existed = await TienNghi.findOne({ where: { tenTienNghi } });
+    if (existed) {
+      return res.status(400).json({ message: "Tên tiện nghi đã tồn tại" });
+    }
     const newItem = await TienNghi.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

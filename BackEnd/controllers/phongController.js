@@ -1,6 +1,30 @@
 const Phong = require("../models/phongModel");
 const db = require("../models");
 const { Op } = require("sequelize");
+
+// Lấy danh sách phòng theo mã khách sạn
+exports.getByKhachSan = async (req, res) => {
+  try {
+    const { maKS } = req.params;
+    if (!maKS) {
+      return res.status(400).json({ message: "Thiếu mã khách sạn" });
+    }
+    const items = await Phong.findAll({
+      where: { maKS },
+      include: [
+        { model: db.KhachSan, as: "KhachSan" },
+        { model: db.LoaiPhong, as: "LoaiPhong" },
+        { model: db.GiaPhong, as: "GiaPhongs" },
+        { model: db.GiaPhuPhi, as: "GiaPhuPhis" },
+        { model: db.TienNghiPhong, as: "TienNghiPhongs" },
+        { model: db.DatPhong, as: "DatPhongs" },
+      ],
+    });
+    res.status(200).json(items);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
 exports.getAll = async (req, res) => {
   try {
     const items = await Phong.findAll({
@@ -40,6 +64,22 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { maKS, maLoaiPhong } = req.body;
+    if (!maKS || !maLoaiPhong) {
+      return res
+        .status(400)
+        .json({ message: "Thiếu mã khách sạn hoặc mã loại phòng" });
+    }
+    // Kiểm tra KhachSan tồn tại
+    const khachSan = await db.KhachSan.findByPk(maKS);
+    if (!khachSan) {
+      return res.status(400).json({ message: "Khách sạn không tồn tại" });
+    }
+    // Kiểm tra LoaiPhong tồn tại
+    const loaiPhong = await db.LoaiPhong.findByPk(maLoaiPhong);
+    if (!loaiPhong) {
+      return res.status(400).json({ message: "Loại phòng không tồn tại" });
+    }
     const newItem = await Phong.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

@@ -32,6 +32,15 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { tenLoaiPhong } = req.body;
+    if (!tenLoaiPhong) {
+      return res.status(400).json({ message: "Thiếu tên loại phòng" });
+    }
+    // Kiểm tra tên loại phòng đã tồn tại chưa
+    const existed = await LoaiPhong.findOne({ where: { tenLoaiPhong } });
+    if (existed) {
+      return res.status(400).json({ message: "Tên loại phòng đã tồn tại" });
+    }
     const newItem = await LoaiPhong.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {

@@ -27,6 +27,17 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
+    const { tenTrangThai } = req.body;
+    if (!tenTrangThai) {
+      return res.status(400).json({ message: "Thiếu tên trạng thái" });
+    }
+    // Kiểm tra tên trạng thái đã tồn tại chưa
+    const existed = await TrangThaiDatPhong.findOne({
+      where: { tenTrangThai },
+    });
+    if (existed) {
+      return res.status(400).json({ message: "Tên trạng thái đã tồn tại" });
+    }
     const newItem = await TrangThaiDatPhong.create(req.body);
     res.status(201).json(newItem);
   } catch (error) {
