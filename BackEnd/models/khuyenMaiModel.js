@@ -13,8 +13,8 @@ const KhuyenMai = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    thongTin: {
-      type: DataTypes.STRING,
+    phanTramGiam: {
+      type: DataTypes.DOUBLE,
       allowNull: true,
     },
     giaTriGiam: {
@@ -39,14 +39,25 @@ const KhuyenMai = sequelize.define(
         this.setDataValue("anh", JSON.stringify([].concat(value)));
       },
     },
-
+    maKS: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "KhachSan",
+        key: "maKS",
+      },
+    },
+    maPhong: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "Phong",
+        key: "maPhong",
+      },
+    },
     trangThai: {
       type: DataTypes.STRING,
       defaultValue: "Hoạt động",
-    },
-    loaiKM: {
-      type: DataTypes.STRING,
-      defaultValue: "Percent",
     },
   },
   {
@@ -56,11 +67,20 @@ const KhuyenMai = sequelize.define(
 );
 
 KhuyenMai.associate = (models) => {
+  KhuyenMai.belongsTo(models.KhachSan, {
+    foreignKey: "maKS",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
+  KhuyenMai.belongsTo(models.Phong, {
+    foreignKey: "maPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
   KhuyenMai.hasMany(models.DatPhong, {
     foreignKey: "maKM",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "DatPhongs",
   });
 };
 

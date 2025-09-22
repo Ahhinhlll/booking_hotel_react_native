@@ -11,7 +11,6 @@ export interface KhachSanData {
   anh?: string | string[];
   trangThai?: string;
   hangSao?: number;
-  loaiHinh?: string;
 }
 
 export const KhachSanServices = {

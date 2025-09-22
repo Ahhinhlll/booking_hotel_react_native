@@ -1,12 +1,13 @@
-const TienNghiPhong = require("../models/tienNghiPhongModel");
+const TienNghiPhong = require("../models/tienNghiChiTietModel");
 const { Op } = require("sequelize");
 const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await TienNghiPhong.findAll({
       include: [
-        { model: db.Phong, as: "Phong" },
-        { model: db.TienNghi, as: "TienNghi" },
+        { model: db.Phong },
+        { model: db.KhachSan },
+        { model: db.TienNghi },
       ],
     });
     res.status(200).json(items);
@@ -19,8 +20,9 @@ exports.getById = async (req, res) => {
   try {
     const item = await TienNghiPhong.findByPk(req.params.id, {
       include: [
-        { model: db.Phong, as: "Phong" },
-        { model: db.TienNghi, as: "TienNghi" },
+        { model: db.Phong },
+        { model: db.KhachSan },
+        { model: db.TienNghi },
       ],
     });
     if (item) res.status(200).json(item);
@@ -87,8 +89,9 @@ exports.search = async (req, res) => {
         maPhong: { [Op.like]: `%${q}%` },
       },
       include: [
-        { model: db.Phong, as: "Phong" },
-        { model: db.TienNghi, as: "TienNghi" },
+        { model: db.Phong },
+        { model: db.KhachSan },
+        { model: db.TienNghi },
       ],
     });
     res.status(200).json(items);

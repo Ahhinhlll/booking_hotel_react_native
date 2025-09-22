@@ -33,6 +33,10 @@ const ThanhToan = sequelize.define(
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
+    maGiaoDich: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   },
   {
     tableName: "ThanhToan",
@@ -45,13 +49,6 @@ ThanhToan.associate = (models) => {
     foreignKey: "maDatPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "DatPhong",
-  });
-  ThanhToan.hasMany(models.ChiTietThanhToan, {
-    foreignKey: "maTT",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-    as: "ChiTietThanhToans",
   });
 };
 

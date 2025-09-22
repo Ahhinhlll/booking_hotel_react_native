@@ -5,17 +5,12 @@ const LoaiPhong = require("./loaiPhongModel");
 const Phong = require("./phongModel");
 const GiaPhong = require("./giaPhongModel");
 const TienNghi = require("./tienNghiModel");
-const TienNghiPhong = require("./tienNghiPhongModel");
-const TrangThaiDatPhong = require("./trangThaiDatPhongModel");
+const TienNghiChiTiet = require("./tienNghiChiTietModel");
 const KhuyenMai = require("./khuyenMaiModel");
 const DatPhong = require("./datPhongModel");
-const GioDatPhong = require("./gioDatPhongModel");
-const LoaiPhuPhi = require("./loaiPhuPhiModel");
-const PhuPhi = require("./phuPhiModel");
-const GiaPhuPhi = require("./giaPhuPhiModel");
 const ThanhToan = require("./thanhToanModel");
-const ChiTietThanhToan = require("./chiTietThanhToanModel");
 const DanhGia = require("./danhGiaModel");
+const SuCo = require("./suCoModel");
 
 const db = {
   NguoiDung,
@@ -25,17 +20,12 @@ const db = {
   Phong,
   GiaPhong,
   TienNghi,
-  TienNghiPhong,
-  TrangThaiDatPhong,
+  TienNghiChiTiet,
   KhuyenMai,
   DatPhong,
-  GioDatPhong,
-  LoaiPhuPhi,
-  PhuPhi,
-  GiaPhuPhi,
   ThanhToan,
-  ChiTietThanhToan,
   DanhGia,
+  SuCo,
 };
 
 //

@@ -4,10 +4,7 @@ const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await GiaPhong.findAll({
-      include: [
-        { model: db.Phong, as: "Phong" },
-        { model: db.LoaiPhong, as: "LoaiPhong" },
-      ],
+      include: [{ model: db.Phong }],
     });
     res.status(200).json(items);
   } catch (error) {
@@ -18,10 +15,7 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   try {
     const item = await GiaPhong.findByPk(req.params.id, {
-      include: [
-        { model: db.Phong, as: "Phong" },
-        { model: db.LoaiPhong, as: "LoaiPhong" },
-      ],
+      include: [{ model: db.Phong }],
     });
     if (item) res.status(200).json(item);
     else res.status(404).json({ message: "Không tìm thấy giá phòng" });
@@ -79,10 +73,7 @@ exports.search = async (req, res) => {
       where: {
         tenGia: { [Op.like]: `%${q}%` },
       },
-      include: [
-        { model: db.Phong, as: "Phong" },
-        { model: db.LoaiPhong, as: "LoaiPhong" },
-      ],
+      include: [{ model: db.Phong }],
     });
     res.status(200).json(items);
   } catch (error) {

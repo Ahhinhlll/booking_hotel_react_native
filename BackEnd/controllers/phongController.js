@@ -12,12 +12,13 @@ exports.getByKhachSan = async (req, res) => {
     const items = await Phong.findAll({
       where: { maKS },
       include: [
-        { model: db.KhachSan, as: "KhachSan" },
-        { model: db.LoaiPhong, as: "LoaiPhong" },
-        { model: db.GiaPhong, as: "GiaPhongs" },
-        { model: db.GiaPhuPhi, as: "GiaPhuPhis" },
-        { model: db.TienNghiPhong, as: "TienNghiPhongs" },
-        { model: db.DatPhong, as: "DatPhongs" },
+        { model: db.KhachSan },
+        { model: db.LoaiPhong },
+        { model: db.GiaPhong },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
+        { model: db.TienNghiChiTiet },
+        { model: db.SuCo },
       ],
     });
     res.status(200).json(items);
@@ -29,12 +30,13 @@ exports.getAll = async (req, res) => {
   try {
     const items = await Phong.findAll({
       include: [
-        { model: db.KhachSan, as: "KhachSan" },
-        { model: db.LoaiPhong, as: "LoaiPhong" },
-        { model: db.GiaPhong, as: "GiaPhongs" },
-        { model: db.GiaPhuPhi, as: "GiaPhuPhis" },
-        { model: db.TienNghiPhong, as: "TienNghiPhongs" },
-        { model: db.DatPhong, as: "DatPhongs" },
+        { model: db.KhachSan },
+        { model: db.LoaiPhong },
+        { model: db.GiaPhong },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
+        { model: db.TienNghiChiTiet },
+        { model: db.SuCo },
       ],
     });
     res.status(200).json(items);
@@ -47,12 +49,13 @@ exports.getById = async (req, res) => {
   try {
     const item = await Phong.findByPk(req.params.id, {
       include: [
-        { model: db.KhachSan, as: "KhachSan" },
-        { model: db.LoaiPhong, as: "LoaiPhong" },
-        { model: db.GiaPhong, as: "GiaPhongs" },
-        { model: db.GiaPhuPhi, as: "GiaPhuPhis" },
-        { model: db.TienNghiPhong, as: "TienNghiPhongs" },
-        { model: db.DatPhong, as: "DatPhongs" },
+        { model: db.KhachSan },
+        { model: db.LoaiPhong },
+        { model: db.GiaPhong },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
+        { model: db.TienNghiChiTiet },
+        { model: db.SuCo },
       ],
     });
     if (item) res.status(200).json(item);
@@ -117,12 +120,13 @@ exports.search = async (req, res) => {
         tenPhong: { [Op.like]: `%${q}%` },
       },
       include: [
-        { model: db.KhachSan, as: "KhachSan" },
-        { model: db.LoaiPhong, as: "LoaiPhong" },
-        { model: db.GiaPhong, as: "GiaPhongs" },
-        { model: db.GiaPhuPhi, as: "GiaPhuPhis" },
-        { model: db.TienNghiPhong, as: "TienNghiPhongs" },
-        { model: db.DatPhong, as: "DatPhongs" },
+        { model: db.KhachSan },
+        { model: db.LoaiPhong },
+        { model: db.GiaPhong },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
+        { model: db.TienNghiChiTiet },
+        { model: db.SuCo },
       ],
     });
     res.status(200).json(items);

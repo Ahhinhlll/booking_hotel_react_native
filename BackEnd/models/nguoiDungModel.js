@@ -80,7 +80,6 @@ const NguoiDung = sequelize.define(
     tableName: "NguoiDung",
   }
 );
-
 NguoiDung.associate = (models) => {
   NguoiDung.belongsTo(models.VaiTro, {
     foreignKey: "maVaiTro",

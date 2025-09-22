@@ -25,7 +25,6 @@ const VaiTro = sequelize.define(
 VaiTro.associate = (models) => {
   VaiTro.hasMany(models.NguoiDung, {
     foreignKey: "maVaiTro",
-    as: "NguoiDungs",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });

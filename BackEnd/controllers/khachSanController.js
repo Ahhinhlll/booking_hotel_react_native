@@ -6,9 +6,10 @@ exports.getAll = async (req, res) => {
     const items = await KhachSan.findAll({
       include: [
         { model: db.Phong },
-        { model: db.TienNghiPhong },
-        { model: db.GiaPhuPhi },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
         { model: db.DanhGia },
+        { model: db.TienNghiChiTiet },
       ],
     });
     res.status(200).json(items);
@@ -22,9 +23,10 @@ exports.getById = async (req, res) => {
     const item = await KhachSan.findByPk(req.params.id, {
       include: [
         { model: db.Phong },
-        { model: db.TienNghiPhong },
-        { model: db.GiaPhuPhi },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
         { model: db.DanhGia },
+        { model: db.TienNghiChiTiet },
       ],
     });
     if (item) res.status(200).json(item);
@@ -108,14 +110,15 @@ exports.search = async (req, res) => {
           { tenKS: { [Op.like]: `%${q}%` } },
           { diaChi: { [Op.like]: `%${q}%` } },
           { trangThai: { [Op.like]: `%${q}%` } },
-          { loaiHinh: { [Op.like]: `%${q}%` } },
+          { hangSao: { [Op.like]: `%${q}%` } },
         ],
       },
       include: [
         { model: db.Phong },
-        { model: db.TienNghiPhong },
-        { model: db.GiaPhuPhi },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
         { model: db.DanhGia },
+        { model: db.TienNghiChiTiet },
       ],
     });
     res.status(200).json(items);

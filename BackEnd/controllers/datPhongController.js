@@ -5,12 +5,13 @@ exports.getAll = async (req, res) => {
   try {
     const items = await DatPhong.findAll({
       include: [
-        { model: db.NguoiDung, as: "NguoiDung" },
-        { model: db.Phong, as: "Phong" },
-        { model: db.TrangThaiDatPhong, as: "TrangThaiDatPhong" },
-        { model: db.KhuyenMai, as: "KhuyenMai" },
-        { model: db.GioDatPhong, as: "GioDatPhong" },
-        { model: db.ThanhToan, as: "ThanhToan" },
+        { model: db.NguoiDung },
+        { model: db.KhachSan },
+        { model: db.Phong },
+        { model: db.KhuyenMai },
+        { model: db.ThanhToan },
+        { model: db.SuCo },
+        { model: db.DanhGia },
       ],
     });
     res.status(200).json(items);
@@ -23,12 +24,13 @@ exports.getById = async (req, res) => {
   try {
     const item = await DatPhong.findByPk(req.params.id, {
       include: [
-        { model: db.NguoiDung, as: "NguoiDung" },
-        { model: db.Phong, as: "Phong" },
-        { model: db.TrangThaiDatPhong, as: "TrangThaiDatPhong" },
-        { model: db.KhuyenMai, as: "KhuyenMai" },
-        { model: db.GioDatPhong, as: "GioDatPhong" },
-        { model: db.ThanhToan, as: "ThanhToan" },
+        { model: db.NguoiDung },
+        { model: db.KhachSan },
+        { model: db.Phong },
+        { model: db.KhuyenMai },
+        { model: db.ThanhToan },
+        { model: db.SuCo },
+        { model: db.DanhGia },
       ],
     });
     if (item) res.status(200).json(item);
@@ -110,12 +112,13 @@ exports.search = async (req, res) => {
         maDatPhong: { [Op.like]: `%${q}%` },
       },
       include: [
-        { model: db.NguoiDung, as: "NguoiDung" },
-        { model: db.Phong, as: "Phong" },
-        { model: db.TrangThaiDatPhong, as: "TrangThaiDatPhong" },
-        { model: db.KhuyenMai, as: "KhuyenMai" },
-        { model: db.GioDatPhong, as: "GioDatPhong" },
-        { model: db.ThanhToan, as: "ThanhToan" },
+        { model: db.NguoiDung },
+        { model: db.KhachSan },
+        { model: db.Phong },
+        { model: db.KhuyenMai },
+        { model: db.ThanhToan },
+        { model: db.SuCo },
+        { model: db.DanhGia },
       ],
     });
     res.status(200).json(items);

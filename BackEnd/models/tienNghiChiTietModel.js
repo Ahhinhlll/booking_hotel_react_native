@@ -1,10 +1,10 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/config");
 
-const TienNghiPhong = sequelize.define(
-  "TienNghiPhong",
+const TienNghiChiTiet = sequelize.define(
+  "TienNghiChiTiet",
   {
-    maTNKS: {
+    maTNChiTiet: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
@@ -40,25 +40,22 @@ const TienNghiPhong = sequelize.define(
   }
 );
 
-TienNghiPhong.associate = (models) => {
-  TienNghiPhong.belongsTo(models.Phong, {
-    foreignKey: "maPhong",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-    as: "Phong",
-  });
-  TienNghiPhong.belongsTo(models.KhachSan, {
+TienNghiChiTiet.associate = (models) => {
+  TienNghiChiTiet.belongsTo(models.KhachSan, {
     foreignKey: "maKS",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "KhachSan",
   });
-  TienNghiPhong.belongsTo(models.TienNghi, {
+  TienNghiChiTiet.belongsTo(models.Phong, {
+    foreignKey: "maPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
+  TienNghiChiTiet.belongsTo(models.TienNghi, {
     foreignKey: "maTienNghi",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "TienNghi",
   });
 };
 
-module.exports = TienNghiPhong;
+module.exports = TienNghiChiTiet;

@@ -44,7 +44,6 @@ exports.getAll = async (req, res) => {
       include: [
         {
           model: NguoiDung,
-          as: "NguoiDungs",
         },
       ],
     });
@@ -60,7 +59,6 @@ exports.getById = async (req, res) => {
       include: [
         {
           model: NguoiDung,
-          as: "NguoiDungs",
         },
       ],
     });

@@ -13,9 +13,19 @@ const TienNghi = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    trangThai: {
-      type: DataTypes.STRING,
-      defaultValue: "Hoạt động",
+    icon: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      get() {
+        return JSON.parse(this.getDataValue("icon") || "[]");
+      },
+      set(value) {
+        this.setDataValue("icon", JSON.stringify([].concat(value)));
+      },
+    },
+    loai: {
+      type: DataTypes.STRING, // khách sạn or phòng
+      allowNull: true,
     },
   },
   {
@@ -25,11 +35,10 @@ const TienNghi = sequelize.define(
 );
 
 TienNghi.associate = (models) => {
-  TienNghi.hasMany(models.TienNghiPhong, {
+  TienNghi.hasMany(models.TienNghiChiTiet, {
     foreignKey: "maTienNghi",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "TienNghiPhongs",
   });
 };
 

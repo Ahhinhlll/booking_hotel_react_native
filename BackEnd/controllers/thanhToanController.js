@@ -4,10 +4,7 @@ const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await ThanhToan.findAll({
-      include: [
-        { model: db.DatPhong, as: "DatPhongs" },
-        { model: db.ChiTietThanhToan, as: "ChiTietThanhToans" },
-      ],
+      include: [{ model: db.DatPhong }, { model: db.ChiTietThanhToan }],
     });
     res.status(200).json(items);
   } catch (error) {
@@ -18,10 +15,7 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   try {
     const item = await ThanhToan.findByPk(req.params.id, {
-      include: [
-        { model: db.DatPhong, as: "DatPhongs" },
-        { model: db.ChiTietThanhToan, as: "ChiTietThanhToans" },
-      ],
+      include: [{ model: db.DatPhong }, { model: db.ChiTietThanhToan }],
     });
     if (item) res.status(200).json(item);
     else res.status(404).json({ message: "Không tìm thấy thanh toán" });
@@ -77,10 +71,7 @@ exports.search = async (req, res) => {
       where: {
         phuongThuc: { [Op.like]: `%${q}%` },
       },
-      include: [
-        { model: db.DatPhong, as: "DatPhongs" },
-        { model: db.ChiTietThanhToan, as: "ChiTietThanhToans" },
-      ],
+      include: [{ model: db.DatPhong }, { model: db.ChiTietThanhToan }],
     });
     res.status(200).json(items);
   } catch (error) {

@@ -5,8 +5,9 @@ exports.getAll = async (req, res) => {
   try {
     const items = await DanhGia.findAll({
       include: [
-        { model: db.NguoiDung, as: "NguoiDung" },
-        { model: db.KhachSan, as: "KhachSan" },
+        { model: db.NguoiDung },
+        { model: db.KhachSan },
+        { model: db.DatPhong },
       ],
     });
     res.status(200).json(items);
@@ -19,8 +20,9 @@ exports.getById = async (req, res) => {
   try {
     const item = await DanhGia.findByPk(req.params.id, {
       include: [
-        { model: db.NguoiDung, as: "NguoiDung" },
-        { model: db.KhachSan, as: "KhachSan" },
+        { model: db.NguoiDung },
+        { model: db.KhachSan },
+        { model: db.DatPhong },
       ],
     });
     if (item) res.status(200).json(item);
@@ -85,8 +87,9 @@ exports.search = async (req, res) => {
         binhLuan: { [Op.like]: `%${q}%` },
       },
       include: [
-        { model: db.NguoiDung, as: "NguoiDung" },
-        { model: db.KhachSan, as: "KhachSan" },
+        { model: db.NguoiDung },
+        { model: db.KhachSan },
+        { model: db.DatPhong },
       ],
     });
     res.status(200).json(items);

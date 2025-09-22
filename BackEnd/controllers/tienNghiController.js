@@ -4,7 +4,7 @@ const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await TienNghi.findAll({
-      include: [{ model: db.TienNghiPhong, as: "TienNghiPhongs" }],
+      include: [{ model: db.TienNghiChiTiet }],
     });
     res.status(200).json(items);
   } catch (error) {
@@ -15,7 +15,7 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   try {
     const item = await TienNghi.findByPk(req.params.id, {
-      include: [{ model: db.TienNghiPhong, as: "TienNghiPhongs" }],
+      include: [{ model: db.TienNghiChiTiet }],
     });
     if (item) res.status(200).json(item);
     else res.status(404).json({ message: "Không tìm thấy tiện nghi" });
@@ -73,7 +73,7 @@ exports.search = async (req, res) => {
       where: {
         tenTienNghi: { [Op.like]: `%${q}%` },
       },
-      include: [{ model: db.TienNghiPhong, as: "TienNghiPhongs" }],
+      include: [{ model: db.TienNghiChiTiet }],
     });
     res.status(200).json(items);
   } catch (error) {

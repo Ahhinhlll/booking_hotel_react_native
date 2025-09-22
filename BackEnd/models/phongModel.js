@@ -33,10 +33,6 @@ const Phong = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    thongTin: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
     moTa: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -78,18 +74,22 @@ Phong.associate = (models) => {
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
-  Phong.hasMany(models.GiaPhuPhi, {
-    foreignKey: "maPhong",
-    as: "GiaPhuPhis",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-  });
-  Phong.hasMany(models.TienNghiPhong, {
+  Phong.hasMany(models.KhuyenMai, {
     foreignKey: "maPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
   Phong.hasMany(models.DatPhong, {
+    foreignKey: "maPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
+  Phong.hasMany(models.TienNghiChiTiet, {
+    foreignKey: "maPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
+  Phong.hasMany(models.SuCo, {
     foreignKey: "maPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",

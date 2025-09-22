@@ -25,13 +25,9 @@ const DatPhong = sequelize.define(
         key: "maPhong",
       },
     },
-    maGiaPhong: {
-      type: DataTypes.UUID,
+    loaiDat: {
+      type: DataTypes.STRING,
       allowNull: false,
-      references: {
-        model: "GiaPhong",
-        key: "maGiaPhong",
-      },
     },
     ngayDat: {
       type: DataTypes.DATE,
@@ -53,24 +49,20 @@ const DatPhong = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
-    maTTDP: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: "TrangThaiDatPhong",
-        key: "maTTDP",
-      },
+    soGio: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
-    tongTien: {
+    soNgay: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    tongTienGoc: {
       type: DataTypes.DOUBLE,
       allowNull: true,
     },
-    hinhThuc: {
-      type: DataTypes.STRING,
-      defaultValue: "Online",
-    },
-    ghiChu: {
-      type: DataTypes.STRING,
+    tongTienSauGiam: {
+      type: DataTypes.DOUBLE,
       allowNull: true,
     },
     maKM: {
@@ -81,9 +73,29 @@ const DatPhong = sequelize.define(
         key: "maKM",
       },
     },
-    kieuDat: {
+    trangThai: {
       type: DataTypes.STRING,
-      defaultValue: "TheoNgay",
+      allowNull: true,
+    },
+    ghiChu: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    maKS: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "KhachSan",
+        key: "maKS",
+      },
+    },
+    maGiaPhong: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "GiaPhong",
+        key: "maGiaPhong",
+      },
     },
   },
   {
@@ -97,49 +109,41 @@ DatPhong.associate = (models) => {
     foreignKey: "maND",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "NguoiDung",
+  });
+  DatPhong.belongsTo(models.KhachSan, {
+    foreignKey: "maKS",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
   });
   DatPhong.belongsTo(models.Phong, {
     foreignKey: "maPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "Phong",
-  });
-  DatPhong.belongsTo(models.GiaPhong, {
-    foreignKey: "maGiaPhong",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-    as: "GiaPhong",
-  });
-  DatPhong.belongsTo(models.TrangThaiDatPhong, {
-    foreignKey: "maTTDP",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-    as: "TrangThaiDatPhong",
   });
   DatPhong.belongsTo(models.KhuyenMai, {
     foreignKey: "maKM",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "KhuyenMai",
   });
-  DatPhong.hasMany(models.GioDatPhong, {
-    foreignKey: "maDatPhong",
+  DatPhong.belongsTo(models.GiaPhong, {
+    foreignKey: "maGiaPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "GioDatPhongs",
-  });
-  DatPhong.hasMany(models.PhuPhi, {
-    foreignKey: "maDP",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-    as: "PhuPhis",
   });
   DatPhong.hasMany(models.ThanhToan, {
     foreignKey: "maDatPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "ThanhToans",
+  });
+  DatPhong.hasMany(models.SuCo, {
+    foreignKey: "maDatPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
+  DatPhong.hasMany(models.DanhGia, {
+    foreignKey: "maDatPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
   });
 };
 

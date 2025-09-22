@@ -25,6 +25,14 @@ const DanhGia = sequelize.define(
         key: "maKS",
       },
     },
+    maDatPhong: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "DatPhong",
+        key: "maDatPhong",
+      },
+    },
     soSao: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -53,13 +61,16 @@ DanhGia.associate = (models) => {
     foreignKey: "maND",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "NguoiDung",
   });
   DanhGia.belongsTo(models.KhachSan, {
     foreignKey: "maKS",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "KhachSan",
+  });
+  DanhGia.belongsTo(models.DatPhong, {
+    foreignKey: "maDatPhong",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
   });
 };
 

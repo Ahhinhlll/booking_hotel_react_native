@@ -17,21 +17,25 @@ const GiaPhong = sequelize.define(
         key: "maPhong",
       },
     },
-    loaiGia: {
+    loaiDat: {
       type: DataTypes.STRING(20),
       allowNull: false,
     },
-    soTien: {
+    gia2GioDau: {
       type: DataTypes.DOUBLE,
       allowNull: false,
     },
-    ngayBatDau: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
+    gia1GioThem: {
+      type: DataTypes.DOUBLE,
+      allowNull: false,
     },
-    ngayKetThuc: {
-      type: DataTypes.DATE,
-      allowNull: true,
+    giaTheoNgay: {
+      type: DataTypes.DOUBLE,
+      allowNull: false,
+    },
+    giaQuaDem: {
+      type: DataTypes.DOUBLE,
+      allowNull: false,
     },
     trangThai: {
       type: DataTypes.STRING(20),

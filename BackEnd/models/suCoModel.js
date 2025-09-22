@@ -1,15 +1,15 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/config");
 
-const PhuPhi = sequelize.define(
-  "PhuPhi",
+const SuCo = sequelize.define(
+  "SuCo",
   {
-    maPhuPhi: {
+    maSuCo: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    maDP: {
+    maDatPhong: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
@@ -17,46 +17,48 @@ const PhuPhi = sequelize.define(
         key: "maDatPhong",
       },
     },
-    maLoaiPhuPhi: {
+    maPhong: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: "LoaiPhuPhi",
-        key: "maLoaiPhuPhi",
+        model: "Phong",
+        key: "maPhong",
       },
     },
-    soTien: {
-      type: DataTypes.DOUBLE,
-      allowNull: false,
+    moTa: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
-    ngayPhatSinh: {
+    chiPhi: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+    },
+    ngayBao: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
-    ghiChu: {
-      type: DataTypes.STRING,
+    trangThai: {
+      type: DataTypes.STRING(50),
       allowNull: true,
     },
   },
   {
-    tableName: "PhuPhi",
+    tableName: "SuCo",
     timestamps: false,
   }
 );
 
-PhuPhi.associate = (models) => {
-  PhuPhi.belongsTo(models.DatPhong, {
-    foreignKey: "maDP",
+SuCo.associate = (models) => {
+  SuCo.belongsTo(models.DatPhong, {
+    foreignKey: "maDatPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "DatPhong",
   });
-  PhuPhi.belongsTo(models.LoaiPhuPhi, {
-    foreignKey: "maLoaiPhuPhi",
+  SuCo.belongsTo(models.Phong, {
+    foreignKey: "maPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
-    as: "LoaiPhuPhi",
   });
 };
 
-module.exports = PhuPhi;
+module.exports = SuCo;
