@@ -49,7 +49,11 @@ export default function ProfileHeader({ userData }: ProfileHeaderProps) {
           <View className="w-16 h-16 rounded-full overflow-hidden bg-gray-300 mr-4">
             {userData?.anhNguoiDung && (
               <Image
-                source={{ uri: getImageUrl(userData?.anhNguoiDung) }}
+                source={{
+                  uri: Array.isArray(userData.anhNguoiDung)
+                    ? getImageUrl(userData.anhNguoiDung[0]) || undefined
+                    : getImageUrl(userData.anhNguoiDung) || undefined,
+                }}
                 className="w-16 h-16"
                 resizeMode="cover"
               />

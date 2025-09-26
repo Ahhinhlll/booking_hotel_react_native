@@ -11,16 +11,12 @@ console.log("a: ", Constants.expoConfig?.extra?.EXPO_PUBLIC_IMAGE_URL);
 console.log("b: ", Constants.manifest?.extra?.EXPO_PUBLIC_IMAGE_URL);
 console.log("c: ", process.env.EXPO_PUBLIC_IMAGE_URL);
 
-console.log("IMAGE_URL:", IMAGE_URL);
-
 export const getImageUrl = (path?: string | string[]) => {
   if (!IMAGE_URL) {
-    console.warn("IMAGE_URL is not configured. Please check your .env file");
     return undefined;
   }
 
   if (!path) {
-    console.log("Path is undefined or null");
     return undefined;
   }
 
@@ -41,7 +37,6 @@ export const getImageUrl = (path?: string | string[]) => {
   }
 
   const fullUrl = `${IMAGE_URL}${finalPath}`;
-  console.log("Generated URL:", fullUrl);
 
   return fullUrl;
 };

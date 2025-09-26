@@ -75,6 +75,8 @@ exports.login = async (req, res) => {
         sdt: nguoiDung.sdt,
         maVaiTro: nguoiDung.maVaiTro,
         trangThai: nguoiDung.trangThai,
+        diaChi: nguoiDung.diaChi,
+        anhNguoiDung: nguoiDung.anhNguoiDung,
       },
       accessToken,
       refreshToken,

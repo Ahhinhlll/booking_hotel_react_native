@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useState, useEffect, useCallback } from "react";
 import Toast from "react-native-toast-message";
 import { AuthService } from "../../services/AuthServices";
 import { NguoiDungServices } from "../../services/NguoiDungServices";
@@ -23,21 +23,32 @@ export default function ProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
+    try {
       const currentUser = await NguoiDungServices.getCurrentUser();
       if (currentUser) {
         setUserData(currentUser);
+        // Get fresh data from server to ensure we have the latest info
         const freshData = await NguoiDungServices.getById(
           currentUser.maNguoiDung
         );
-        setUserData(freshData);
+        if (freshData) {
+          setUserData(freshData);
+        }
       }
-    };
-    fetchUser();
-
-    console.log("User Data in ProfileScreen:", userData);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
   }, []);
+
+  // Use useFocusEffect to refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchUser();
+    }, [fetchUser])
+  );
+
+  useEffect(() => {}, [userData]);
 
   const handleFavoriteHotels = () => {
     if (!userData) return;
@@ -122,7 +133,13 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 bg-[#F5F5F5]">
       {/* Sửa lại để ProfileHeader có màu nền khớp với ảnh */}
-      <ProfileHeader userData={userData} />
+      <ProfileHeader 
+        userData={userData} 
+        key={Array.isArray(userData?.anhNguoiDung) 
+          ? userData?.anhNguoiDung[0] || 'no-image'
+          : userData?.anhNguoiDung || 'no-image'
+        }
+      />
       <ScrollView
         className="flex-1 bg-white"
         showsVerticalScrollIndicator={false}

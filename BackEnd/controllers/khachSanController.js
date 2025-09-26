@@ -1,3 +1,6 @@
+// Tìm kiếm khách sạn bằng hình ảnh (demo: so khớp tên file ảnh với tên file trong DB)
+const path = require("path");
+const fs = require("fs");
 const KhachSan = require("../models/khachSanModel");
 const { Op } = require("sequelize");
 const db = require("../models");
@@ -113,6 +116,51 @@ exports.search = async (req, res) => {
           { hangSao: { [Op.like]: `%${q}%` } },
         ],
       },
+      include: [
+        { model: db.Phong },
+        { model: db.KhuyenMai },
+        { model: db.DatPhong },
+        { model: db.DanhGia },
+        { model: db.TienNghiChiTiet },
+      ],
+    });
+    res.status(200).json(items);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+exports.searchByImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No image uploaded" });
+    }
+    // Lấy tên file ảnh upload
+    const uploadedFileName = path.basename(req.file.filename);
+    // Lấy tất cả khách sạn
+    const hotels = await KhachSan.findAll();
+    // So khớp: nếu ảnh upload trùng tên với 1 ảnh trong DB thì trả về khách sạn đó
+    const matched = hotels.filter((hotel) => {
+      if (!hotel.anh) return false;
+      const arr = Array.isArray(hotel.anh) ? hotel.anh : [hotel.anh];
+      return arr.some((img) => img && path.basename(img) === uploadedFileName);
+    });
+    if (matched.length > 0) {
+      res.json(matched);
+    } else {
+      res
+        .status(404)
+        .json({ message: "Không tìm thấy khách sạn phù hợp với ảnh" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+// Lấy 6 khách sạn có createdAt mới nhất
+exports.getRecentHotels = async (req, res) => {
+  try {
+    const items = await KhachSan.findAll({
+      order: [["createdAt", "DESC"]],
+      limit: 6,
       include: [
         { model: db.Phong },
         { model: db.KhuyenMai },

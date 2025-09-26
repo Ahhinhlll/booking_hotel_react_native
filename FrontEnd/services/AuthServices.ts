@@ -10,8 +10,6 @@ export const AuthService = {
         matKhau,
       });
 
-      console.log("API Response:", response.data);
-
       // Lưu token & user vào AsyncStorage - Sửa từ token thành accessToken
       if (response.data?.accessToken) {
         await AsyncStorage.setItem("token", response.data.accessToken);

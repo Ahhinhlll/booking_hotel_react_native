@@ -34,16 +34,46 @@ export const NguoiDungServices = {
     return res.data;
   },
 
-  // Lấy người dùng hiện tại từ AsyncStorage
+  // // Lấy người dùng hiện tại từ AsyncStorage
+  // getCurrentUser: async (): Promise<UserData | null> => {
+  //   try {
+  //     const storedUser = await AsyncStorage.getItem("user");
+  //     if (storedUser) {
+  //       return JSON.parse(storedUser) as UserData;
+  //     }
+  //     return null;
+  //   } catch (error) {
+  //     console.error("Lỗi khi lấy current user:", error);
+  //     return null;
+  //   }
+  //   },
+
+  // Lấy người dùng hiện tại từ token
   getCurrentUser: async (): Promise<UserData | null> => {
     try {
-      const storedUser = await AsyncStorage.getItem("user");
-      if (storedUser) {
-        return JSON.parse(storedUser) as UserData;
+      // Lấy token từ AsyncStorage
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        console.error("Không tìm thấy token");
+        return null;
       }
-      return null;
+
+      // Giải mã token để lấy userId
+      const { decodeToken } = await import("../utils/jwtDecode");
+      const decodedToken = decodeToken(token);
+      const userId =
+        decodedToken.maNguoiDung || decodedToken.id || decodedToken.userId;
+
+      if (!userId) {
+        console.error("Không tìm thấy mã người dùng trong token");
+        return null;
+      }
+
+      // Gọi API để lấy thông tin người dùng theo ID
+      const userData = await NguoiDungServices.getById(userId);
+      return userData;
     } catch (error) {
-      console.error("Lỗi khi lấy current user:", error);
+      console.error("Lỗi khi lấy thông tin người dùng hiện tại:", error);
       return null;
     }
   },

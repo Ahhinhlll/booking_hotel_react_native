@@ -20,6 +20,12 @@ export const KhachSanServices = {
     return res.data;
   },
 
+  // Lấy 6 khách sạn mới nhất
+  getRecentHotels: async () => {
+    const res = await request.get<KhachSanData[]>("/khachsan/recent");
+    return res.data;
+  },
+
   // Lấy khách sạn theo id
   getById: async (id: string) => {
     const res = await request.get<KhachSanData>(`/khachsan/getbyid/${id}`);
@@ -45,9 +51,34 @@ export const KhachSanServices = {
   },
 
   // Tìm kiếm khách sạn
-  search: async (q: string) => {
+  search: async (params: {
+    q?: string;
+    checkInDate?: string;
+    checkOutDate?: string;
+    guests?: number;
+    rooms?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    bookingType?: string;
+  }) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.q) queryParams.append("q", params.q);
+    if (params.checkInDate)
+      queryParams.append("checkInDate", params.checkInDate);
+    if (params.checkOutDate)
+      queryParams.append("checkOutDate", params.checkOutDate);
+    if (params.guests) queryParams.append("guests", params.guests.toString());
+    if (params.rooms) queryParams.append("rooms", params.rooms.toString());
+    if (params.minPrice)
+      queryParams.append("minPrice", params.minPrice.toString());
+    if (params.maxPrice)
+      queryParams.append("maxPrice", params.maxPrice.toString());
+    if (params.bookingType)
+      queryParams.append("bookingType", params.bookingType);
+
     const res = await request.get<KhachSanData[]>(
-      `/khachsan/search?q=${encodeURIComponent(q)}`
+      `/khachsan/search?${queryParams.toString()}`
     );
     return res.data;
   },

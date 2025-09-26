@@ -294,8 +294,7 @@ export default function PromotionsScreen() {
           </View>
         </View>
         {/* Banner nhận quà */}
-        <TouchableOpacity
-          onPress={() => setShowInvite(true)}
+        <View
           style={{
             backgroundColor: "#FFF6ED",
             borderRadius: 16,
@@ -317,9 +316,24 @@ export default function PromotionsScreen() {
             >
               Nhận quà yêu 50K
             </Text>
-            <Text style={{ color: "#374151", fontSize: 14 }}>
+            <Text style={{ color: "#374151", fontSize: 14, marginBottom: 10 }}>
               Mời bạn bè nhận ngay quà siêu chất cùng Go2Joy
             </Text>
+            <TouchableOpacity
+              onPress={() => setShowInvite(true)}
+              style={{
+                backgroundColor: "#FB923C",
+                borderRadius: 8,
+                paddingVertical: 8,
+                paddingHorizontal: 18,
+                alignSelf: "flex-start",
+                marginTop: 4,
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>
+                Nhận quà ngay
+              </Text>
+            </TouchableOpacity>
           </View>
           <Ionicons
             name="happy-outline"
@@ -327,7 +341,7 @@ export default function PromotionsScreen() {
             color="#FB923C"
             style={{ marginLeft: 8 }}
           />
-        </TouchableOpacity>
+        </View>
         {/* Menu */}
         <View style={{ marginHorizontal: 8 }}>
           <TouchableOpacity style={styles.menuItem}>

@@ -8,15 +8,12 @@ function getLocalIpAddress() {
     const iface = interfaces[ifaceName];
     if (iface) {
       for (const alias of iface) {
-        // Find the first non-internal IPv4 address
         if (alias.family === "IPv4" && !alias.internal) {
-          console.log(`Local IP address: ${alias.address}`);
           return alias.address;
         }
       }
     }
   }
-  // Fallback for cases where no IP is found (e.g., no network connection)
   return "localhost";
 }
 
@@ -25,8 +22,6 @@ console.log(ipAddress);
 const port = 3333;
 // Use the dynamically found IP address for the API URL
 const apiUrl = `http://${ipAddress}:${port}`;
-
-console.log("Using API URL:", apiUrl);
 
 export default {
   expo: {
@@ -50,6 +45,7 @@ export default {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
+      package: "com.frontend", // Thêm package name cho Android
     },
     web: {
       bundler: "metro",
@@ -64,5 +60,7 @@ export default {
       EXPO_PUBLIC_API_URL: apiUrl,
       EXPO_PUBLIC_IMAGE_URL: apiUrl,
     },
+    // Thêm cấu hình Hermes để đảm bảo tương thích với Reanimated
+    jsEngine: "hermes",
   },
 };

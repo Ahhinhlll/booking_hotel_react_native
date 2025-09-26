@@ -41,7 +41,7 @@ export default function HotelSection({
       let data: KhachSanData[];
 
       if (searchQuery) {
-        data = await KhachSanServices.search(searchQuery);
+        data = await KhachSanServices.search({ q: searchQuery });
       } else {
         data = await KhachSanServices.getAll();
       }
