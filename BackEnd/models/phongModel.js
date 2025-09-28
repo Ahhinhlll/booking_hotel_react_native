@@ -51,6 +51,11 @@ const Phong = sequelize.define(
         this.setDataValue("anh", JSON.stringify([].concat(value)));
       },
     },
+    gia: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+      defaultValue: 0,
+    },
   },
   {
     tableName: "Phong",

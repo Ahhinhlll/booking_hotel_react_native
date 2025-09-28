@@ -34,8 +34,6 @@ const baseURL = devHostIp
   ? `http://${devHostIp}:3333/api`
   : "http://localhost:3333/api";
 
-console.log(`API client configured with base URL: ${baseURL}`);
-
 /**
  * A pre-configured instance of axios for making API requests.
  * It automatically handles using your local IP for Android development.

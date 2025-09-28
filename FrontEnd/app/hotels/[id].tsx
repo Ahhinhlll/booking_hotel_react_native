@@ -611,8 +611,8 @@ export default function HotelDetailScreen() {
                 color: "#1F2937",
               }}
             >
-              {hotel.giaChiTu
-                ? `${hotel.giaChiTu.toLocaleString()}đ`
+              {hotel.giaThapNhat
+                ? `${hotel.giaThapNhat.toLocaleString()}đ`
                 : "498.000đ"}
             </Text>
           </View>

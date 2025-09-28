@@ -48,11 +48,11 @@ const KhachSan = sequelize.define(
       defaultValue: 3,
     },
     diemDanhGia: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING,
       allowNull: true,
     },
     trangThai: {
-      type: DataTypes.STRING(20),
+      type: DataTypes.STRING,
       defaultValue: "Hoạt động",
     },
   },

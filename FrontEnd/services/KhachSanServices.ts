@@ -7,10 +7,11 @@ export interface KhachSanData {
   diaChi?: string;
   dienThoai?: string;
   tinhThanh?: string;
-  giaChiTu?: number;
-  anh?: string | string[];
+  giaThapNhat?: number;
+  anh?: string[];
   trangThai?: string;
   hangSao?: number;
+  diemDanhGia?: number;
 }
 
 export const KhachSanServices = {
@@ -60,6 +61,8 @@ export const KhachSanServices = {
     minPrice?: number;
     maxPrice?: number;
     bookingType?: string;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
   }) => {
     const queryParams = new URLSearchParams();
 
@@ -76,6 +79,8 @@ export const KhachSanServices = {
       queryParams.append("maxPrice", params.maxPrice.toString());
     if (params.bookingType)
       queryParams.append("bookingType", params.bookingType);
+    if (params.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params.sortOrder) queryParams.append("sortOrder", params.sortOrder);
 
     const res = await request.get<KhachSanData[]>(
       `/khachsan/search?${queryParams.toString()}`

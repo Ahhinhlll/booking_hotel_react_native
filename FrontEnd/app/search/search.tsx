@@ -168,7 +168,6 @@ export default function SearchScreen() {
               marginBottom: 12,
             }}
           >
-            {" "}
             <Text className="text-black font-bold text-xl ">
               Gợi ý tìm kiếm
             </Text>

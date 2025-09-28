@@ -7,10 +7,6 @@ const IMAGE_URL = (
   process.env.EXPO_PUBLIC_IMAGE_URL
 )?.replace("3334", "3333");
 
-console.log("a: ", Constants.expoConfig?.extra?.EXPO_PUBLIC_IMAGE_URL);
-console.log("b: ", Constants.manifest?.extra?.EXPO_PUBLIC_IMAGE_URL);
-console.log("c: ", process.env.EXPO_PUBLIC_IMAGE_URL);
-
 export const getImageUrl = (path?: string | string[]) => {
   if (!IMAGE_URL) {
     return undefined;
@@ -27,7 +23,6 @@ export const getImageUrl = (path?: string | string[]) => {
   } else if (typeof path === "string") {
     finalPath = path;
   } else {
-    console.log("Invalid path type:", typeof path);
     return undefined;
   }
 

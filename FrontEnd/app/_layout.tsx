@@ -50,11 +50,11 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="services" options={{ headerShown: false }} />
+        {/* <Stack.Screen name="services" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false }} />
         <Stack.Screen name="hotels" options={{ headerShown: false }} />
         <Stack.Screen name="booking" options={{ headerShown: false }} />
-        <Stack.Screen name="rooms" options={{ headerShown: false }} />
+        <Stack.Screen name="rooms" options={{ headerShown: false }} /> */}
       </Stack>
       {/* thông báo */}
       <Toast />

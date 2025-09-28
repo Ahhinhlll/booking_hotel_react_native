@@ -18,7 +18,7 @@ const GiaPhong = sequelize.define(
       },
     },
     loaiDat: {
-      type: DataTypes.STRING(20),
+      type: DataTypes.STRING,
       allowNull: false,
     },
     gia2GioDau: {

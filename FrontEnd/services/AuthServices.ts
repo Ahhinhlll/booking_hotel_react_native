@@ -40,7 +40,6 @@ export const AuthService = {
   // Kiểm tra trạng thái đăng nhập
   checkAuthStatus: async () => {
     const token = await AsyncStorage.getItem("token");
-    console.log("Token check:", !!token); // Debug log
     return !!token;
   },
 

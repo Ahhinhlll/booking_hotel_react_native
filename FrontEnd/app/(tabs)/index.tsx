@@ -9,6 +9,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [showFlashSale, setShowFlashSale] = useState(true);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const handleScroll = Animated.event(
@@ -56,10 +57,21 @@ export default function HomeScreen() {
         <ShortcutIcons />
 
         {/* Promo Banner */}
-        <PromoBanner />
+        <View style={{ marginBottom: 12 }}>
+          <PromoBanner />
+        </View>
 
         {/* Flash Sale Section */}
-        <HotelSection title="Flash Sale" limit={5} />
+        {showFlashSale && (
+          <HotelSection
+            title="Flash Sale"
+            subtitle="Nhanh tay săn deal hot 🔥 – chỉ trong hôm nay!"
+            limit={5}
+            backgroundImage={require("../../assets/images/flashsale.webp")}
+            titleColor="#F97316"
+            onExpired={() => setShowFlashSale(false)}
+          />
+        )}
 
         {/* Special Deals Section */}
         <HotelSection

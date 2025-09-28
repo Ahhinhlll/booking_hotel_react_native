@@ -1,4 +1,3 @@
-// Tìm kiếm khách sạn bằng hình ảnh (demo: so khớp tên file ảnh với tên file trong DB)
 const path = require("path");
 const fs = require("fs");
 const KhachSan = require("../models/khachSanModel");
@@ -50,7 +49,12 @@ exports.insert = async (req, res) => {
     if (existed) {
       return res.status(400).json({ message: "Tên khách sạn đã tồn tại" });
     }
-    const newItem = await KhachSan.create(req.body);
+    // Đặt giá thấp nhất mặc định là 0
+    const requestBody = {
+      ...req.body,
+      giaThapNhat: 0
+    };
+    const newItem = await KhachSan.create(requestBody);
     res.status(201).json(newItem);
   } catch (error) {
     res.status(400).json({ error: error.message });
