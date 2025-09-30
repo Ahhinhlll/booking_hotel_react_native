@@ -1,16 +1,16 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  ImageBackground,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { KhachSanServices, KhachSanData } from "../services/KhachSanServices";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  ImageBackground,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { KhachSanData, KhachSanServices } from "../services/KhachSanServices";
 import { getImageUrl } from "../utils/getImageUrl";
 
 interface HotelSectionProps {

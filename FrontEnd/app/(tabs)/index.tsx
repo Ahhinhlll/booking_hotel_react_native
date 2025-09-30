@@ -4,6 +4,7 @@ import HomeHeader from "../../components/HomeHeader";
 import ShortcutIcons from "../../components/ShortcutIcons";
 import PromoBanner from "../../components/PromoBanner";
 import HotelSection from "../../components/HotelSection";
+import AdviceSection from "../../components/AdviceSection";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -92,6 +93,13 @@ export default function HomeScreen() {
           title="Khách sạn gần bạn"
           subtitle="Trong khu vực Hưng Yên"
           searchQuery="Hưng Yên"
+          limit={5}
+        />
+
+        {/* Advice Section */}
+        <AdviceSection
+          title="Lời khuyên cần biết"
+          // subtitle="Mẹo hay cho mọi chuyến đi"
           limit={5}
         />
 

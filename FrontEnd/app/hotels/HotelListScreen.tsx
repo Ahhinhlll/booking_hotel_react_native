@@ -1,20 +1,20 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
+  Dimensions,
   FlatList,
   Image,
   SafeAreaView,
-  Dimensions,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native"; // 🔥 sửa: thêm SafeAreaView
-import { useState, useEffect } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import SortModal from "../../components/SortModal";
 import FilterModal from "../../components/FilterModal";
+import SortModal from "../../components/SortModal";
 import {
-  KhachSanServices,
   KhachSanData,
+  KhachSanServices,
 } from "../../services/KhachSanServices";
 import { getImageUrl } from "../../utils/getImageUrl";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -41,7 +41,7 @@ export default function HotelListScreen() {
     }
   };
   const openSearchScreen = () => {
-    router.push("/search/search");
+    router.push("/other/search");
   };
 
   const renderHotel = ({ item }: { item: KhachSanData }) => (
@@ -135,8 +135,6 @@ export default function HotelListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" style={{ marginTop: 30 }}>
-      {/* 🔥 sửa SafeAreaView */}
-      {/* 🔥 sửa: Gói Header + Sort + Filter trong View cố định */}
       <View
         style={{
           position: "absolute",

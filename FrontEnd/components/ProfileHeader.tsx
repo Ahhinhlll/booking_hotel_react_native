@@ -1,15 +1,15 @@
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Platform,
-  StatusBar,
-  Image,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getImageUrl } from "../utils/getImageUrl";
 import { useEffect } from "react";
+import {
+  Image,
+  Platform,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { getImageUrl } from "../utils/getImageUrl";
 
 interface ProfileHeaderProps {
   userData: {
@@ -25,7 +25,7 @@ export default function ProfileHeader({ userData }: ProfileHeaderProps) {
   useEffect(() => console.log("User Data in ProfileHeader:", userData), []);
 
   const handleEditProfile = () => {
-    router.push("/(profile)/update-profile");
+    router.push("/other/update-profile");
   };
 
   return (

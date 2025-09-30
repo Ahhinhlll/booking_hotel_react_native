@@ -18,6 +18,8 @@ import {
   KhachSanData,
 } from "../../services/KhachSanServices";
 import { getImageUrl } from "../../utils/getImageUrl";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -33,6 +35,27 @@ export default function HotelDetailScreen() {
       loadHotelDetail();
     }
   }, [id]);
+
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("yeuThich");
+        if (stored && hotel) {
+          const favorites: KhachSanData[] = JSON.parse(stored);
+          const isHotelFavorite = favorites.some(
+            (item) => item.maKS === hotel.maKS
+          );
+          setIsFavorite(isHotelFavorite);
+        }
+      } catch (error) {
+        console.error("Error checking favorite status:", error);
+      }
+    };
+
+    if (hotel) {
+      checkFavoriteStatus();
+    }
+  }, [hotel]);
 
   const loadHotelDetail = async () => {
     try {
@@ -51,10 +74,44 @@ export default function HotelDetailScreen() {
   const handleBack = () => {
     router.back();
   };
+  const handleFavorite = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("yeuThich");
+      let favorites: KhachSanData[] = stored ? JSON.parse(stored) : [];
 
-  const handleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // TODO: Implement add/remove favorite API
+      if (isFavorite) {
+        // Xóa
+        const updatedFavorites = favorites.filter(
+          (item) => item.maKS !== hotel?.maKS
+        );
+        await AsyncStorage.setItem(
+          "yeuThich",
+          JSON.stringify(updatedFavorites)
+        );
+        setIsFavorite(false);
+
+        Toast.show({
+          type: "info",
+          text1: "Đã xóa khỏi yêu thích",
+          visibilityTime: 1000,
+        });
+      } else {
+        // Thêm
+        if (hotel) {
+          favorites = [...favorites, hotel];
+          await AsyncStorage.setItem("yeuThich", JSON.stringify(favorites));
+        }
+        setIsFavorite(true);
+
+        Toast.show({
+          type: "success",
+          text1: "Đã thêm vào yêu thích",
+          visibilityTime: 1000,
+        });
+      }
+    } catch (error) {
+      console.error("Error saving favorite:", error);
+    }
   };
 
   const handleShare = () => {

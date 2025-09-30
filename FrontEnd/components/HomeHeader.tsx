@@ -1,17 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
   ActivityIndicator,
+  Dimensions,
   FlatList,
+  Modal,
   Platform,
   StatusBar,
-  Dimensions,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect } from "react";
-import { useRouter } from "expo-router";
 import { fetchProvinces } from "../services/HeaderServices";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -65,7 +65,7 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
   };
 
   const openSearchScreen = () => {
-    router.push("/search/search");
+    router.push("/other/search");
   };
 
   // Collapsed header (chỉ có search và notification)

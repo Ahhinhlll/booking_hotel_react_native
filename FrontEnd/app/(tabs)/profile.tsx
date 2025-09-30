@@ -52,11 +52,11 @@ export default function ProfileScreen() {
 
   const handleFavoriteHotels = () => {
     if (!userData) return;
-    router.push("/(tabs)/booked");
+    router.push("/other/FavoriteHotels");
   };
 
   const handleAccountSettings = () => {
-    router.push("/(tabs)/profile");
+    router.push("/other/AccountScreen");
   };
 
   const handleNotifications = () => {
@@ -133,11 +133,12 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 bg-[#F5F5F5]">
       {/* Sửa lại để ProfileHeader có màu nền khớp với ảnh */}
-      <ProfileHeader 
-        userData={userData} 
-        key={Array.isArray(userData?.anhNguoiDung) 
-          ? userData?.anhNguoiDung[0] || 'no-image'
-          : userData?.anhNguoiDung || 'no-image'
+      <ProfileHeader
+        userData={userData}
+        key={
+          Array.isArray(userData?.anhNguoiDung)
+            ? userData?.anhNguoiDung[0] || "no-image"
+            : userData?.anhNguoiDung || "no-image"
         }
       />
       <ScrollView

@@ -34,20 +34,6 @@ export const NguoiDungServices = {
     return res.data;
   },
 
-  // // Lấy người dùng hiện tại từ AsyncStorage
-  // getCurrentUser: async (): Promise<UserData | null> => {
-  //   try {
-  //     const storedUser = await AsyncStorage.getItem("user");
-  //     if (storedUser) {
-  //       return JSON.parse(storedUser) as UserData;
-  //     }
-  //     return null;
-  //   } catch (error) {
-  //     console.error("Lỗi khi lấy current user:", error);
-  //     return null;
-  //   }
-  //   },
-
   // Lấy người dùng hiện tại từ token
   getCurrentUser: async (): Promise<UserData | null> => {
     try {
