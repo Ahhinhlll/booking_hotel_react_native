@@ -9,14 +9,6 @@ const SuCo = sequelize.define(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    maDatPhong: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: "DatPhong",
-        key: "maDatPhong",
-      },
-    },
     maPhong: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -49,11 +41,6 @@ const SuCo = sequelize.define(
 );
 
 SuCo.associate = (models) => {
-  SuCo.belongsTo(models.DatPhong, {
-    foreignKey: "maDatPhong",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-  });
   SuCo.belongsTo(models.Phong, {
     foreignKey: "maPhong",
     onDelete: "CASCADE",

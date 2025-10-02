@@ -5,7 +5,6 @@ const LoaiPhong = require("./loaiPhongModel");
 const Phong = require("./phongModel");
 const GiaPhong = require("./giaPhongModel");
 const TienNghi = require("./tienNghiModel");
-const TienNghiChiTiet = require("./tienNghiChiTietModel");
 const KhuyenMai = require("./khuyenMaiModel");
 const DatPhong = require("./datPhongModel");
 const ThanhToan = require("./thanhToanModel");
@@ -20,7 +19,6 @@ const db = {
   Phong,
   GiaPhong,
   TienNghi,
-  TienNghiChiTiet,
   KhuyenMai,
   DatPhong,
   ThanhToan,

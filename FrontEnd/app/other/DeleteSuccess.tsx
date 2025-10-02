@@ -13,7 +13,7 @@ export default function DeleteSuccess() {
   return (
     <View className="flex-1 bg-white items-center justify-center p-6">
       <Image
-        source={require("../../assets/images/delete_success.jpg")}
+        source={require("../../assets/images/delete_success-removebg-preview.png")}
         style={{ width: 200, height: 200, resizeMode: "contain" }}
       />
 
@@ -27,7 +27,13 @@ export default function DeleteSuccess() {
 
       <TouchableOpacity
         onPress={handleFinish}
-        className="w-full py-3 mt-10 border border-orange-500 rounded-full"
+        className="py-3 mt-10 rounded-full" // bỏ w-full nếu muốn width nhỏ
+        style={{
+          marginTop: 20,
+          width: 150,
+          borderWidth: 1,
+          borderColor: "#FFA500",
+        }}
       >
         <Text className="text-center text-orange-500 font-medium">
           Hoàn thành

@@ -27,7 +27,7 @@ const DanhGia = sequelize.define(
     },
     maDatPhong: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: "DatPhong",
         key: "maDatPhong",

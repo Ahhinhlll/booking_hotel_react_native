@@ -18,7 +18,7 @@ function getLocalIpAddress() {
 }
 
 const ipAddress = getLocalIpAddress();
-console.log(ipAddress);
+//console.log(ipAddress);
 const port = 3333;
 // Use the dynamically found IP address for the API URL
 const apiUrl = `http://${ipAddress}:${port}`;

@@ -69,13 +69,16 @@ export default function DeleteAccount() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
-        <Text className="flex-1 text-center text-[18px] font-semibold text-gray-900 mr-7">
+        <Text
+          className="flex-1 text-center font-semibold text-gray-900 mr-7"
+          style={{ fontSize: 19 }}
+        >
           Xoá tài khoản của bạn
         </Text>
       </View>
 
       {/* Nội dung */}
-      <ScrollView className="flex-1 px-5 pt-6" style={{ paddingRight: 5 }}>
+      <ScrollView className="flex-1 px-4 pt-6" style={{ padding: 20 }}>
         <Text
           className="font-normal text-gray-900"
           style={{ fontSize: 17, marginBottom: 5 }}
@@ -91,7 +94,10 @@ export default function DeleteAccount() {
           quả liên quan đến việc xoá bỏ tài khoản của mình.
         </Text>
 
-        <Text className="text-[15px] text-gray-900 mb-3">
+        <Text
+          className="font-normal text-gray-900"
+          style={{ fontSize: 17, marginBottom: 5 }}
+        >
           Bằng cách xoá bỏ tài khoản của bạn, Go2Joy sẽ:
         </Text>
 
@@ -104,25 +110,28 @@ export default function DeleteAccount() {
           </Text>
         </View>
 
-        <Text className="text-[15px] font-semibold text-gray-900 mb-2">
-          Xin lưu ý:
-        </Text>
-        <Text className="text-[14px] text-gray-700 leading-[22px] mb-6">
-          Nếu 120 ngày chưa trôi qua kể từ ngày đặt phòng hoặc ngày trả phòng
-          cuối cùng của bạn, Go2Joy không thể xoá bỏ tài khoản của bạn ngay lập
-          tức do mục đích kiểm tra. Go2Joy sẽ ghi nhận đơn xin xoá bỏ tài khoản
-          của bạn và tiến hành xoá bỏ tài khoản 120 ngày sau ngày đặt phòng hoặc
-          trả phòng cuối cùng của bạn.
+        <Text className="text-[15px] font-semibold leading-[22px] mb-6">
+          Xin lưu ý:{" "}
+          <Text className="font-normal text-gray-900">
+            Nếu 120 ngày chưa trôi qua kể từ ngày đặt phòng hoặc ngày trả phòng
+            cuối cùng của bạn, Go2Joy không thể xoá bỏ tài khoản của bạn ngay
+            lập tức do mục đích kiểm tra. Go2Joy sẽ ghi nhận đơn xin xoá bỏ tài
+            khoản của bạn và tiến hành xoá bỏ tài khoản 120 ngày sau ngày đặt
+            phòng hoặc trả phòng cuối cùng của bạn.
+          </Text>
         </Text>
 
-        <Text className="text-[15px] text-gray-900 mb-3">
+        <Text
+          className="font-normal text-gray-900"
+          style={{ fontSize: 17, marginBottom: 10 }}
+        >
           Tại sao bạn muốn xoá tài khoản của mình?
         </Text>
         <View className="border border-gray-300 rounded-lg overflow-hidden mb-10">
           <Picker
             selectedValue={reason}
             onValueChange={(value) => setReason(value)}
-            style={{ height: 50 }}
+            style={{ height: 60 }}
           >
             <Picker.Item label="Chọn lý do (không bắt buộc)" value="" />
             <Picker.Item label="Không còn nhu cầu sử dụng" value="no-need" />
@@ -133,20 +142,42 @@ export default function DeleteAccount() {
       </ScrollView>
 
       {/* Nút */}
-      <View className="flex-row px-4 py-4 border-t border-gray-200">
+      <View
+        className="flex-row px-4 py-4 border-t border-gray-200 justify-between"
+        style={{ marginBottom: 15 }}
+      >
         <TouchableOpacity
           onPress={() => router.back()}
-          className="flex-1 py-3.5 mr-2 rounded-full border border-gray-300"
+          className="py-3.5 mr-2"
+          style={{
+            paddingTop: 15,
+            paddingBottom: 15,
+            width: 120,
+            alignItems: "center",
+          }}
         >
-          <Text className="text-center text-[16px] text-gray-700 font-medium">
+          <Text
+            className="text-gray-700 font-medium"
+            style={{
+              fontSize: 18,
+              textDecorationLine: "underline", // Gạch dưới chữ
+            }}
+          >
             Huỷ bỏ
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           onPress={handleConfirmDelete}
-          className="flex-1 py-3.5 ml-2 bg-orange-500 rounded-full"
+          className="py-3.5 ml-2 bg-orange-500 rounded-full"
+          style={{
+            paddingTop: 15,
+            paddingBottom: 15,
+            width: 150, // Giảm độ rộng
+            alignItems: "center",
+          }}
         >
-          <Text className="text-center text-[16px] text-white font-semibold">
+          <Text className="text-white font-semibold" style={{ fontSize: 18 }}>
             Xoá tài khoản
           </Text>
         </TouchableOpacity>

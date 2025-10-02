@@ -89,8 +89,9 @@ Phong.associate = (models) => {
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
-  Phong.hasMany(models.TienNghiChiTiet, {
+  Phong.hasMany(models.TienNghi, {
     foreignKey: "maPhong",
+    as: "TienNghis",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });

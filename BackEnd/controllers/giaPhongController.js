@@ -4,7 +4,7 @@ const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await GiaPhong.findAll({
-      include: [{ model: db.Phong }],
+      include: [{ model: db.Phong, attributes: ["tenPhong"] }],
     });
     res.status(200).json(items);
   } catch (error) {

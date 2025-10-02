@@ -6,7 +6,7 @@ const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await SuCo.findAll({
-      include: [{ model: db.DatPhong }, { model: db.Phong }],
+      include: [{ model: db.Phong, attributes: ["tenPhong"] }],
     });
     res.status(200).json(items);
   } catch (error) {
@@ -30,16 +30,9 @@ exports.getById = async (req, res) => {
 // Thêm mới sự cố
 exports.insert = async (req, res) => {
   try {
-    const { maDatPhong, maPhong } = req.body;
-    if (!maDatPhong || !maPhong) {
-      return res
-        .status(400)
-        .json({ message: "Thiếu mã đặt phòng hoặc mã phòng" });
-    }
-    // Kiểm tra DatPhong tồn tại
-    const datPhong = await db.DatPhong.findByPk(maDatPhong);
-    if (!datPhong) {
-      return res.status(400).json({ message: "Đặt phòng không tồn tại" });
+    const { maPhong } = req.body;
+    if (!maPhong) {
+      return res.status(400).json({ message: "Thiếu mã phòng" });
     }
     // Kiểm tra Phong tồn tại
     const phong = await db.Phong.findByPk(maPhong);

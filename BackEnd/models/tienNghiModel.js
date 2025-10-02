@@ -13,19 +13,21 @@ const TienNghi = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    icon: {
-      type: DataTypes.TEXT,
+    maKS: {
+      type: DataTypes.UUID,
       allowNull: true,
-      get() {
-        return JSON.parse(this.getDataValue("icon") || "[]");
-      },
-      set(value) {
-        this.setDataValue("icon", JSON.stringify([].concat(value)));
+      references: {
+        model: "KhachSan",
+        key: "maKS",
       },
     },
-    loai: {
-      type: DataTypes.STRING, // khách sạn or phòng
+    maPhong: {
+      type: DataTypes.UUID,
       allowNull: true,
+      references: {
+        model: "Phong",
+        key: "maPhong",
+      },
     },
   },
   {
@@ -35,8 +37,17 @@ const TienNghi = sequelize.define(
 );
 
 TienNghi.associate = (models) => {
-  TienNghi.hasMany(models.TienNghiChiTiet, {
-    foreignKey: "maTienNghi",
+  // Tiện nghi thuộc về 1 khách sạn
+  TienNghi.belongsTo(models.KhachSan, {
+    foreignKey: "maKS",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  });
+
+  // Tiện nghi thuộc về 1 phòng
+  TienNghi.belongsTo(models.Phong, {
+    foreignKey: "maPhong",
+    as: "phong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });

@@ -10,6 +10,7 @@ export interface KhachSanData {
   giaThapNhat?: number;
   anh?: string[];
   trangThai?: string;
+  noiBat?: string;
   hangSao?: number;
   diemDanhGia?: number;
 }

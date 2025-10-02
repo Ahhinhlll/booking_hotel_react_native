@@ -13,6 +13,10 @@ const KhuyenMai = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    thongTinKM: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     phanTramGiam: {
       type: DataTypes.DOUBLE,
       allowNull: true,

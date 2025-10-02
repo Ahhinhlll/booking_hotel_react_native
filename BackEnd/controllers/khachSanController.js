@@ -3,15 +3,37 @@ const fs = require("fs");
 const KhachSan = require("../models/khachSanModel");
 const { Op } = require("sequelize");
 const db = require("../models");
+const { model } = require("../config/config");
 exports.getAll = async (req, res) => {
   try {
     const items = await KhachSan.findAll({
       include: [
-        { model: db.Phong },
-        { model: db.KhuyenMai },
-        { model: db.DatPhong },
-        { model: db.DanhGia },
-        { model: db.TienNghiChiTiet },
+        {
+          model: db.Phong,
+          attributes: ["tenPhong"],
+        },
+        {
+          model: db.KhuyenMai,
+          attributes: ["tenKM", "anh"],
+        },
+        {
+          model: db.DanhGia,
+          attributes: ["soSao", "binhLuan"],
+          include: [
+            {
+              model: db.NguoiDung,
+              attributes: ["hoTen"],
+            },
+          ],
+        },
+        {
+          model: db.TienNghi,
+          attributes: ["tenTienNghi"],
+        },
+        {
+          model: db.KhuyenMai,
+          attributes: ["tenKM", "thongTinKM", "ngayKetThuc"],
+        },
       ],
     });
     res.status(200).json(items);
@@ -24,11 +46,16 @@ exports.getById = async (req, res) => {
   try {
     const item = await KhachSan.findByPk(req.params.id, {
       include: [
-        { model: db.Phong },
-        { model: db.KhuyenMai },
-        { model: db.DatPhong },
-        { model: db.DanhGia },
-        { model: db.TienNghiChiTiet },
+        {
+          model: db.Phong,
+          attributes: ["tenPhong"],
+        },
+        {
+          model: db.KhuyenMai,
+          attributes: ["tenKM", "thongTinKM", "ngayKetThuc", "anh"],
+        },
+        { model: db.DanhGia, attributes: ["soSao", "binhLuan"] },
+        { model: db.TienNghi, attributes: ["tenTienNghi"] },
       ],
     });
     if (item) res.status(200).json(item);
@@ -52,7 +79,7 @@ exports.insert = async (req, res) => {
     // Đặt giá thấp nhất mặc định là 0
     const requestBody = {
       ...req.body,
-      giaThapNhat: 0
+      giaThapNhat: 0,
     };
     const newItem = await KhachSan.create(requestBody);
     res.status(201).json(newItem);
@@ -72,6 +99,7 @@ exports.update = async (req, res) => {
       giaChiTu,
       anh,
       trangThai,
+      noiBat,
       hangSao,
       loaiHinh,
     } = req.body;
@@ -86,6 +114,7 @@ exports.update = async (req, res) => {
         giaChiTu,
         anh,
         trangThai,
+        noiBat,
         hangSao,
         loaiHinh,
       });
@@ -125,7 +154,7 @@ exports.search = async (req, res) => {
         { model: db.KhuyenMai },
         { model: db.DatPhong },
         { model: db.DanhGia },
-        { model: db.TienNghiChiTiet },
+        { model: db.TienNghi },
       ],
     });
     res.status(200).json(items);
@@ -170,7 +199,7 @@ exports.getRecentHotels = async (req, res) => {
         { model: db.KhuyenMai },
         { model: db.DatPhong },
         { model: db.DanhGia },
-        { model: db.TienNghiChiTiet },
+        { model: db.TienNghi },
       ],
     });
     res.status(200).json(items);

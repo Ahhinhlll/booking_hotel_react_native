@@ -135,12 +135,12 @@ DatPhong.associate = (models) => {
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
-  DatPhong.hasMany(models.SuCo, {
+  DatPhong.hasMany(models.DanhGia, {
     foreignKey: "maDatPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
-  DatPhong.hasMany(models.DanhGia, {
+  DatPhong.hasMany(models.SuCo, {
     foreignKey: "maDatPhong",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",

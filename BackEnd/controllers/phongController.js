@@ -17,7 +17,7 @@ exports.getByKhachSan = async (req, res) => {
         { model: db.GiaPhong },
         { model: db.KhuyenMai },
         { model: db.DatPhong },
-        { model: db.TienNghiChiTiet },
+        { model: db.TienNghi, as: "TienNghis" },
         { model: db.SuCo },
       ],
     });
@@ -30,13 +30,24 @@ exports.getAll = async (req, res) => {
   try {
     const items = await Phong.findAll({
       include: [
-        { model: db.KhachSan },
-        { model: db.LoaiPhong },
-        { model: db.GiaPhong },
-        { model: db.KhuyenMai },
-        { model: db.DatPhong },
-        { model: db.TienNghiChiTiet },
-        { model: db.SuCo },
+        { model: db.KhachSan, attributes: ["tenKS"] },
+        { model: db.LoaiPhong, attributes: ["tenLoaiPhong"] },
+        {
+          model: db.GiaPhong,
+          attributes: [
+            "loaiDat",
+            "giaQuaDem",
+            "giaTheoNgay",
+            "gia2GioDau",
+            "gia1GioThem",
+          ],
+        },
+        {
+          model: db.KhuyenMai,
+          attributes: ["tenKM", "thongTinKM", "ngayKetThuc", "anh"],
+        },
+        { model: db.TienNghi, as: "TienNghis", attributes: ["tenTienNghi"] },
+        { model: db.SuCo, attributes: ["moTa", "chiPhi"] },
       ],
     });
     res.status(200).json(items);
@@ -49,12 +60,14 @@ exports.getById = async (req, res) => {
   try {
     const item = await Phong.findByPk(req.params.id, {
       include: [
-        { model: db.KhachSan },
-        { model: db.LoaiPhong },
+        { model: db.KhachSan, attributes: ["tenKS"] },
+        { model: db.LoaiPhong, attributes: ["tenLoaiPhong"] },
         { model: db.GiaPhong },
-        { model: db.KhuyenMai },
-        { model: db.DatPhong },
-        { model: db.TienNghiChiTiet },
+        {
+          model: db.KhuyenMai,
+          attributes: ["tenKM", "thongTinKM", "ngayKetThuc"],
+        },
+        { model: db.TienNghi, as: "TienNghis" },
         { model: db.SuCo },
       ],
     });
@@ -228,7 +241,7 @@ exports.search = async (req, res) => {
         { model: db.GiaPhong },
         { model: db.KhuyenMai },
         { model: db.DatPhong },
-        { model: db.TienNghiChiTiet },
+        { model: db.TienNghi, as: "TienNghis" },
         { model: db.SuCo },
       ],
     });

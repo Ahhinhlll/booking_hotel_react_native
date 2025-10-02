@@ -26,19 +26,70 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
-    const { maDatPhong } = req.body;
-    if (!maDatPhong) {
-      return res.status(400).json({ message: "Thiếu mã đặt phòng" });
+    const transaction = await db.ThanhToan.sequelize.transaction();
+    const { maDatPhong, phuongThuc, soTien, trangThai, maGiaoDich } = req.body;
+
+    if (!maDatPhong || !phuongThuc) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu mã đặt phòng hoặc phương thức thanh toán",
+      });
     }
+
     // Kiểm tra DatPhong tồn tại
-    const datPhong = await db.DatPhong.findByPk(maDatPhong);
+    const datPhong = await db.DatPhong.findByPk(maDatPhong, { transaction });
     if (!datPhong) {
-      return res.status(400).json({ message: "Đặt phòng không tồn tại" });
+      return res.status(400).json({
+        success: false,
+        message: "Đặt phòng không tồn tại",
+      });
     }
-    const newItem = await ThanhToan.create(req.body);
-    res.status(201).json(newItem);
+
+    // Kiểm tra xem đã có thanh toán cho đơn này chưa
+    const existingPayment = await ThanhToan.findOne({
+      where: { maDatPhong },
+      transaction,
+    });
+
+    if (existingPayment) {
+      return res.status(400).json({
+        success: false,
+        message: "Đơn đặt phòng này đã có thông tin thanh toán",
+      });
+    }
+
+    // Tạo bản ghi thanh toán mới
+    const newPayment = await ThanhToan.create(
+      {
+        maDatPhong,
+        phuongThuc,
+        soTien: soTien || datPhong.tongTienSauGiam, // Nếu không có số tiền, lấy từ đơn đặt phòng
+        trangThai: trangThai || "Chưa thanh toán",
+        maGiaoDich,
+      },
+      { transaction }
+    );
+
+    // Cập nhật trạng thái đơn đặt phòng
+    await datPhong.update(
+      {
+        trangThai: "Đã thanh toán",
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      data: newPayment,
+      message: "Tạo thanh toán thành công",
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
   }
 };
 

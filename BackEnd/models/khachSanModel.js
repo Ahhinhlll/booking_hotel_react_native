@@ -45,15 +45,19 @@ const KhachSan = sequelize.define(
 
     hangSao: {
       type: DataTypes.INTEGER,
-      defaultValue: 3,
+      defaultValue: 0,
     },
     diemDanhGia: {
-      type: DataTypes.STRING,
-      allowNull: true,
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
     },
     trangThai: {
       type: DataTypes.STRING,
       defaultValue: "Hoạt động",
+    },
+    noiBat: {
+      type: DataTypes.STRING,
+      defaultValue: "Nổi bật",
     },
   },
   {
@@ -82,7 +86,7 @@ KhachSan.associate = (models) => {
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
-  KhachSan.hasMany(models.TienNghiChiTiet, {
+  KhachSan.hasMany(models.TienNghi, {
     foreignKey: "maKS",
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
