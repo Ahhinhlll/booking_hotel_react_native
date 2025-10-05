@@ -48,9 +48,15 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
         setLoading(true);
         const data = await fetchProvinces();
         setProvinces(data);
+        
+        // Set default province if not already set
+        if (!selectedProvince && data.length > 0) {
+          setSelectedProvince(data[0].name);
+        }
       } catch (error) {
         console.error("Error fetching provinces:", error);
-        setProvinces([]); // Set empty array on error
+        // fetchProvinces() đã có fallback data, không cần set empty array
+        // setProvinces([]); // Removed this line
       } finally {
         setLoading(false);
       }
@@ -298,6 +304,26 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
                   }}
                 >
                   Đang tải danh sách tỉnh thành...
+                </Text>
+              </View>
+            )}
+
+            {/* Empty state */}
+            {!loading && provinces.length === 0 && (
+              <View
+                style={{
+                  padding: 16,
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#6B7280",
+                    textAlign: "center",
+                  }}
+                >
+                  Không thể tải danh sách tỉnh thành.{'\n'}
+                  Vui lòng kiểm tra kết nối internet.
                 </Text>
               </View>
             )}

@@ -22,7 +22,7 @@ interface ProfileHeaderProps {
 export default function ProfileHeader({ userData }: ProfileHeaderProps) {
   const router = useRouter();
 
-  useEffect(() => console.log("User Data in ProfileHeader:", userData), []);
+  useEffect(() => {}, [userData]);
 
   const handleEditProfile = () => {
     router.push("/other/update-profile");

@@ -31,6 +31,11 @@ export const getImageUrl = (path?: string | string[]) => {
     finalPath = "/" + finalPath;
   }
 
+  // If it looks like a filename (has timestamp pattern), add /uploads/ prefix
+  if (finalPath.match(/^\/(\d+\.(jpg|jpeg|png|gif|webp|svg))$/i)) {
+    finalPath = `/uploads${finalPath}`;
+  }
+
   const fullUrl = `${IMAGE_URL}${finalPath}`;
 
   return fullUrl;

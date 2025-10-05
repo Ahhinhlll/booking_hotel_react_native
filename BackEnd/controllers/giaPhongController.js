@@ -51,7 +51,8 @@ exports.insert = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const item = await GiaPhong.findByPk(req.params.id);
+    const maGiaPhong=req.params.id || req.body.maGiaPhong; 
+    const item = await GiaPhong.findByPk(maGiaPhong);
     if (item) {
       await item.update(req.body);
 

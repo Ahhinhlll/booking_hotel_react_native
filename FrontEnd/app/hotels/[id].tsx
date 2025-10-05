@@ -9,6 +9,7 @@ import {
   Dimensions,
   StatusBar,
   Modal,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -17,24 +18,26 @@ import {
   KhachSanServices,
   KhachSanData,
 } from "../../services/KhachSanServices";
+// Force TypeScript to reload types
+import {
+  KhuyenMaiServices,
+  KhuyenMaiData,
+} from "../../services/KhuyenMaiServices";
 import { getImageUrl } from "../../utils/getImageUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
+import HotelSection from "../../components/HotelSection";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Cập nhật hàm xử lý ảnh: Giả định hotel.anh là string[]
 const parseImageUrls = (images: string[] | undefined): string[] => {
   if (!images || images.length === 0) {
     return [];
   }
 
-  return (
-    images
-      .map((img) => getImageUrl(img))
-      // SỬA LỖI: Lọc các giá trị undefined để đảm bảo kiểu trả về là string[]
-      .filter((url): url is string => !!url)
-  );
+  return images
+    .map((img) => getImageUrl(img))
+    .filter((url): url is string => !!url);
 };
 
 export default function HotelDetailScreen() {
@@ -45,23 +48,30 @@ export default function HotelDetailScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
-  // State cho thời gian đặt phòng
+
   const [bookingTime, setBookingTime] = useState({
     duration: "02 giờ",
-    startTime: "16:00",
-    endTime: "18:00",
-    date: "30/09",
+    startTime: "15:00",
+    endTime: "17:00",
+    date: "03/10",
+    checkInDate: "03/10",
+    checkOutDate: "04/10",
   });
-  // State cho modal chọn thời gian
   const [showTimePickerModal, setShowTimePickerModal] = useState(false);
+  const [bookingType, setBookingType] = useState("Theo giờ");
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
+  const [showPromotionsModal, setShowPromotionsModal] = useState(false);
+  const [showHotelDetailsModal, setShowHotelDetailsModal] = useState(false);
+  const [promotions, setPromotions] = useState<KhuyenMaiData[]>([]);
 
   useEffect(() => {
     if (id) {
       loadHotelDetail();
+      loadPromotions();
     }
   }, [id]);
 
-  // ... (các hàm useEffect, loadHotelDetail, handleBack, handleFavorite, handleShare, handleSelectRoom giữ nguyên)
   useEffect(() => {
     const checkFavoriteStatus = async () => {
       try {
@@ -90,7 +100,6 @@ export default function HotelDetailScreen() {
       setHotel(data);
     } catch (error) {
       console.error("Error loading hotel detail:", error);
-      Alert.alert("Lỗi", "Không thể tải thông tin khách sạn");
       router.back();
     } finally {
       setLoading(false);
@@ -106,7 +115,6 @@ export default function HotelDetailScreen() {
       let favorites: KhachSanData[] = stored ? JSON.parse(stored) : [];
 
       if (isFavorite) {
-        // Xóa
         const updatedFavorites = favorites.filter(
           (item) => item.maKS !== hotel?.maKS
         );
@@ -122,7 +130,6 @@ export default function HotelDetailScreen() {
           visibilityTime: 1000,
         });
       } else {
-        // Thêm
         if (hotel) {
           favorites = [...favorites, hotel];
           await AsyncStorage.setItem("yeuThich", JSON.stringify(favorites));
@@ -141,12 +148,45 @@ export default function HotelDetailScreen() {
   };
 
   const handleShare = () => {
-    // TODO: Implement share functionality
     Alert.alert("Chia sẻ", "Tính năng chia sẻ sẽ được cập nhật sớm");
   };
 
   const handleSelectRoom = () => {
     router.push(`/rooms/${id}`);
+  };
+
+  const loadPromotions = async () => {
+    try {
+      const data = await KhuyenMaiServices.getAll();
+      setPromotions(data || []);
+    } catch (error) {
+      console.error("Error loading promotions:", error);
+    }
+  };
+
+  const handleViewMap = () => {
+    // Mở Google Maps với địa chỉ khách sạn
+    const address = encodeURIComponent(`${hotel?.diaChi}, ${hotel?.tinhThanh}`);
+    const url = `https://www.google.com/maps/search/?api=1&query=${address}`;
+
+    // Hoặc navigate đến trang map trong app
+    router.push({
+      pathname: "/map",
+      params: {
+        hotelName: hotel?.tenKS,
+        address: `${hotel?.diaChi}, ${hotel?.tinhThanh}`,
+        lat: "21.0285",
+        lng: "105.8542",
+      },
+    });
+  };
+
+  const handleViewPromotions = () => {
+    setShowPromotionsModal(true);
+  };
+
+  const handleViewMoreDetails = () => {
+    setShowHotelDetailsModal(true);
   };
 
   const handleTimeSelect = () => {
@@ -158,14 +198,64 @@ export default function HotelDetailScreen() {
     const index = Math.round(contentOffsetX / SCREEN_WIDTH);
     setActiveImageIndex(index);
   };
-  // ... (mã loading/error screen giữ nguyên)
 
-  const amenities = [
-    { icon: "tv", label: "TV with netflix" },
-    { icon: "shirt", label: "Móc treo quần áo" },
-    { icon: "cafe", label: "Cà phê/Trà miễn phí" },
-    { icon: "water", label: "Nước suối miễn phí" },
-  ];
+  const getAmenityIcon = (amenityName: string) => {
+    const iconMap: { [key: string]: string } = {
+      TV: "tv",
+      Wifi: "wifi",
+      "Điều hòa": "snow",
+      "Bồn tắm": "water",
+      "Sân vườn": "leaf",
+      "Cà phê": "cafe",
+      "Nước suối": "water",
+      "Móc treo": "shirt",
+      Netflix: "tv",
+      "Miễn phí": "checkmark-circle",
+    };
+
+    for (const [key, icon] of Object.entries(iconMap)) {
+      if (amenityName.toLowerCase().includes(key.toLowerCase())) {
+        return icon;
+      }
+    }
+    return "checkmark-circle";
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        const isoDate = new Date(dateString.replace(/ /g, "T"));
+        if (!isNaN(isoDate.getTime())) {
+          return isoDate.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
+        }
+        return new Date().toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+      }
+
+      return date.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return new Date().toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -243,10 +333,6 @@ export default function HotelDetailScreen() {
     );
   }
 
-  // TÍNH TOÁN URL ẢNH
-  // const imageUrls = parseImageUrls(hotel.anh);
-  // const displayImageUrls =
-  //   imageUrls.length > 0 ? imageUrls : ["https://via.placeholder.com/400x300"];
   const imageUrls = parseImageUrls(hotel.anh);
   const displayImageUrls = imageUrls;
 
@@ -431,8 +517,10 @@ export default function HotelDetailScreen() {
                   marginLeft: 4,
                 }}
               >
-                {hotel.hangSao}.0{" "}
-                <Text style={{ color: "#9CA3AF" }}>({hotel.diemDanhGia})</Text>
+                {hotel.hangSao || 5}.0{" "}
+                <Text style={{ color: "#9CA3AF" }}>
+                  ({hotel.diemDanhGia || 19})
+                </Text>
               </Text>
             </View>
             {hotel.noiBat === "Nổi bật" && (
@@ -497,7 +585,7 @@ export default function HotelDetailScreen() {
               <Text style={{ fontSize: 14, color: "#6B7280" }}>
                 Cách bạn 8.9km
               </Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={handleViewMap}>
                 <Text
                   style={{ color: "#FB923C", fontSize: 14, fontWeight: "600" }}
                 >
@@ -508,149 +596,228 @@ export default function HotelDetailScreen() {
           </View>
 
           {/* Promotion Banner */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#FEF3E7",
-              padding: 16,
-              borderRadius: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 20,
-              borderWidth: 1,
-              borderColor: "#FB923C",
-            }}
-          >
-            <View
-              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
-            >
-              <Ionicons name="pricetag" size={20} color="#FB923C" />
-              <Text
+          {(hotel as any).KhuyenMais &&
+            (hotel as any).KhuyenMais.length > 0 && (
+              <TouchableOpacity
+                onPress={handleViewPromotions}
                 style={{
-                  marginLeft: 8,
-                  color: "#FB923C",
-                  fontWeight: "600",
-                  fontSize: 14,
-                  flex: 1,
+                  backgroundColor: "#FEF3E7",
+                  padding: 16,
+                  borderRadius: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: "#FB923C",
                 }}
               >
-                Giảm 27K, đặt tối thiểu 150K
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#FB923C" />
-          </TouchableOpacity>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flex: 1,
+                  }}
+                >
+                  <Ionicons name="pricetag" size={20} color="#FB923C" />
+                  <Text
+                    style={{
+                      marginLeft: 8,
+                      color: "#FB923C",
+                      fontWeight: "600",
+                      fontSize: 14,
+                      flex: 1,
+                    }}
+                  >
+                    {(hotel as any).KhuyenMais[0].thongTinKM ||
+                      "Giảm 27K, đặt tối thiểu 150K"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FB923C" />
+              </TouchableOpacity>
+            )}
 
           {/* Rating Section */}
           <View style={{ marginBottom: 24 }}>
             <View
               style={{
                 flexDirection: "row",
-                alignItems: "flex-end",
-                marginBottom: 8,
+                alignItems: "center",
+                marginBottom: 4,
               }}
             >
+              {/* Cột trái: điểm */}
               <Text
                 style={{
-                  fontSize: 48,
+                  fontSize: 36,
                   fontWeight: "bold",
                   color: "#1F2937",
-                  lineHeight: 48,
+                  lineHeight: 40,
                 }}
               >
-                5.0
+                {hotel.hangSao}.0
               </Text>
-              <Text
-                style={{
-                  fontSize: 16,
-                  color: "#1F2937",
-                  fontWeight: "600",
-                  marginLeft: 8,
-                  marginBottom: 4,
-                }}
-              >
-                Tuyệt vời
-              </Text>
-            </View>
-            <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
-              19 đánh giá
-            </Text>
 
-            {/* Review Preview */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "flex-start",
-                paddingVertical: 16,
-                borderTopWidth: 1,
-                borderColor: "#F3F4F6",
-              }}
-            >
-              {/* Star Rating */}
-              <View style={{ marginRight: 16 }}>
-                <View style={{ flexDirection: "row", marginBottom: 4 }}>
-                  {[...Array(3)].map((_, i) => (
-                    <Ionicons key={i} name="star" size={16} color="#FCD34D" />
-                  ))}
-                </View>
-              </View>
-
-              {/* User Avatar */}
-              <View
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: "#6366F1",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginRight: 12,
-                }}
-              >
-                <Ionicons name="person" size={20} color="#FFFFFF" />
-              </View>
-
-              {/* Review Content */}
-              <View style={{ flex: 1 }}>
+              {/* Cột phải: mô tả và số đánh giá */}
+              <View style={{ marginLeft: 8 }}>
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 16,
                     color: "#1F2937",
                     fontWeight: "600",
                     marginBottom: 2,
                   }}
                 >
-                  tieulang
+                  {hotel.hangSao === 1
+                    ? "Tệ"
+                    : hotel.hangSao === 2
+                      ? "Không hài lòng"
+                      : hotel.hangSao === 3
+                        ? "Bình thường"
+                        : hotel.hangSao === 4
+                          ? "Hài lòng"
+                          : "Tuyệt vời"}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: "#6B7280",
-                    marginBottom: 8,
-                  }}
-                >
-                  Phòng ban công có bồn tắm
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: "#1F2937",
-                    lineHeight: 20,
-                  }}
-                >
-                  Phòng sạch sẽ, thơm tho, Giá cả phù hợp, Nhân viên thân thiện
-                </Text>
-              </View>
 
-              {/* Rating Stars */}
-              <View style={{ flexDirection: "row" }}>
-                {[...Array(5)].map((_, i) => (
-                  <Ionicons key={i} name="star" size={14} color="#FCD34D" />
-                ))}
+                <Text style={{ fontSize: 13, color: "#6B7280" }}>
+                  {hotel.diemDanhGia} đánh giá
+                </Text>
               </View>
             </View>
+
+            {/* Review Preview */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: "row", paddingRight: 16 }}>
+                {((hotel as any).DanhGia?.slice(0, 3) || []).map(
+                  (review: any, index: number) => (
+                    <View
+                      key={review.maDG || index}
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: 12,
+                        padding: 16,
+                        marginRight: 12,
+                        width: 280,
+                        borderWidth: 1,
+                        borderColor: "#F3F4F6",
+                      }}
+                    >
+                      {/* User Info */}
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            backgroundColor: "#6366F1",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            marginRight: 8,
+                          }}
+                        >
+                          <Ionicons name="person" size={16} color="#FFFFFF" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              color: "#1F2937",
+                              fontWeight: "600",
+                            }}
+                          >
+                            {review.NguoiDung?.hoTen || "Khách hàng"}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: "#6B7280",
+                            }}
+                          >
+                            {review.DatPhong?.Phong?.tenPhong ||
+                              "Phòng tiêu chuẩn"}
+                          </Text>
+                        </View>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                          }}
+                        >
+                          {[...Array(review.soSao || 5)].map((_, i) => (
+                            <Ionicons
+                              key={`star-${review.maDG || index}-${i}`}
+                              name="star"
+                              size={12}
+                              color="#FCD34D"
+                            />
+                          ))}
+                        </View>
+                      </View>
+
+                      {/* Review Content */}
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#1F2937",
+                          lineHeight: 20,
+                          marginBottom: 8,
+                        }}
+                      >
+                        {review.binhLuan ||
+                          "Người dùng chưa chia sẻ cảm nhận về khách sạn."}
+                      </Text>
+
+                      {/* Date */}
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: "#9CA3AF",
+                        }}
+                      >
+                        {review.ngayDG
+                          ? formatDate(review.ngayDG)
+                          : "Đánh giá mới"}
+                      </Text>
+                    </View>
+                  )
+                )}
+
+                {/* View All Button */}
+                <TouchableOpacity
+                  onPress={() => setShowReviewsModal(true)}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginRight: 12,
+                    width: 100,
+                    borderWidth: 1,
+                    borderColor: "#F3F4F6",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#FB923C",
+                      fontSize: 14,
+                      fontWeight: "600",
+                      textAlign: "center",
+                    }}
+                  >
+                    Xem tất cả
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
 
-          {/* Amenities - GIỮ NGUYÊN */}
+          {/* Amenities */}
           <View style={{ marginBottom: 24 }}>
             <View
               style={{
@@ -669,7 +836,7 @@ export default function HotelDetailScreen() {
               >
                 Tiện ích khách sạn
               </Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowAmenitiesModal(true)}>
                 <Text
                   style={{ color: "#FB923C", fontSize: 14, fontWeight: "600" }}
                 >
@@ -679,38 +846,44 @@ export default function HotelDetailScreen() {
             </View>
 
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              {amenities.map((amenity, index) => (
-                <View
-                  key={index}
-                  style={{
-                    width: "50%",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginBottom: 12,
-                  }}
-                >
+              {((hotel as any).TienNghis?.slice(0, 4) || []).map(
+                (amenity: any, index: number) => (
                   <View
+                    key={amenity.maTienNghi || index}
                     style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      backgroundColor: "#F3F4F6",
-                      justifyContent: "center",
+                      width: "50%",
+                      flexDirection: "row",
                       alignItems: "center",
-                      marginRight: 8,
+                      marginBottom: 12,
                     }}
                   >
-                    <Ionicons name="checkmark" size={16} color="#10B981" />
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        backgroundColor: "#F3F4F6",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        marginRight: 8,
+                      }}
+                    >
+                      <Ionicons
+                        name={getAmenityIcon(amenity.tenTienNghi) as any}
+                        size={16}
+                        color="#10B981"
+                      />
+                    </View>
+                    <Text style={{ fontSize: 14, color: "#6B7280", flex: 1 }}>
+                      {amenity.tenTienNghi}
+                    </Text>
                   </View>
-                  <Text style={{ fontSize: 14, color: "#6B7280", flex: 1 }}>
-                    {amenity.label}
-                  </Text>
-                </View>
-              ))}
+                )
+              )}
             </View>
           </View>
 
-          {/* XÓA PHẦN MÔ TẢ (Giới thiệu) vì không có trường dữ liệu */}
+          {/* Giới thiệu */}
           <View style={{ marginBottom: 24 }}>
             <Text
               style={{
@@ -723,11 +896,17 @@ export default function HotelDetailScreen() {
               Giới thiệu
             </Text>
             <Text style={{ fontSize: 14, color: "#6B7280", lineHeight: 20 }}>
-              Thông tin giới thiệu về khách sạn đang được cập nhật từ hệ thống.
+              {hotel.tenKS} hiện có 8 chi nhánh trải rộng khắp các quận trung
+              tâm Hà Nội: Hoàn Kiếm, Ba Đình, Cầu Giấy, Thanh Xuân...
+              <TouchableOpacity onPress={handleViewMoreDetails}>
+                <Text style={{ color: "#FB923C", fontWeight: "600" }}>
+                  Xem thêm
+                </Text>
+              </TouchableOpacity>
             </Text>
           </View>
 
-          {/* Room Booking Info - GIỮ NGUYÊN */}
+          {/* Giờ nhận phòng/trả phòng */}
           <View style={{ marginBottom: 24 }}>
             <Text
               style={{
@@ -797,10 +976,37 @@ export default function HotelDetailScreen() {
               </View>
             </View>
           </View>
+
+          {/* Chính sách hủy phòng */}
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "bold",
+                color: "#1F2937",
+                marginBottom: 12,
+              }}
+            >
+              Chính sách hủy phòng
+            </Text>
+            <Text style={{ fontSize: 14, color: "#6B7280", lineHeight: 20 }}>
+              Việc hủy phòng sẽ tuân theo quy định riêng của từng loại phòng và
+              thời điểm đặt.
+            </Text>
+          </View>
+
+          {/* Gợi ý cho bạn */}
+          <View style={{ marginBottom: 120 }}>
+            <HotelSection
+              title="Gợi ý cho bạn"
+              subtitle="Được đề xuất cho bạn"
+              limit={3}
+            />
+          </View>
         </View>
       </ScrollView>
 
-      {/* Bottom Booking Bar - Cập nhật lại layout để thời gian trên hàng riêng */}
+      {/* Bottom Booking Bar */}
       <View
         style={{
           position: "absolute",
@@ -819,11 +1025,11 @@ export default function HotelDetailScreen() {
           shadowRadius: 8,
         }}
       >
-        {/* Booking Time Section - Hiển thị trên hàng riêng */}
+        {/* Booking Time Section */}
         <TouchableOpacity
           onPress={handleTimeSelect}
           style={{
-            backgroundColor: "#FEF3E7",
+            backgroundColor: "#E0F2FE",
             paddingVertical: 12,
             paddingHorizontal: 16,
             borderRadius: 12,
@@ -832,7 +1038,7 @@ export default function HotelDetailScreen() {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Ionicons name="time" size={16} color="#FB923C" />
+            <Ionicons name="business" size={16} color="#0EA5E9" />
             <Text
               style={{
                 marginLeft: 8,
@@ -841,13 +1047,12 @@ export default function HotelDetailScreen() {
                 fontWeight: "600",
               }}
             >
-              {bookingTime.duration} | {bookingTime.startTime} →{" "}
-              {bookingTime.endTime}, {bookingTime.date}
+              01 ngày | 14:00, 03/10 → 12:00, 04/10
             </Text>
           </View>
         </TouchableOpacity>
 
-        {/* Price and Button Section - Hàng riêng */}
+        {/* Price and Button Section */}
         <View
           style={{
             flexDirection: "row",
@@ -859,7 +1064,7 @@ export default function HotelDetailScreen() {
             <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
               Chỉ từ{" "}
               <Text style={{ textDecorationLine: "line-through" }}>
-                350.000đ
+                {(hotel.giaThapNhat || 800000).toLocaleString("vi-VN")}₫
               </Text>
             </Text>
             <Text
@@ -869,7 +1074,7 @@ export default function HotelDetailScreen() {
                 color: "#1F2937",
               }}
             >
-              250.000đ
+              {((hotel.giaThapNhat || 800000) * 0.85).toLocaleString("vi-VN")}₫
             </Text>
           </View>
 
@@ -928,7 +1133,7 @@ export default function HotelDetailScreen() {
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
             <View style={{ padding: 16 }}>
               {displayImageUrls.map((url, index) => (
-                <View key={index} style={{ marginBottom: 24 }}>
+                <View key={`gallery-${index}`} style={{ marginBottom: 24 }}>
                   <Text
                     style={{
                       fontSize: 18,
@@ -976,7 +1181,7 @@ export default function HotelDetailScreen() {
             }}
           >
             <TouchableOpacity onPress={() => setShowTimePickerModal(false)}>
-              <Ionicons name="close" size={24} color="#333" />
+              <Ionicons name="chevron-back" size={24} color="#333" />
             </TouchableOpacity>
             <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
               Chọn thời gian
@@ -984,182 +1189,958 @@ export default function HotelDetailScreen() {
             <View style={{ width: 24 }} />
           </View>
 
-          {/* Modal Content */}
-          <View style={{ flex: 1, padding: 16 }}>
-            <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 16 }}>
-              Chọn ngày và giờ nhận phòng
-            </Text>
-
-            {/* Date Picker */}
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 8 }}>
-                Chọn ngày
-              </Text>
+          {/* Booking Type Tabs */}
+          <View
+            style={{
+              flexDirection: "row",
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#F3F4F6",
+            }}
+          >
+            {["Theo giờ", "Qua đêm", "Theo ngày"].map((type) => (
               <TouchableOpacity
+                key={type}
                 style={{
-                  borderWidth: 1,
-                  borderColor: "#D1D5DB",
-                  borderRadius: 8,
-                  padding: 16,
-                  backgroundColor: "#F9FAFB",
+                  flex: 1,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  borderBottomWidth: bookingType === type ? 2 : 0,
+                  borderBottomColor:
+                    bookingType === type ? "#FB923C" : "transparent",
                 }}
+                onPress={() => setBookingType(type)}
               >
-                <Text style={{ fontSize: 16, color: "#1F2937" }}>
-                  {bookingTime.date} - Tháng Chín, 2025
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: bookingType === type ? "600" : "400",
+                    color: bookingType === type ? "#FB923C" : "#6B7280",
+                  }}
+                >
+                  {type}
                 </Text>
               </TouchableOpacity>
-            </View>
+            ))}
+          </View>
 
-            {/* Time Picker */}
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 8 }}>
-                Chọn giờ nhận phòng
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                }}
-              >
-                {[
-                  "08:00",
-                  "10:00",
-                  "12:00",
-                  "14:00",
-                  "16:00",
-                  "18:00",
-                  "20:00",
-                  "22:00",
-                ].map((time) => (
-                  <TouchableOpacity
-                    key={time}
-                    style={{
-                      borderWidth: 1,
-                      borderColor:
-                        bookingTime.startTime === time ? "#FB923C" : "#D1D5DB",
-                      backgroundColor:
-                        bookingTime.startTime === time ? "#FEF3E7" : "#F9FAFB",
-                      borderRadius: 8,
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      marginBottom: 8,
-                      minWidth: 70,
-                      alignItems: "center",
-                    }}
-                    onPress={() => {
-                      // Cập nhật giờ bắt đầu và giờ kết thúc (giả định thời lượng là 2 giờ)
-                      const [hours, minutes] = time.split(":");
-                      const endTimeHours = (parseInt(hours) + 2) % 24;
-                      const endTime = `${endTimeHours.toString().padStart(2, "0")}:${minutes}`;
-                      setBookingTime({
-                        ...bookingTime,
-                        startTime: time,
-                        endTime: endTime,
-                      });
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color:
-                          bookingTime.startTime === time
-                            ? "#FB923C"
-                            : "#6B7280",
-                        fontWeight:
-                          bookingTime.startTime === time ? "600" : "400",
-                      }}
-                    >
-                      {time}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Duration Picker */}
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 8 }}>
-                Chọn thời lượng
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
-              >
-                {["02 giờ", "04 giờ", "06 giờ", "08 giờ"].map((duration) => (
-                  <TouchableOpacity
-                    key={duration}
-                    style={{
-                      borderWidth: 1,
-                      borderColor:
-                        bookingTime.duration === duration
-                          ? "#FB923C"
-                          : "#D1D5DB",
-                      backgroundColor:
-                        bookingTime.duration === duration
-                          ? "#FEF3E7"
-                          : "#F9FAFB",
-                      borderRadius: 8,
-                      paddingVertical: 12,
-                      paddingHorizontal: 16,
-                      flex: 1,
-                      marginHorizontal: 4,
-                      alignItems: "center",
-                    }}
-                    onPress={() => {
-                      // Cập nhật thời lượng và giờ kết thúc tương ứng
-                      const [startHours, startMinutes] =
-                        bookingTime.startTime.split(":");
-                      const durationHours = parseInt(
-                        duration.replace(" giờ", "")
-                      );
-                      const endHours =
-                        (parseInt(startHours) + durationHours) % 24;
-                      const endTime = `${endHours.toString().padStart(2, "0")}:${startMinutes}`;
-
-                      setBookingTime({
-                        ...bookingTime,
-                        duration: duration,
-                        endTime: endTime,
-                      });
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color:
-                          bookingTime.duration === duration
-                            ? "#FB923C"
-                            : "#6B7280",
-                        fontWeight:
-                          bookingTime.duration === duration ? "600" : "400",
-                      }}
-                    >
-                      {duration}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Apply Button */}
-            <TouchableOpacity
-              onPress={() => setShowTimePickerModal(false)}
+          {/* Calendar Section */}
+          <View style={{ flex: 1, padding: 16 }}>
+            {/* Calendar Header */}
+            <View
               style={{
-                backgroundColor: "#FB923C",
-                borderRadius: 25,
-                paddingVertical: 16,
+                flexDirection: "row",
                 alignItems: "center",
-                marginTop: "auto",
+                justifyContent: "space-between",
+                marginBottom: 16,
               }}
             >
               <Text
-                style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "bold" }}
+                style={{ fontSize: 18, fontWeight: "600", color: "#1F2937" }}
               >
-                Áp dụng
+                Tháng 10, 2025
               </Text>
-            </TouchableOpacity>
+              <View style={{ flexDirection: "row" }}>
+                <TouchableOpacity style={{ padding: 8 }}>
+                  <Ionicons name="chevron-back" size={20} color="#6B7280" />
+                </TouchableOpacity>
+                <TouchableOpacity style={{ padding: 8 }}>
+                  <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Days of Week */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-around",
+                marginBottom: 16,
+              }}
+            >
+              {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => (
+                <Text
+                  key={day}
+                  style={{
+                    fontSize: 14,
+                    color: "#9CA3AF",
+                    fontWeight: "500",
+                    width: 40,
+                    textAlign: "center",
+                  }}
+                >
+                  {day}
+                </Text>
+              ))}
+            </View>
+
+            {/* Calendar Grid */}
+            <View style={{ marginBottom: 24 }}>
+              {[
+                [1, 2, 3, 4, 5, 6, 7],
+                [8, 9, 10, 11, 12, 13, 14],
+                [15, 16, 17, 18, 19, 20, 21],
+                [22, 23, 24, 25, 26, 27, 28],
+                [29, 30, 31, null, null, null, null],
+              ].map((week, weekIndex) => (
+                <View
+                  key={weekIndex}
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-around",
+                    marginBottom: 8,
+                  }}
+                >
+                  {week.map((day, dayIndex) => (
+                    <TouchableOpacity
+                      key={`${weekIndex}-${dayIndex}-${day || "null"}`}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor:
+                          day === 3 || day === 4
+                            ? "#FB923C"
+                            : day === 1 || day === 2
+                              ? "transparent"
+                              : "transparent",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          color:
+                            day === 3 || day === 4
+                              ? "#FFFFFF"
+                              : day === 1 || day === 2
+                                ? "#D1D5DB"
+                                : "#1F2937",
+                          fontWeight: day === 3 || day === 4 ? "600" : "400",
+                        }}
+                      >
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </View>
+
+            {/* Time Selection for Hourly Booking */}
+            {bookingType === "Theo giờ" && (
+              <>
+                <Text
+                  style={{ fontSize: 16, fontWeight: "600", marginBottom: 12 }}
+                >
+                  Giờ nhận phòng
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: "row", paddingRight: 16 }}>
+                    {["15:00", "15:30", "16:00", "16:30", "17:00"].map(
+                      (time) => (
+                        <TouchableOpacity
+                          key={time}
+                          style={{
+                            backgroundColor:
+                              time === "15:00" ? "#FB923C" : "#F3F4F6",
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                            borderRadius: 20,
+                            marginRight: 8,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: time === "15:00" ? "#FFFFFF" : "#6B7280",
+                              fontWeight: time === "15:00" ? "600" : "400",
+                            }}
+                          >
+                            {time}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+                </ScrollView>
+
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    marginTop: 16,
+                    marginBottom: 12,
+                  }}
+                >
+                  Số giờ sử dụng
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: "row", paddingRight: 16 }}>
+                    {["1 giờ", "2 giờ", "3 giờ", "4 giờ", "5 giờ", "6 giờ"].map(
+                      (duration) => (
+                        <TouchableOpacity
+                          key={duration}
+                          style={{
+                            backgroundColor:
+                              duration === "2 giờ" ? "#FB923C" : "#F3F4F6",
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                            borderRadius: 20,
+                            marginRight: 8,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color:
+                                duration === "2 giờ" ? "#FFFFFF" : "#6B7280",
+                              fontWeight: duration === "2 giờ" ? "600" : "400",
+                            }}
+                          >
+                            {duration}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+                </ScrollView>
+              </>
+            )}
+
+            {/* Booking Summary */}
+            <View
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: "#FFFFFF",
+                paddingHorizontal: 16,
+                paddingVertical: 16,
+                borderTopWidth: 1,
+                borderTopColor: "#F3F4F6",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View>
+                <Text
+                  style={{ fontSize: 14, color: "#6B7280", marginBottom: 4 }}
+                >
+                  Nhận phòng
+                </Text>
+                <Text
+                  style={{ fontSize: 16, color: "#1F2937", fontWeight: "600" }}
+                >
+                  15:00, 03/10
+                </Text>
+              </View>
+              <View>
+                <Text
+                  style={{ fontSize: 14, color: "#6B7280", marginBottom: 4 }}
+                >
+                  Trả phòng
+                </Text>
+                <Text
+                  style={{ fontSize: 16, color: "#1F2937", fontWeight: "600" }}
+                >
+                  17:00, 03/10
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowTimePickerModal(false)}
+                style={{
+                  backgroundColor: "#FB923C",
+                  borderRadius: 25,
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                }}
+              >
+                <Text
+                  style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "bold" }}
+                >
+                  Áp dụng
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Reviews Modal */}
+      <Modal
+        visible={showReviewsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowReviewsModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+          {/* Modal Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 40,
+              paddingHorizontal: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#F3F4F6",
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowReviewsModal(false)}>
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
+              Đánh giá & Nhận xét
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Overall Rating Card */}
+          <View
+            style={{
+              backgroundColor: "#F9FAFB",
+              margin: 16,
+              borderRadius: 12,
+              padding: 16,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{ fontSize: 32, fontWeight: "bold", color: "#1F2937" }}
+                >
+                  {hotel.hangSao}.0
+                </Text>
+                <Text
+                  style={{ fontSize: 16, color: "#1F2937", fontWeight: "600" }}
+                >
+                  {hotel.hangSao === 1
+                    ? "Tệ"
+                    : hotel.hangSao === 2
+                      ? "Không hài lòng"
+                      : hotel.hangSao === 3
+                        ? "Bình thường"
+                        : hotel.hangSao === 4
+                          ? "Hài lòng"
+                          : "Tuyệt vời"}
+                </Text>
+                <Text style={{ fontSize: 14, color: "#6B7280" }}>
+                  {hotel.diemDanhGia} đánh giá
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <Ionicons name="hand-left" size={16} color="#6B7280" />
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
+                  >
+                    Sạch sẽ
+                  </Text>
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 4,
+                      backgroundColor: "#E5E7EB",
+                      borderRadius: 2,
+                      marginLeft: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: "100%",
+                        height: 4,
+                        backgroundColor: "#FB923C",
+                        borderRadius: 2,
+                      }}
+                    />
+                  </View>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
+                  >
+                    5.0
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <Ionicons name="happy" size={16} color="#6B7280" />
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
+                  >
+                    Tiện ích
+                  </Text>
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 4,
+                      backgroundColor: "#E5E7EB",
+                      borderRadius: 2,
+                      marginLeft: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: "100%",
+                        height: 4,
+                        backgroundColor: "#FB923C",
+                        borderRadius: 2,
+                      }}
+                    />
+                  </View>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
+                  >
+                    5.0
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="heart" size={16} color="#6B7280" />
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
+                  >
+                    Dịch vụ
+                  </Text>
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 4,
+                      backgroundColor: "#E5E7EB",
+                      borderRadius: 2,
+                      marginLeft: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: "100%",
+                        height: 4,
+                        backgroundColor: "#FB923C",
+                        borderRadius: 2,
+                      }}
+                    />
+                  </View>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
+                  >
+                    5.0
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Filter Options */}
+          <View
+            style={{
+              flexDirection: "row",
+              paddingHorizontal: 16,
+              marginBottom: 16,
+            }}
+          >
+            {["Điểm", "Loại phòng", "Viết bởi"].map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  marginRight: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{ fontSize: 14, color: "#6B7280", marginRight: 4 }}
+                >
+                  {filter}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color="#6B7280" />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Reviews List */}
+          <FlatList
+            data={(hotel as any).DanhGia || []}
+            keyExtractor={(item: any) => item.maDG || item.id?.toString()}
+            renderItem={({ item }: { item: any }) => (
+              <View
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#F3F4F6",
+                }}
+              >
+                <View
+                  style={{ flexDirection: "row", alignItems: "flex-start" }}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: "#6366F1",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Ionicons name="person" size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          color: "#1F2937",
+                          fontWeight: "600",
+                          marginRight: 8,
+                        }}
+                      >
+                        {item.NguoiDung?.hoTen || "Khách hàng"}
+                      </Text>
+                      <View style={{ flexDirection: "row" }}>
+                        {[...Array(item.soSao || 5)].map((_, i) => (
+                          <Ionicons
+                            key={`star-modal-${item.maDG || "fallback"}-${i}`}
+                            name="star"
+                            size={14}
+                            color="#FCD34D"
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: "#6B7280",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {item.DatPhong?.Phong?.tenPhong || "Phòng tiêu chuẩn"}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: "#1F2937",
+                        lineHeight: 20,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {item.binhLuan ||
+                        "Người dùng chưa chia sẻ cảm nhận về khách sạn."}
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
+                        {item.ngayDG ? formatDate(item.ngayDG) : "Đánh giá mới"}
+                      </Text>
+                      <View
+                        style={{ flexDirection: "row", alignItems: "center" }}
+                      >
+                        <Ionicons name="thumbs-up" size={16} color="#9CA3AF" />
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: "#9CA3AF",
+                            marginLeft: 4,
+                          }}
+                        >
+                          Thích
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          />
+        </View>
+      </Modal>
+
+      {/* Amenities Modal */}
+      <Modal
+        visible={showAmenitiesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAmenitiesModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+          {/* Modal Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 40,
+              paddingHorizontal: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#F3F4F6",
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowAmenitiesModal(false)}>
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
+              Tiện ích khách sạn
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Amenities Grid */}
+          <View style={{ padding: 16 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              {((hotel as any).TienNghis || []).map(
+                (amenity: any, index: number) => (
+                  <View
+                    key={amenity.maTienNghi || index}
+                    style={{
+                      width: "33.33%",
+                      alignItems: "center",
+                      marginBottom: 24,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 30,
+                        backgroundColor: "#F3F4F6",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Ionicons
+                        name={getAmenityIcon(amenity.tenTienNghi) as any}
+                        size={24}
+                        color="#6B7280"
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: "#1F2937",
+                        textAlign: "center",
+                        paddingHorizontal: 8,
+                      }}
+                    >
+                      {amenity.tenTienNghi}
+                    </Text>
+                  </View>
+                )
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Promotions Modal */}
+      <Modal
+        visible={showPromotionsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPromotionsModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+          {/* Modal Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 40,
+              paddingHorizontal: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#F3F4F6",
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowPromotionsModal(false)}>
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
+              Khuyến mãi
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Content */}
+          <View style={{ flex: 1, padding: 16 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                color: "#1F2937",
+                marginBottom: 16,
+              }}
+            >
+              Ưu đãi sẵn có
+            </Text>
+
+            <FlatList
+              data={promotions.length > 0 ? promotions : []}
+              keyExtractor={(item) => item.maKM || `promo-${Math.random()}`}
+              renderItem={({ item }) => (
+                <View
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 16,
+                    borderWidth: 1,
+                    borderColor: "#F3F4F6",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}
+                >
+                  <View style={{ flexDirection: "row" }}>
+                    {/* Image */}
+                    <View style={{ marginRight: 16 }}>
+                      <Image
+                        source={{
+                          uri: (() => {
+                            if (item.anh) {
+                              if (
+                                Array.isArray(item.anh) &&
+                                item.anh.length > 0
+                              ) {
+                                const imageUrl = getImageUrl(item.anh[0]);
+                                return imageUrl || undefined;
+                              } else if (typeof item.anh === "string") {
+                                const imageUrl = getImageUrl(item.anh);
+                                return imageUrl || undefined;
+                              }
+                            }
+                            return "../../assets/images/giamgia.jpg";
+                          })(),
+                        }}
+                        style={{ width: 110, height: 110 }}
+                        resizeMode="cover"
+                      />
+                    </View>
+
+                    {/* Content */}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: "600",
+                          color: "#1F2937",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {item.tenKM}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#6B7280",
+                          marginBottom: 8,
+                        }}
+                      >
+                        {item.thongTinKM}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: "#FB923C",
+                          fontWeight: "600",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Tất cả loại đặt phòng
+                      </Text>
+                      <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
+                        Hạn sử dụng:{" "}
+                        {item.ngayKetThuc
+                          ? formatDate(item.ngayKetThuc)
+                          : "12/10/2025"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Hotel Details Modal */}
+      <Modal
+        visible={showHotelDetailsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowHotelDetailsModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+          {/* Modal Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 40,
+              paddingHorizontal: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#F3F4F6",
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowHotelDetailsModal(false)}>
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
+              Thông tin chi tiết
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Content */}
+          <ScrollView style={{ flex: 1, padding: 16 }}>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                color: "#1F2937",
+                marginBottom: 16,
+              }}
+            >
+              {hotel?.tenKS}
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: "#1F2937",
+                marginBottom: 8,
+              }}
+            >
+              Giới thiệu chi tiết
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: "#6B7280",
+                lineHeight: 22,
+                marginBottom: 20,
+              }}
+            >
+              {hotel?.tenKS} là một trong những chuỗi khách sạn hàng đầu tại
+              Việt Nam với hệ thống 8 chi nhánh trải rộng khắp các quận trung
+              tâm Hà Nội. Chúng tôi cam kết mang đến cho khách hàng những trải
+              nghiệm nghỉ dưỡng tuyệt vời với dịch vụ chuyên nghiệp và tiện nghi
+              hiện đại.
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: "#1F2937",
+                marginBottom: 8,
+              }}
+            >
+              Vị trí chi nhánh
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: "#6B7280",
+                lineHeight: 22,
+                marginBottom: 20,
+              }}
+            >
+              • Hoàn Kiếm: 15 Nguyễn Du, Hoàn Kiếm, Hà Nội{"\n"}• Ba Đình: 8 Lê
+              Hồng Phong, Ba Đình, Hà Nội{"\n"}• Cầu Giấy: 25 Trần Duy Hưng, Cầu
+              Giấy, Hà Nội{"\n"}• Thanh Xuân: 12 Nguyễn Trãi, Thanh Xuân, Hà Nội
+              {"\n"}• Đống Đa: 8 Tôn Đức Thắng, Đống Đa, Hà Nội{"\n"}• Hai Bà
+              Trưng: 20 Bạch Mai, Hai Bà Trưng, Hà Nội{"\n"}• Tây Hồ: 5 Xuân
+              Diệu, Tây Hồ, Hà Nội{"\n"}• Long Biên: 10 Nguyễn Văn Cừ, Long
+              Biên, Hà Nội
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: "#1F2937",
+                marginBottom: 8,
+              }}
+            >
+              Dịch vụ nổi bật
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: "#6B7280",
+                lineHeight: 22,
+                marginBottom: 20,
+              }}
+            >
+              • Phòng nghỉ hiện đại với đầy đủ tiện nghi{"\n"}• Dịch vụ spa và
+              massage chuyên nghiệp{"\n"}• Nhà hàng phục vụ ẩm thực đa dạng
+              {"\n"}• Hội trường tổ chức sự kiện{"\n"}• Dịch vụ đặt phòng 24/7
+              {"\n"}• Wi-Fi miễn phí tốc độ cao{"\n"}• Bãi đỗ xe an toàn{"\n"}•
+              Dịch vụ đưa đón sân bay
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: "#1F2937",
+                marginBottom: 8,
+              }}
+            >
+              Liên hệ
+            </Text>
+            <Text style={{ fontSize: 14, color: "#6B7280", lineHeight: 22 }}>
+              Hotline: {hotel?.dienThoai || "1900 1234"}
+              {"\n"}
+              Email: info@{hotel?.tenKS?.toLowerCase().replace(/\s+/g, "")}.com
+              {"\n"}
+              Website: www.{hotel?.tenKS?.toLowerCase().replace(/\s+/g, "")}.com
+            </Text>
+          </ScrollView>
         </View>
       </Modal>
     </View>

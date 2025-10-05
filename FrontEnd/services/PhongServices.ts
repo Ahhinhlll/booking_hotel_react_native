@@ -7,11 +7,48 @@ export interface PhongData {
   maLoaiPhong: string;
   tenPhong?: string;
   dienTich?: string;
-  thongTin?: string;
   moTa?: string;
   trangThai?: string;
   anh?: string | string[];
   // Thêm các trường khác nếu cần
+}
+export interface RoomWithPricing {
+  GiaPhongs?: Array<{
+    loaiDat: string;
+    gia2GioDau: number;
+    gia1GioThem: number;
+    giaTheoNgay: number;
+    giaQuaDem: number;
+  }>;
+  KhuyenMais?: Array<{
+    tenKM?: string;
+    thongTinKM?: string;
+    ngayKetThuc?: string;
+  }>;
+}
+
+export interface RoomData {
+  GiaPhongs?: Array<{
+    loaiDat: string;
+    gia2GioDau: number;
+    gia1GioThem: number;
+    giaTheoNgay: number;
+    giaQuaDem: number;
+  }>;
+  KhuyenMais?: Array<{
+    tenKM?: string;
+    thongTinKM?: string;
+    ngayKetThuc?: string;
+  }>;
+  TienNghis?: Array<{
+    tenTienNghi: string;
+  }>;
+  LoaiPhong?: {
+    tenLoaiPhong: string;
+  };
+  KhachSan?: {
+    tenKS: string;
+  };
 }
 
 export const PhongServices = {
@@ -23,6 +60,12 @@ export const PhongServices = {
 
   // Lấy phòng theo id
   getById: async (id: string) => {
+    const res = await request.get<PhongData>(`/phong/getbyid/${id}`);
+    return res.data;
+  },
+
+  // Lấy phòng theo id với đầy đủ thông tin (bao gồm giá phòng)
+  getByIdWithDetails: async (id: string) => {
     const res = await request.get<PhongData>(`/phong/getbyid/${id}`);
     return res.data;
   },

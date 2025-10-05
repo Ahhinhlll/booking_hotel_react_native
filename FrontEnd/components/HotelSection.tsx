@@ -198,7 +198,7 @@ export default function HotelSection(props: HotelSectionProps) {
                 />
 
                 {/* Badge Nổi bật */}
-                {hotel.trangThai === "Nổi bật" && (
+                {hotel.noiBat === "Nổi bật" && (
                   <View
                     className="bg-red-500"
                     style={{
@@ -222,7 +222,7 @@ export default function HotelSection(props: HotelSectionProps) {
                     <Text
                       style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}
                     >
-                      Nổi bật
+                      {hotel.noiBat}
                     </Text>
                   </View>
                 )}

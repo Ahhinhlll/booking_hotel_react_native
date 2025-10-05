@@ -1,330 +1,163 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Paper,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Chip,
-  LinearProgress,
-} from '@mui/material';
-import {
-  People,
-  Hotel,
-  MeetingRoom,
-  BookOnline,
-  TrendingUp,
-  Person,
-  CheckCircle,
-  Cancel,
-  Schedule,
-} from '@mui/icons-material';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
-import Grid from '../components/common/Grid';
+import { useEffect, useState } from 'react';
+import { Card, Row, Col, Statistic, Table, Tag } from 'antd';
+import { 
+  UserOutlined, 
+  HomeOutlined, 
+  CalendarOutlined, 
+  DollarOutlined 
+} from '@ant-design/icons';
+import { datPhongService } from '../services/datPhongService';
+import { nguoiDungService } from '../services/nguoiDungService';
+import { khachSanService } from '../services/khachSanService';
+import { DatPhong } from '../types';
+import dayjs from 'dayjs';
 
-// Mock data for charts
-const bookingData = [
-  { month: 'T1', bookings: 65 },
-  { month: 'T2', bookings: 59 },
-  { month: 'T3', bookings: 80 },
-  { month: 'T4', bookings: 81 },
-  { month: 'T5', bookings: 56 },
-  { month: 'T6', bookings: 55 },
-];
-
-const statusData = [
-  { name: 'Đã xác nhận', value: 400, color: '#4caf50' },
-  { name: 'Chờ xử lý', value: 300, color: '#ff9800' },
-  { name: 'Đã hủy', value: 200, color: '#f44336' },
-  { name: 'Hoàn thành', value: 100, color: '#2196f3' },
-];
-
-const recentBookings = [
-  {
-    id: '1',
-    customerName: 'Nguyễn Văn A',
-    hotelName: 'Khách sạn ABC',
-    status: 'Chờ xử lý',
-    amount: '2,500,000 VNĐ',
-    date: '2024-01-15',
-  },
-  {
-    id: '2',
-    customerName: 'Trần Thị B',
-    hotelName: 'Resort XYZ',
-    status: 'Đã xác nhận',
-    amount: '3,200,000 VNĐ',
-    date: '2024-01-14',
-  },
-  {
-    id: '3',
-    customerName: 'Lê Văn C',
-    hotelName: 'Hotel 5 sao',
-    status: 'Hoàn thành',
-    amount: '4,800,000 VNĐ',
-    date: '2024-01-13',
-  },
-];
-
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ReactElement;
-  color: string;
-  change?: string;
-  trend?: 'up' | 'down';
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, change, trend }) => (
-  <Card>
-    <CardContent>
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <Box>
-          <Typography color="textSecondary" gutterBottom variant="body2">
-            {title}
-          </Typography>
-          <Typography variant="h4" component="div" fontWeight="bold">
-            {value}
-          </Typography>
-          {change && (
-            <Box display="flex" alignItems="center" mt={1}>
-              <TrendingUp
-                sx={{
-                  color: trend === 'up' ? 'success.main' : 'error.main',
-                  fontSize: 16,
-                  mr: 0.5,
-                }}
-              />
-              <Typography
-                variant="body2"
-                color={trend === 'up' ? 'success.main' : 'error.main'}
-              >
-                {change}
-              </Typography>
-            </Box>
-          )}
-        </Box>
-        <Avatar sx={{ bgcolor: color, width: 56, height: 56 }}>
-          {icon}
-        </Avatar>
-      </Box>
-    </CardContent>
-  </Card>
-);
-
-const Dashboard: React.FC = () => {
-  const [loading, setLoading] = useState(true);
+const Dashboard = () => {
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalHotels: 0,
+    totalBookings: 0,
+    totalRevenue: 0,
+  });
+  const [recentBookings, setRecentBookings] = useState<DatPhong[]>([]);
 
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    loadDashboardData();
   }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Đã xác nhận':
-        return 'success';
-      case 'Chờ xử lý':
-        return 'warning';
-      case 'Đã hủy':
-        return 'error';
-      case 'Hoàn thành':
-        return 'info';
-      default:
-        return 'default';
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const [users, hotels, bookings] = await Promise.all([
+        nguoiDungService.getAll(),
+        khachSanService.getAll(),
+        datPhongService.getAll(),
+      ]);
+
+      const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.tongTien || 0), 0);
+
+      setStats({
+        totalUsers: users.length,
+        totalHotels: hotels.length,
+        totalBookings: bookings.length,
+        totalRevenue,
+      });
+
+      // Lấy 10 booking gần nhất
+      const sorted = [...bookings].sort((a, b) => 
+        new Date(b.ngayDat).getTime() - new Date(a.ngayDat).getTime()
+      );
+      setRecentBookings(sorted.slice(0, 10));
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Đã xác nhận':
-        return <CheckCircle />;
-      case 'Chờ xử lý':
-        return <Schedule />;
-      case 'Đã hủy':
-        return <Cancel />;
-      case 'Hoàn thành':
-        return <CheckCircle />;
-      default:
-        return <Schedule />;
-    }
-  };
-
-  if (loading) {
-    return (
-      <Box>
-        <Typography variant="h4" gutterBottom>
-          Dashboard
-        </Typography>
-        <LinearProgress />
-      </Box>
-    );
-  }
+  const columns = [
+    {
+      title: 'Mã Đặt Phòng',
+      dataIndex: 'maDatPhong',
+      key: 'maDatPhong',
+      render: (text: string) => text.slice(0, 8) + '...',
+    },
+    {
+      title: 'Khách hàng',
+      dataIndex: 'NguoiDung',
+      key: 'customer',
+      render: (nguoiDung: any) => nguoiDung?.hoTen || 'N/A',
+    },
+    {
+      title: 'Khách sạn',
+      dataIndex: 'KhachSan',
+      key: 'hotel',
+      render: (khachSan: any) => khachSan?.tenKS || 'N/A',
+    },
+    {
+      title: 'Ngày đặt',
+      dataIndex: 'ngayDat',
+      key: 'ngayDat',
+      render: (date: string) => dayjs(date).format('DD/MM/YYYY HH:mm'),
+    },
+    {
+      title: 'Tổng tiền',
+      dataIndex: 'tongTien',
+      key: 'tongTien',
+      render: (amount: number) => `${amount.toLocaleString()} VNĐ`,
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'trangThai',
+      key: 'trangThai',
+      render: (status: string) => {
+        const color = status === 'Đã xác nhận' ? 'green' : 
+                     status === 'Chờ xác nhận' ? 'orange' : 'red';
+        return <Tag color={color}>{status}</Tag>;
+      },
+    },
+  ];
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Dashboard
-      </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
-        Tổng quan hệ thống quản lý khách sạn
-      </Typography>
+    <div>
+      <h1 style={{ marginBottom: '24px' }}>Dashboard</h1>
+      
+      <Row gutter={16} style={{ marginBottom: '24px' }}>
+        <Col span={6}>
+          <Card loading={loading}>
+            <Statistic
+              title="Tổng Người dùng"
+              value={stats.totalUsers}
+              prefix={<UserOutlined />}
+              valueStyle={{ color: '#3f8600' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card loading={loading}>
+            <Statistic
+              title="Tổng Khách sạn"
+              value={stats.totalHotels}
+              prefix={<HomeOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card loading={loading}>
+            <Statistic
+              title="Tổng Đặt phòng"
+              value={stats.totalBookings}
+              prefix={<CalendarOutlined />}
+              valueStyle={{ color: '#cf1322' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card loading={loading}>
+            <Statistic
+              title="Tổng Doanh thu"
+              value={stats.totalRevenue}
+              prefix={<DollarOutlined />}
+              suffix="VNĐ"
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Tổng người dùng"
-            value="1,234"
-            icon={<People />}
-            color="#1976d2"
-            change="+12%"
-            trend="up"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Khách sạn"
-            value="45"
-            icon={<Hotel />}
-            color="#388e3c"
-            change="+3%"
-            trend="up"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Phòng"
-            value="892"
-            icon={<MeetingRoom />}
-            color="#f57c00"
-            change="+8%"
-            trend="up"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Đặt phòng tháng này"
-            value="156"
-            icon={<BookOnline />}
-            color="#7b1fa2"
-            change="-5%"
-            trend="down"
-          />
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
-        {/* Booking Chart */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Thống kê đặt phòng theo tháng
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={bookingData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="bookings" fill="#1976d2" />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Status Pie Chart */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Trạng thái đặt phòng
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label
-                >
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Recent Bookings */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Đặt phòng gần đây
-            </Typography>
-            <List>
-              {recentBookings.map((booking, index) => (
-                <ListItem key={booking.id} divider={index < recentBookings.length - 1}>
-                  <ListItemAvatar>
-                    <Avatar>
-                      <Person />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box display="flex" alignItems="center" gap={2}>
-                        <Typography variant="subtitle1">{booking.customerName}</Typography>
-                        <Chip
-                          icon={getStatusIcon(booking.status)}
-                          label={booking.status}
-                          color={getStatusColor(booking.status) as any}
-                          size="small"
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          {booking.hotelName} • {booking.amount}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {booking.date}
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+      <Card title="Đặt phòng gần đây" loading={loading}>
+        <Table
+          columns={columns}
+          dataSource={recentBookings}
+          rowKey="maDatPhong"
+          pagination={{ pageSize: 5 }}
+        />
+      </Card>
+    </div>
   );
 };
 
 export default Dashboard;
+

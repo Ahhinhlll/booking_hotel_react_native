@@ -1,97 +1,116 @@
-# Hotel Admin Panel
+# Admin Panel - Booking Hotel
 
-Hệ thống quản trị khách sạn được xây dựng bằng React + TypeScript + Material-UI, tương ứng với backend Node.js/Express.
+Trang quản trị Admin cho hệ thống đặt phòng khách sạn.
 
-## Tính năng chính
+## Công nghệ sử dụng
 
-### 🔐 Hệ thống xác thực
-- Đăng nhập với email/số điện thoại
-- JWT Authentication với refresh token
-- Phân quyền Admin/Staff/User
+- **React 19** - Framework UI
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Ant Design** - UI Component Library
+- **React Router** - Routing
+- **Axios** - HTTP Client
+- **Day.js** - Date handling
+- **Recharts** - Charts/Graphs
+
+## Cấu trúc dự án
+
+```
+Admin/
+├── src/
+│   ├── components/        # Reusable components
+│   │   └── ProtectedRoute.tsx
+│   ├── layouts/          # Layout components
+│   │   └── MainLayout.tsx
+│   ├── pages/           # Page components
+│   │   ├── Login.tsx
+│   │   ├── Dashboard.tsx
+│   │   ├── UserManagement.tsx
+│   │   ├── HotelManagement.tsx
+│   │   ├── RoomManagement.tsx
+│   │   ├── BookingManagement.tsx
+│   │   └── PromotionManagement.tsx
+│   ├── services/        # API services
+│   │   ├── authService.ts
+│   │   ├── nguoiDungService.ts
+│   │   ├── khachSanService.ts
+│   │   ├── phongService.ts
+│   │   └── datPhongService.ts
+│   ├── types/          # TypeScript types
+│   │   └── index.ts
+│   ├── utils/          # Utility functions
+│   │   └── request.ts
+│   ├── App.tsx
+│   └── main.tsx
+└── package.json
+```
+
+## Tính năng
+
+### 0. **📸 Upload & Hiển thị Ảnh** (MỚI!)
+- Upload ảnh cho Khách sạn (tối đa 10 ảnh)
+- Upload ảnh cho Phòng (tối đa 10 ảnh)  
+- Upload avatar cho Người dùng (1 ảnh)
+- **Hiển thị tối ưu:** Chỉ hiển thị ảnh đầu + Badge (+N) trong table
+- **Preview Gallery:** Click vào ảnh → Xem tất cả ảnh với navigate ←→
+- Zoom, Download ảnh
+- Xóa ảnh dễ dàng
+- **Docs:** [IMAGE_UPLOAD_GUIDE.md](./IMAGE_UPLOAD_GUIDE.md) | [IMAGE_DISPLAY_UPDATE.md](./IMAGE_DISPLAY_UPDATE.md)
+
+### 1. **Xác thực & Phân quyền**
+- Đăng nhập với email và mật khẩu
+- Chỉ Admin (VT01) mới được truy cập
+- Tự động refresh token
 - Protected routes
 
-### 📊 Dashboard
-- Thống kê tổng quan hệ thống
-- Biểu đồ đặt phòng theo tháng
-- Phân tích trạng thái đặt phòng
+### 2. **Dashboard**
+- Thống kê tổng quan:
+  - Tổng người dùng
+  - Tổng khách sạn
+  - Tổng đặt phòng
+  - Tổng doanh thu
 - Danh sách đặt phòng gần đây
 
-### 👥 Quản lý người dùng
-- Xem danh sách người dùng với phân trang
+### 3. **Quản lý Người dùng**
+- Xem danh sách người dùng
 - Thêm/sửa/xóa người dùng
-- Quản lý vai trò và trạng thái
-- Tìm kiếm và lọc
+- Tìm kiếm người dùng
+- Phân quyền (Admin, Nhân viên, Khách hàng)
 
-### 🏨 Quản lý khách sạn
-- Grid view với hình ảnh
-- CRUD operations đầy đủ
-- Quản lý hạng sao và đánh giá
-- Upload hình ảnh khách sạn
-- Lọc theo trạng thái và tỉnh thành
+### 4. **Quản lý Khách sạn**
+- Xem danh sách khách sạn
+- Thêm/sửa/xóa khách sạn
+- Tìm kiếm khách sạn
+- Quản lý thông tin: địa chỉ, hạng sao, giá, trạng thái
 
-### 📋 Quản lý đặt phòng
-- DataGrid với thông tin chi tiết
+### 5. **Quản lý Phòng**
+- Xem danh sách phòng
+- Thêm/sửa/xóa phòng
+- Tìm kiếm phòng
+- Quản lý: loại phòng, giường, diện tích, sức chứa
+
+### 6. **Quản lý Đặt phòng**
+- Xem danh sách đặt phòng
+- Thêm/sửa/xóa đặt phòng
 - Xem chi tiết đặt phòng
 - Cập nhật trạng thái đặt phòng
-- Lọc theo trạng thái
-- Tính toán giá và khuyến mãi
 
-### 🎨 Giao diện
-- Material-UI với theme tùy chỉnh
-- Responsive design
-- Dark/Light mode support
-- Sidebar navigation với icons
-- Loading states và error handling
+### 7. **Quản lý Khuyến mãi**
+- Xem danh sách khuyến mãi
+- Thêm/sửa/xóa khuyến mãi
+- Thiết lập phần trăm giảm giá
+- Quản lý thời gian áp dụng
 
-## Cấu trúc thư mục
+### 8. **👤 Thông tin Cá nhân** (MỚI!)
+- Xem & chỉnh sửa thông tin tài khoản
+- **Đổi email** với validation unique
+- **Đổi số điện thoại** với validation unique  
+- Upload/đổi avatar với auto sync header
+- Đổi mật khẩu an toàn
+- Form validation đầy đủ
+- **Docs:** [PROFILE_GUIDE.md](./PROFILE_GUIDE.md) | [PROFILE_UPDATE_FIX.md](./PROFILE_UPDATE_FIX.md)
 
-```
-src/
-├── components/          # Reusable components
-│   ├── auth/           # Authentication components
-│   ├── common/         # Common components (ProtectedRoute, etc.)
-│   └── layout/         # Layout components (Header, Sidebar, etc.)
-├── contexts/           # React contexts (AuthContext)
-├── pages/              # Page components
-│   ├── Users/          # User management pages
-│   ├── Hotels/         # Hotel management pages
-│   └── Bookings/       # Booking management pages
-├── services/           # API services
-├── types/              # TypeScript type definitions
-└── utils/              # Utility functions
-```
-
-## API Endpoints được sử dụng
-
-### Authentication
-- `POST /api/auth/login` - Đăng nhập
-- `POST /api/auth/logout` - Đăng xuất
-- `POST /api/auth/refresh-token` - Làm mới token
-
-### Users
-- `GET /api/nguoidung` - Lấy danh sách người dùng
-- `GET /api/nguoidung/:id` - Lấy thông tin người dùng
-- `POST /api/nguoidung` - Tạo người dùng mới
-- `PUT /api/nguoidung/:id` - Cập nhật người dùng
-- `DELETE /api/nguoidung/:id` - Xóa người dùng
-
-### Hotels
-- `GET /api/khachsan` - Lấy danh sách khách sạn
-- `GET /api/khachsan/:id` - Lấy thông tin khách sạn
-- `POST /api/khachsan` - Tạo khách sạn mới
-- `PUT /api/khachsan/:id` - Cập nhật khách sạn
-- `DELETE /api/khachsan/:id` - Xóa khách sạn
-
-### Bookings
-- `GET /api/datphong` - Lấy danh sách đặt phòng
-- `GET /api/datphong/:id` - Lấy thông tin đặt phòng
-- `PUT /api/datphong/:id` - Cập nhật đặt phòng
-
-### File Upload
-- `POST /api/upload/khachsan/:id` - Upload hình ảnh khách sạn
-- `POST /api/upload/phong/:id` - Upload hình ảnh phòng
-
-## Cài đặt và chạy
+## Cài đặt
 
 ```bash
 # Cài đặt dependencies
@@ -100,71 +119,75 @@ npm install
 # Chạy development server
 npm run dev
 
-# Build cho production
+# Build production
 npm run build
 
 # Preview production build
 npm run preview
 ```
 
-## Environment Variables
+## Cấu hình
 
-Tạo file `.env` với các biến sau:
+Đảm bảo backend đang chạy tại `http://localhost:3334`
 
-```env
-VITE_API_BASE_URL=http://localhost:5000/api
+Nếu cần thay đổi, sửa trong file `src/utils/request.ts`:
+
+```typescript
+const API_URL = 'http://localhost:3334/api';
 ```
 
-## Công nghệ sử dụng
+## Đăng nhập
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Material-UI v5** - UI components
-- **React Router v6** - Routing
-- **React Hook Form** - Form handling
-- **Yup** - Form validation
-- **Axios** - HTTP client
-- **Recharts** - Charts and graphs
-- **Vite** - Build tool
+Sử dụng tài khoản Admin để đăng nhập:
+- Email: admin@example.com
+- Mật khẩu: [mật khẩu admin của bạn]
 
-## Tính năng nâng cao
+**Lưu ý**: Chỉ tài khoản có vai trò Admin (maVaiTro: VT01) mới có thể truy cập hệ thống.
 
-### Form Validation
-- Sử dụng React Hook Form + Yup
-- Validation real-time
-- Error messages tùy chỉnh
+## API Endpoints
 
-### State Management
-- React Context cho authentication
-- Local state với React hooks
-- Error handling và loading states
+### Authentication
+- POST `/api/auth/login` - Đăng nhập
+- POST `/api/auth/refresh-token` - Refresh token
+- POST `/api/auth/logout` - Đăng xuất
 
-### File Upload
-- Multi-file upload support
-- Image preview
-- Progress indicators
+### Người dùng
+- GET `/api/nguoidung/getall` - Lấy tất cả người dùng
+- GET `/api/nguoidung/getbyid/:id` - Lấy người dùng theo ID
+- POST `/api/nguoidung/insert` - Thêm người dùng
+- PUT `/api/nguoidung/update` - Cập nhật người dùng
+- DELETE `/api/nguoidung/delete/:id` - Xóa người dùng
+- GET `/api/nguoidung/search` - Tìm kiếm người dùng
 
-### Data Grid
-- Sorting và filtering
-- Pagination
-- Custom cell renderers
-- Action menus
+### Khách sạn
+- GET `/api/khachsan/getall` - Lấy tất cả khách sạn
+- GET `/api/khachsan/getbyid/:id` - Lấy khách sạn theo ID
+- POST `/api/khachsan/insert` - Thêm khách sạn
+- PUT `/api/khachsan/update` - Cập nhật khách sạn
+- DELETE `/api/khachsan/delete/:id` - Xóa khách sạn
+- GET `/api/khachsan/search` - Tìm kiếm khách sạn
 
-## Bảo mật
+### Phòng
+- GET `/api/phong/getall` - Lấy tất cả phòng
+- GET `/api/phong/getbyid/:id` - Lấy phòng theo ID
+- POST `/api/phong/insert` - Thêm phòng
+- PUT `/api/phong/update` - Cập nhật phòng
+- DELETE `/api/phong/delete/:id` - Xóa phòng
+- GET `/api/phong/search` - Tìm kiếm phòng
 
-- JWT token trong localStorage
-- Automatic token refresh
-- Protected routes với role-based access
-- Input sanitization và validation
-- CORS configuration
+### Đặt phòng
+- GET `/api/datphong/getall` - Lấy tất cả đặt phòng
+- GET `/api/datphong/getbyid/:id` - Lấy đặt phòng theo ID
+- POST `/api/datphong/insert` - Thêm đặt phòng
+- PUT `/api/datphong/update` - Cập nhật đặt phòng
+- DELETE `/api/datphong/delete/:id` - Xóa đặt phòng
+- GET `/api/datphong/search` - Tìm kiếm đặt phòng
 
-## Performance
-
-- Code splitting với React.lazy
-- Memoization với React.memo
-- Optimized re-renders
-- Lazy loading cho images
-- Bundle optimization với Vite
+### Khuyến mãi
+- GET `/api/khuyenmai/getall` - Lấy tất cả khuyến mãi
+- POST `/api/khuyenmai/insert` - Thêm khuyến mãi
+- PUT `/api/khuyenmai/update` - Cập nhật khuyến mãi
+- DELETE `/api/khuyenmai/delete/:id` - Xóa khuyến mãi
 
 ## Browser Support
 
@@ -173,10 +196,6 @@ VITE_API_BASE_URL=http://localhost:5000/api
 - Safari (latest)
 - Edge (latest)
 
-## Đóng góp
+## License
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+MIT

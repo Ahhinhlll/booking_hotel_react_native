@@ -34,9 +34,23 @@ const Phong = sequelize.define(
       allowNull: true,
     },
     moTa: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
+      get() {
+        const rawValue = this.getDataValue("moTa");
+        try {
+          // Nếu là JSON hợp lệ -> parse bình thường
+          return JSON.parse(rawValue || "[]");
+        } catch (err) {
+          // Nếu không phải JSON -> trả về mảng 1 phần tử chứa chuỗi cũ
+          return rawValue ? [rawValue] : [];
+        }
+      },
+      set(value) {
+        this.setDataValue("moTa", JSON.stringify([].concat(value)));
+      },
     },
+    
     trangThai: {
       type: DataTypes.STRING,
       defaultValue: "Trống",

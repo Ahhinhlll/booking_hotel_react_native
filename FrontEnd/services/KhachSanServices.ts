@@ -13,6 +13,11 @@ export interface KhachSanData {
   noiBat?: string;
   hangSao?: number;
   diemDanhGia?: number;
+  // Related data from backend
+  Phongs?: any[];
+  KhuyenMais?: any[];
+  DanhGia?: any[];
+  TienNghis?: any[];
 }
 
 export const KhachSanServices = {

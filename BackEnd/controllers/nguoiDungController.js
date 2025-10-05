@@ -92,21 +92,39 @@ exports.update = async (req, res) => {
       maVaiTro,
       trangThai,
     } = req.body;
+
     const nguoiDung = await NguoiDung.findByPk(maNguoiDung);
-    if (nguoiDung !== null) {
-      await nguoiDung.update({
-        hoTen,
-        email,
-        sdt,
-        diaChi,
-        anhNguoiDung,
-        maVaiTro,
-        trangThai,
-      });
-      res.status(200).json(nguoiDung);
-    } else {
-      res.status(404).json({ message: "Người dùng không tồn tại" });
+    if (!nguoiDung) {
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
     }
+
+    // Kiểm tra email unique (nếu thay đổi email)
+    if (email && email !== nguoiDung.email) {
+      const existingUser = await NguoiDung.findOne({ where: { email } });
+      if (existingUser) {
+        return res.status(400).json({ message: "Email đã được sử dụng" });
+      }
+    }
+
+    // Kiểm tra số điện thoại unique (nếu thay đổi sdt)
+    if (sdt && sdt !== nguoiDung.sdt) {
+      const existingUser = await NguoiDung.findOne({ where: { sdt } });
+      if (existingUser) {
+        return res.status(400).json({ message: "Số điện thoại đã được sử dụng" });
+      }
+    }
+
+    await nguoiDung.update({
+      hoTen,
+      email,
+      sdt,
+      diaChi,
+      anhNguoiDung,
+      maVaiTro,
+      trangThai,
+    });
+
+    res.status(200).json(nguoiDung);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -146,24 +164,20 @@ exports.search = async (req, res) => {
 
 exports.updatePassword = async (req, res) => {
   try {
-    const { email, sdt, matKhauCu, matKhauMoi } = req.body;
+    const { maNguoiDung, matKhauCu, matKhauMoi } = req.body;
 
-    // Tìm người dùng bằng email hoặc số điện thoại
-    const nguoiDung = await NguoiDung.findOne({
-      where: {
-        [Op.or]: [{ email: email || "" }, { sdt: sdt || "" }],
-      },
-    });
+    // Tìm người dùng bằng mã người dùng
+    const nguoiDung = await NguoiDung.findByPk(maNguoiDung);
 
     if (!nguoiDung) {
       return res.status(404).json({
-        message: "Không tìm thấy tài khoản với email hoặc số điện thoại này",
+        message: "Không tìm thấy người dùng",
       });
     }
 
     // Kiểm tra mật khẩu cũ
     if (nguoiDung.matKhau !== md5(matKhauCu)) {
-      return res.status(400).json({ message: "Mật khẩu cũ không đúng" });
+      return res.status(400).json({ message: "Mật khẩu hiện tại không đúng" });
     }
 
     // Cập nhật mật khẩu mới đã được mã hóa
@@ -172,9 +186,6 @@ exports.updatePassword = async (req, res) => {
 
     res.status(200).json({
       message: "Đổi mật khẩu thành công",
-      email: nguoiDung.email,
-      sdt: nguoiDung.sdt,
-      matKhau: matKhauMoiMd5,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

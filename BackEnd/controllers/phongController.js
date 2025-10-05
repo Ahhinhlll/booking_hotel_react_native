@@ -58,19 +58,7 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const item = await Phong.findByPk(req.params.id, {
-      include: [
-        { model: db.KhachSan, attributes: ["tenKS"] },
-        { model: db.LoaiPhong, attributes: ["tenLoaiPhong"] },
-        { model: db.GiaPhong },
-        {
-          model: db.KhuyenMai,
-          attributes: ["tenKM", "thongTinKM", "ngayKetThuc"],
-        },
-        { model: db.TienNghi, as: "TienNghis" },
-        { model: db.SuCo },
-      ],
-    });
+    const item = await Phong.findByPk(req.params.id)
     if (item) res.status(200).json(item);
     else res.status(404).json({ message: "Không tìm thấy phòng" });
   } catch (error) {
@@ -115,19 +103,22 @@ exports.insert = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const item = await Phong.findByPk(req.params.id);
-    if (item) {
-      await item.update(req.body);
+    const maPhong = req.params.id || req.body.maPhong; // 👈 lấy từ params hoặc body
+    const item = await Phong.findByPk(maPhong);
 
-      // Sau khi cập nhật phòng, cập nhật lại giá thấp nhất cho khách sạn
-      await updateGiaThapNhat(item.maKS);
+    if (!item) {
+      return res.status(404).json({ message: "Không tìm thấy phòng" });
+    }
 
-      res.status(200).json(item);
-    } else res.status(404).json({ message: "Không tìm thấy phòng" });
+    await item.update(req.body);
+    await updateGiaThapNhat(item.maKS);
+
+    res.status(200).json(item);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 exports.remove = async (req, res) => {
   try {

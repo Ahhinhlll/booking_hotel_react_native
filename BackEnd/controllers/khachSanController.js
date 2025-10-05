@@ -18,7 +18,7 @@ exports.getAll = async (req, res) => {
         },
         {
           model: db.DanhGia,
-          attributes: ["soSao", "binhLuan"],
+          attributes: ["soSao", "binhLuan", "ngayDG"],
           include: [
             {
               model: db.NguoiDung,
@@ -32,7 +32,7 @@ exports.getAll = async (req, res) => {
         },
         {
           model: db.KhuyenMai,
-          attributes: ["tenKM", "thongTinKM", "ngayKetThuc"],
+          attributes: ["tenKM", "thongTinKM", "ngayKetThuc", "anh"],
         },
       ],
     });
@@ -54,7 +54,26 @@ exports.getById = async (req, res) => {
           model: db.KhuyenMai,
           attributes: ["tenKM", "thongTinKM", "ngayKetThuc", "anh"],
         },
-        { model: db.DanhGia, attributes: ["soSao", "binhLuan"] },
+        {
+          model: db.DanhGia,
+          attributes: ["soSao", "binhLuan", "ngayDG", "maDatPhong"],
+          include: [
+            {
+              model: db.NguoiDung,
+              attributes: ["hoTen"],
+            },
+            {
+              model: db.DatPhong,
+              attributes: ["maPhong"],
+              include: [
+                {
+                  model: db.Phong,
+                  attributes: ["tenPhong"],
+                },
+              ],
+            },
+          ],
+        },
         { model: db.TienNghi, attributes: ["tenTienNghi"] },
       ],
     });
