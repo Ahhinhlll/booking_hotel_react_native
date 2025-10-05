@@ -9,12 +9,20 @@ import {
   Dimensions,
   Alert,
   FlatList,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { PhongServices, PhongData } from "../../services/PhongServices";
-import { GiaPhongServices, GiaPhongData } from "../../services/GiaPhongServices";
+import {
+  GiaPhongServices,
+  GiaPhongData,
+} from "../../services/GiaPhongServices";
+import {
+  KhuyenMaiServices,
+  KhuyenMaiData,
+} from "../../services/KhuyenMaiServices";
 import { getImageUrl } from "../../utils/getImageUrl";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -35,8 +43,9 @@ interface RoomData extends PhongData {
   }>;
   TienNghis?: Array<{
     tenTienNghi: string;
-    moTa: string;
-    icon: string;
+    moTa?: string;
+    icon?: string;
+    maTienNghi?: string;
   }>;
   LoaiPhong?: {
     tenLoaiPhong: string;
@@ -56,25 +65,32 @@ export default function RoomDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [giaPhongs, setGiaPhongs] = useState<GiaPhongData[]>([]);
+  const [showPromotionsModal, setShowPromotionsModal] = useState(false);
+  const [promotions, setPromotions] = useState<KhuyenMaiData[]>([]);
+  const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
+  const [selectedPromotion, setSelectedPromotion] =
+    useState<KhuyenMaiData | null>(null);
 
   useEffect(() => {
     if (maPhong) {
       loadRoomDetail();
+      loadPromotions();
     }
   }, [maPhong]);
 
   const loadRoomDetail = async () => {
     try {
       setLoading(true);
-      
+
       // Load room data
       const roomData = await PhongServices.getById(maPhong as string);
       setRoom(roomData);
-      
+
       // Load pricing data
-      const pricingData = await GiaPhongServices.getByMaPhong(maPhong as string);
+      const pricingData = await GiaPhongServices.getByMaPhong(
+        maPhong as string
+      );
       setGiaPhongs(pricingData);
-      
     } catch (error) {
       console.error("Error loading room detail:", error);
       Alert.alert("Lỗi", "Không thể tải thông tin phòng");
@@ -82,6 +98,80 @@ export default function RoomDetailScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadPromotions = async () => {
+    try {
+      const data = await KhuyenMaiServices.getAll();
+      setPromotions(data || []);
+    } catch (error) {
+      console.error("Error loading promotions:", error);
+    }
+  };
+
+  const handleViewPromotions = () => {
+    setShowPromotionsModal(true);
+  };
+
+  const handleViewAmenities = () => {
+    setShowAmenitiesModal(true);
+  };
+
+  const handleSelectPromotion = (promotion: KhuyenMaiData) => {
+    console.log("Selecting promotion:", promotion);
+    setSelectedPromotion(promotion);
+    setShowPromotionsModal(false);
+  };
+
+  const calculatePriceWithPromotion = (basePrice: number) => {
+    if (!selectedPromotion) {
+      return basePrice;
+    }
+
+    console.log("Calculating price with promotion:", {
+      basePrice,
+      promotion: selectedPromotion.thongTinKM,
+      selectedPromotion,
+    });
+
+    // Parse discount from thongTinKM (e.g., "giảm 40K" -> 40000)
+    const discountMatch = selectedPromotion.thongTinKM?.match(/giảm\s*(\d+)k/i);
+    if (discountMatch) {
+      const discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
+      const finalPrice = Math.max(0, basePrice - discountAmount);
+      console.log("Discount applied:", { discountAmount, finalPrice });
+      return finalPrice;
+    }
+
+    console.log("No discount match found, returning base price:", basePrice);
+    return basePrice;
+  };
+
+  const getPromotionText = () => {
+    if (!selectedPromotion) return null;
+    return selectedPromotion.thongTinKM || "Đã áp dụng khuyến mãi";
+  };
+
+  const getAmenityIcon = (amenityName: string) => {
+    const iconMap: { [key: string]: string } = {
+      TV: "tv",
+      Wifi: "wifi",
+      "Điều hòa": "snow",
+      "Bồn tắm": "water",
+      "Sân vườn": "leaf",
+      "Cà phê": "cafe",
+      "Nước suối": "water",
+      "Móc treo": "shirt",
+      Netflix: "tv",
+      "Miễn phí": "checkmark-circle",
+    };
+
+    for (const [key, icon] of Object.entries(iconMap)) {
+      if (amenityName.toLowerCase().includes(key.toLowerCase())) {
+        return icon;
+      }
+    }
+    return "checkmark-circle";
   };
 
   const handleBack = () => {
@@ -102,6 +192,13 @@ export default function RoomDetailScreen() {
     ]);
   };
 
+  // Move useCallback to top level
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      setCurrentImageIndex(viewableItems[0].index);
+    }
+  }, []);
+
   const getRoomPricing = () => {
     if (giaPhongs && giaPhongs.length > 0) {
       const pricing = giaPhongs[0]; // Lấy giá phòng đầu tiên
@@ -121,23 +218,24 @@ export default function RoomDetailScreen() {
   };
 
   const ImageSlider = () => {
-    const [currentIndex, setCurrentIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
 
     // Tạo danh sách ảnh từ dữ liệu phòng
-    const images = room ? (Array.isArray(room.anh)
-      ? room.anh.map((img) => getImageUrl(img))
-      : [
-          getImageUrl(room.anh) ||
-            "https://via.placeholder.com/400x320/6B7280/FFFFFF?text=No+Image",
-        ]) : [];
+    const images = room
+      ? Array.isArray(room.anh)
+        ? room.anh.map((img) => getImageUrl(img))
+        : [
+            getImageUrl(room.anh) ||
+              "https://via.placeholder.com/400x320/6B7280/FFFFFF?text=No+Image",
+          ]
+      : ["https://via.placeholder.com/400x320/6B7280/FFFFFF?text=No+Image"];
 
     // Auto-scroll effect
     useEffect(() => {
       if (!room || images.length <= 1) return;
 
       const interval = setInterval(() => {
-        setCurrentIndex((prevIndex) => {
+        setCurrentImageIndex((prevIndex) => {
           const nextIndex = (prevIndex + 1) % images.length;
           flatListRef.current?.scrollToIndex({
             index: nextIndex,
@@ -150,13 +248,21 @@ export default function RoomDetailScreen() {
       return () => clearInterval(interval);
     }, [room, images.length]);
 
-    if (!room) return null;
-
-    const onViewableItemsChanged = ({ viewableItems }: any) => {
-      if (viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index);
-      }
-    };
+    if (!room) {
+      return (
+        <View style={{ height: 300, backgroundColor: "#F3F4F6" }}>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#6B7280" }}>Đang tải ảnh...</Text>
+          </View>
+        </View>
+      );
+    }
 
     const viewabilityConfig = {
       itemVisiblePercentThreshold: 50,
@@ -214,7 +320,9 @@ export default function RoomDetailScreen() {
                 height: 8,
                 borderRadius: 4,
                 backgroundColor:
-                  index === currentIndex ? "#FFFFFF" : "rgba(255,255,255,0.5)",
+                  index === currentImageIndex
+                    ? "#FFFFFF"
+                    : "rgba(255,255,255,0.5)",
                 marginHorizontal: 4,
               }}
             />
@@ -241,12 +349,43 @@ export default function RoomDetailScreen() {
     );
   }
 
+  // Fallback nếu không có dữ liệu phòng
+  if (!room) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor="transparent"
+          translucent
+        />
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <Text>Không tìm thấy thông tin phòng</Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              marginTop: 16,
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              backgroundColor: "#FB923C",
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: "#FFFFFF" }}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   const pricing = getRoomPricing();
   const currentHourPrice = pricing.hourly2Hours;
   const discountPercent = 1;
-  const discountedPrice = currentHourPrice > 0 
-    ? currentHourPrice - Math.floor(currentHourPrice * 0.01)
-    : 0;
+  const discountedPrice =
+    currentHourPrice > 0
+      ? currentHourPrice - Math.floor(currentHourPrice * 0.01)
+      : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -257,6 +396,13 @@ export default function RoomDetailScreen() {
       />
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {/* Debug Info */}
+        <View style={{ padding: 16, backgroundColor: "#F0F0F0" }}>
+          <Text>Debug: Room loaded: {room ? "Yes" : "No"}</Text>
+          <Text>Debug: Loading: {loading ? "Yes" : "No"}</Text>
+          <Text>Debug: Room name: {room?.tenPhong || "No name"}</Text>
+        </View>
+
         {/* Header with Image Slider */}
         <View style={{ position: "relative" }}>
           <ImageSlider />
@@ -311,35 +457,45 @@ export default function RoomDetailScreen() {
             {room?.dienTich} • {room?.moTa}
           </Text>
 
-          {/* Discount Tag */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 24,
-            }}
-          >
-            <View
+          {/* Promotion Banner */}
+          {promotions && promotions.length > 0 && (
+            <TouchableOpacity
+              onPress={handleViewPromotions}
               style={{
-                backgroundColor: "#FB923C",
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 4,
-                marginRight: 8,
+                backgroundColor: "#FEF3E7",
+                padding: 16,
+                borderRadius: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: "#FB923C",
               }}
             >
-              <Ionicons name="pricetag" size={16} color="#FFFFFF" />
-            </View>
-            <Text style={{ fontSize: 14, color: "#FB923C", fontWeight: "600" }}>
-              Giảm 27K, đặt tối thiểu 150K
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={16}
-              color="#FB923C"
-              style={{ marginLeft: "auto" }}
-            />
-          </View>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  flex: 1,
+                }}
+              >
+                <Ionicons name="pricetag" size={20} color="#FB923C" />
+                <Text
+                  style={{
+                    marginLeft: 8,
+                    color: "#FB923C",
+                    fontWeight: "600",
+                    fontSize: 14,
+                    flex: 1,
+                  }}
+                >
+                  {promotions[0].thongTinKM || "Giảm 27K, đặt tối thiểu 150K"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#FB923C" />
+            </TouchableOpacity>
+          )}
 
           {/* Booking Benefits */}
           <View style={{ marginBottom: 24 }}>
@@ -432,42 +588,74 @@ export default function RoomDetailScreen() {
 
           {/* Room Amenities */}
           <View style={{ marginBottom: 24 }}>
-            <Text
+            <View
               style={{
-                fontSize: 18,
-                fontWeight: "bold",
-                color: "#1F2937",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
                 marginBottom: 16,
               }}
             >
-              Tiện ích phòng
-            </Text>
-
-            <View
-              style={{
-                backgroundColor: "#F9FAFB",
-                borderRadius: 8,
-                padding: 16,
-                flexDirection: "row",
-                alignItems: "center",
-              }}
-            >
-              <View
+              <Text
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: "#F3F4F6",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginRight: 12,
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  color: "#1F2937",
                 }}
               >
-                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-              </View>
-              <Text style={{ fontSize: 16, color: "#1F2937" }}>
-                Tiện nghi đầy đủ
+                Tiện ích phòng
               </Text>
+              <TouchableOpacity onPress={handleViewAmenities}>
+                <Text
+                  style={{ color: "#FB923C", fontSize: 14, fontWeight: "600" }}
+                >
+                  Xem tất cả
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              {(() => {
+                const amenities = (room as any)?.TienNghis?.slice(0, 4) || [
+                  { tenTienNghi: "TV", maTienNghi: "1" },
+                  { tenTienNghi: "Wifi", maTienNghi: "2" },
+                  { tenTienNghi: "Điều hòa", maTienNghi: "3" },
+                  { tenTienNghi: "Bồn tắm", maTienNghi: "4" },
+                ];
+                console.log("Rendering amenities:", amenities);
+                return amenities;
+              })().map((amenity: any, index: number) => (
+                <View
+                  key={amenity.maTienNghi || index}
+                  style={{
+                    width: "50%",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 12,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      backgroundColor: "#F3F4F6",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 8,
+                    }}
+                  >
+                    <Ionicons
+                      name={getAmenityIcon(amenity.tenTienNghi) as any}
+                      size={16}
+                      color="#10B981"
+                    />
+                  </View>
+                  <Text style={{ fontSize: 14, color: "#6B7280", flex: 1 }}>
+                    {amenity.tenTienNghi}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
 
@@ -509,7 +697,9 @@ export default function RoomDetailScreen() {
                 <Text
                   style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
                 >
-                  {pricing.hourly2Hours > 0 ? pricing.hourly2Hours.toLocaleString("vi-VN") + "₫" : "Chưa có giá"}
+                  {pricing.hourly2Hours > 0
+                    ? pricing.hourly2Hours.toLocaleString("vi-VN") + "₫"
+                    : "Chưa có giá"}
                 </Text>
               </View>
 
@@ -541,7 +731,9 @@ export default function RoomDetailScreen() {
                 <Text
                   style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
                 >
-                  {pricing.hourlyAdditional > 0 ? pricing.hourlyAdditional.toLocaleString("vi-VN") + "₫" : "Chưa có giá"}
+                  {pricing.hourlyAdditional > 0
+                    ? pricing.hourlyAdditional.toLocaleString("vi-VN") + "₫"
+                    : "Chưa có giá"}
                 </Text>
               </View>
 
@@ -565,7 +757,9 @@ export default function RoomDetailScreen() {
                 <Text
                   style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
                 >
-                  {pricing.overnight > 0 ? pricing.overnight.toLocaleString("vi-VN") + "₫" : "Chưa có giá"}
+                  {pricing.overnight > 0
+                    ? pricing.overnight.toLocaleString("vi-VN") + "₫"
+                    : "Chưa có giá"}
                 </Text>
               </View>
 
@@ -589,7 +783,9 @@ export default function RoomDetailScreen() {
                 <Text
                   style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
                 >
-                  {pricing.daily > 0 ? pricing.daily.toLocaleString("vi-VN") + "₫" : "Chưa có giá"}
+                  {pricing.daily > 0
+                    ? pricing.daily.toLocaleString("vi-VN") + "₫"
+                    : "Chưa có giá"}
                 </Text>
               </View>
             </View>
@@ -749,7 +945,11 @@ export default function RoomDetailScreen() {
                 marginBottom: 4,
               }}
             >
-              {discountedPrice > 0 ? discountedPrice.toLocaleString("vi-VN") + "₫" : "Chưa có giá"}
+              {currentHourPrice > 0
+                ? calculatePriceWithPromotion(currentHourPrice).toLocaleString(
+                    "vi-VN"
+                  ) + "₫"
+                : "Chưa có giá"}
             </Text>
             {currentHourPrice > 0 && (
               <Text
@@ -762,9 +962,20 @@ export default function RoomDetailScreen() {
                 {currentHourPrice.toLocaleString("vi-VN")}₫
               </Text>
             )}
+            {selectedPromotion && currentHourPrice > 0 && (
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: "#FB923C",
+                  fontWeight: "600",
+                  marginTop: 2,
+                }}
+              >
+                {getPromotionText()}
+              </Text>
+            )}
           </View>
 
-          {/* Book Button */}
           <TouchableOpacity
             onPress={handleBookRoom}
             style={{
@@ -790,6 +1001,269 @@ export default function RoomDetailScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Amenities Modal */}
+      <Modal
+        visible={showAmenitiesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAmenitiesModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+          {/* Modal Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 40,
+              paddingHorizontal: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#F3F4F6",
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowAmenitiesModal(false)}>
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
+              Tiện ích phòng
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Amenities Grid */}
+          <View style={{ padding: 16 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              {(
+                (room as any)?.TienNghis || [
+                  { tenTienNghi: "TV", maTienNghi: "1" },
+                  { tenTienNghi: "Wifi", maTienNghi: "2" },
+                  { tenTienNghi: "Điều hòa", maTienNghi: "3" },
+                  { tenTienNghi: "Bồn tắm", maTienNghi: "4" },
+                  { tenTienNghi: "Sân vườn", maTienNghi: "5" },
+                  { tenTienNghi: "Cà phê", maTienNghi: "6" },
+                  { tenTienNghi: "Nước suối", maTienNghi: "7" },
+                  { tenTienNghi: "Móc treo", maTienNghi: "8" },
+                  { tenTienNghi: "Netflix", maTienNghi: "9" },
+                  { tenTienNghi: "Miễn phí", maTienNghi: "10" },
+                ]
+              ).map((amenity: any, index: number) => (
+                <View
+                  key={amenity.maTienNghi || index}
+                  style={{
+                    width: "33.33%",
+                    alignItems: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 30,
+                      backgroundColor: "#F3F4F6",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Ionicons
+                      name={getAmenityIcon(amenity.tenTienNghi) as any}
+                      size={24}
+                      color="#6B7280"
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#1F2937",
+                      textAlign: "center",
+                      paddingHorizontal: 8,
+                    }}
+                  >
+                    {amenity.tenTienNghi}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Promotions Modal */}
+      <Modal
+        visible={showPromotionsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPromotionsModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+          {/* Modal Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 40,
+              paddingHorizontal: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#F3F4F6",
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowPromotionsModal(false)}>
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
+              Khuyến mãi
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Content */}
+          <View style={{ flex: 1, padding: 16 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                color: "#1F2937",
+                marginBottom: 16,
+              }}
+            >
+              Ưu đãi sẵn có
+            </Text>
+
+            <FlatList
+              data={promotions.length > 0 ? promotions : []}
+              keyExtractor={(item) => item.maKM || `promo-${Math.random()}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => handleSelectPromotion(item)}
+                  style={{
+                    backgroundColor:
+                      selectedPromotion?.maKM === item.maKM
+                        ? "#FEF3E7"
+                        : "#FFFFFF",
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 16,
+                    borderWidth: 1,
+                    borderColor:
+                      selectedPromotion?.maKM === item.maKM
+                        ? "#FB923C"
+                        : "#F3F4F6",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}
+                >
+                  <View style={{ flexDirection: "row" }}>
+                    {/* Image */}
+                    <View style={{ marginRight: 16 }}>
+                      <Image
+                        source={{
+                          uri: (() => {
+                            if (item.anh) {
+                              if (
+                                Array.isArray(item.anh) &&
+                                item.anh.length > 0
+                              ) {
+                                const imageUrl = getImageUrl(item.anh[0]);
+                                return imageUrl || undefined;
+                              } else if (typeof item.anh === "string") {
+                                const imageUrl = getImageUrl(item.anh);
+                                return imageUrl || undefined;
+                              }
+                            }
+                            return "../../assets/images/giamgia.jpg";
+                          })(),
+                        }}
+                        style={{ width: 110, height: 110 }}
+                        resizeMode="cover"
+                      />
+                    </View>
+
+                    {/* Content */}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: "600",
+                          color: "#1F2937",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {item.tenKM}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#6B7280",
+                          marginBottom: 8,
+                        }}
+                      >
+                        {item.thongTinKM}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: "#FB923C",
+                          fontWeight: "600",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Tất cả loại đặt phòng
+                      </Text>
+                      <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
+                        Hạn sử dụng:{" "}
+                        {item.ngayKetThuc
+                          ? new Date(item.ngayKetThuc).toLocaleDateString(
+                              "vi-VN"
+                            )
+                          : "12/10/2025"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Select Button */}
+                  <View style={{ marginTop: 12, alignItems: "flex-end" }}>
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor:
+                          selectedPromotion?.maKM === item.maKM
+                            ? "#FB923C"
+                            : "#F3F4F6",
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color:
+                            selectedPromotion?.maKM === item.maKM
+                              ? "#FFFFFF"
+                              : "#6B7280",
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {selectedPromotion?.maKM === item.maKM
+                          ? "Đã chọn"
+                          : "Chọn"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              )}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -10,6 +10,12 @@ export interface PhongData {
   moTa?: string;
   trangThai?: string;
   anh?: string | string[];
+  TienNghis?: Array<{
+    tenTienNghi: string;
+    moTa?: string;
+    icon?: string;
+    maTienNghi?: string;
+  }>;
   // Thêm các trường khác nếu cần
 }
 export interface RoomWithPricing {

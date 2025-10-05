@@ -27,6 +27,7 @@ import { getImageUrl } from "../../utils/getImageUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import HotelSection from "../../components/HotelSection";
+import CustomDateTimePicker from "../../components/DateTimePicker";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -49,14 +50,6 @@ export default function HotelDetailScreen() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
 
-  const [bookingTime, setBookingTime] = useState({
-    duration: "02 giờ",
-    startTime: "15:00",
-    endTime: "17:00",
-    date: "03/10",
-    checkInDate: "03/10",
-    checkOutDate: "04/10",
-  });
   const [showTimePickerModal, setShowTimePickerModal] = useState(false);
   const [bookingType, setBookingType] = useState("Theo giờ");
   const [showReviewsModal, setShowReviewsModal] = useState(false);
@@ -64,6 +57,15 @@ export default function HotelDetailScreen() {
   const [showPromotionsModal, setShowPromotionsModal] = useState(false);
   const [showHotelDetailsModal, setShowHotelDetailsModal] = useState(false);
   const [promotions, setPromotions] = useState<KhuyenMaiData[]>([]);
+  const [selectedPromotion, setSelectedPromotion] = useState<KhuyenMaiData | null>(null);
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [selectedDateTime, setSelectedDateTime] = useState({
+    duration: 2,
+    startTime: "18:00",
+    endTime: "20:00",
+    date: "04/10",
+    bookingType: "hourly" as "hourly" | "overnight" | "daily",
+  });
 
   useEffect(() => {
     if (id) {
@@ -72,6 +74,7 @@ export default function HotelDetailScreen() {
     }
   }, [id]);
 
+  // ... (các hàm useEffect, loadHotelDetail, handleBack, handleFavorite, handleShare, handleSelectRoom giữ nguyên)
   useEffect(() => {
     const checkFavoriteStatus = async () => {
       try {
@@ -100,6 +103,7 @@ export default function HotelDetailScreen() {
       setHotel(data);
     } catch (error) {
       console.error("Error loading hotel detail:", error);
+      Alert.alert("Lỗi", "Không thể tải thông tin khách sạn");
       router.back();
     } finally {
       setLoading(false);
@@ -115,6 +119,7 @@ export default function HotelDetailScreen() {
       let favorites: KhachSanData[] = stored ? JSON.parse(stored) : [];
 
       if (isFavorite) {
+        // Xóa
         const updatedFavorites = favorites.filter(
           (item) => item.maKS !== hotel?.maKS
         );
@@ -130,6 +135,7 @@ export default function HotelDetailScreen() {
           visibilityTime: 1000,
         });
       } else {
+        // Thêm
         if (hotel) {
           favorites = [...favorites, hotel];
           await AsyncStorage.setItem("yeuThich", JSON.stringify(favorites));
@@ -148,6 +154,7 @@ export default function HotelDetailScreen() {
   };
 
   const handleShare = () => {
+    // TODO: Implement share functionality
     Alert.alert("Chia sẻ", "Tính năng chia sẻ sẽ được cập nhật sớm");
   };
 
@@ -158,6 +165,12 @@ export default function HotelDetailScreen() {
   const loadPromotions = async () => {
     try {
       const data = await KhuyenMaiServices.getAll();
+      console.log("Promotions data:", JSON.stringify(data, null, 2));
+      console.log("Number of promotions:", data?.length || 0);
+      if (data && data.length > 0) {
+        console.log("First promotion:", data[0]);
+        console.log("First promotion anh:", data[0]?.anh);
+      }
       setPromotions(data || []);
     } catch (error) {
       console.error("Error loading promotions:", error);
@@ -171,11 +184,11 @@ export default function HotelDetailScreen() {
 
     // Hoặc navigate đến trang map trong app
     router.push({
-      pathname: "/map",
+      pathname: "/other/map",
       params: {
         hotelName: hotel?.tenKS,
         address: `${hotel?.diaChi}, ${hotel?.tinhThanh}`,
-        lat: "21.0285",
+        lat: "21.0285", // Tọa độ mẫu
         lng: "105.8542",
       },
     });
@@ -183,6 +196,29 @@ export default function HotelDetailScreen() {
 
   const handleViewPromotions = () => {
     setShowPromotionsModal(true);
+  };
+
+  const handleSelectPromotion = (promotion: KhuyenMaiData) => {
+    setSelectedPromotion(promotion);
+    setShowPromotionsModal(false);
+  };
+
+  const calculatePriceWithPromotion = (basePrice: number) => {
+    if (!selectedPromotion) return basePrice;
+    
+    // Parse discount from thongTinKM (e.g., "giảm 40K" -> 40000)
+    const discountMatch = selectedPromotion.thongTinKM?.match(/giảm\s*(\d+)k/i);
+    if (discountMatch) {
+      const discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
+      return Math.max(0, basePrice - discountAmount);
+    }
+    
+    return basePrice;
+  };
+
+  const getPromotionText = () => {
+    if (!selectedPromotion) return null;
+    return selectedPromotion.thongTinKM || "Đã áp dụng khuyến mãi";
   };
 
   const handleViewMoreDetails = () => {
@@ -198,7 +234,9 @@ export default function HotelDetailScreen() {
     const index = Math.round(contentOffsetX / SCREEN_WIDTH);
     setActiveImageIndex(index);
   };
+  // ... (mã loading/error screen giữ nguyên)
 
+  // Helper function to get amenity icon
   const getAmenityIcon = (amenityName: string) => {
     const iconMap: { [key: string]: string } = {
       TV: "tv",
@@ -221,12 +259,15 @@ export default function HotelDetailScreen() {
     return "checkmark-circle";
   };
 
+  // Helper function to format date
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
 
     try {
       const date = new Date(dateString);
+      // Check if date is valid
       if (isNaN(date.getTime())) {
+        // Try to parse different date formats
         const isoDate = new Date(dateString.replace(/ /g, "T"));
         if (!isNaN(isoDate.getTime())) {
           return isoDate.toLocaleDateString("vi-VN", {
@@ -996,7 +1037,7 @@ export default function HotelDetailScreen() {
           </View>
 
           {/* Gợi ý cho bạn */}
-          <View style={{ marginBottom: 120 }}>
+          <View style={{ marginBottom: 24 }}>
             <HotelSection
               title="Gợi ý cho bạn"
               subtitle="Được đề xuất cho bạn"
@@ -1026,31 +1067,31 @@ export default function HotelDetailScreen() {
         }}
       >
         {/* Booking Time Section */}
-        <TouchableOpacity
-          onPress={handleTimeSelect}
-          style={{
-            backgroundColor: "#E0F2FE",
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderRadius: 12,
-            marginBottom: 12,
-            alignItems: "center",
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Ionicons name="business" size={16} color="#0EA5E9" />
-            <Text
-              style={{
-                marginLeft: 8,
-                fontSize: 14,
-                color: "#1F2937",
-                fontWeight: "600",
-              }}
-            >
-              01 ngày | 14:00, 03/10 → 12:00, 04/10
-            </Text>
-          </View>
-        </TouchableOpacity>
+         <TouchableOpacity
+           onPress={() => setShowDateTimePicker(true)}
+           style={{
+             backgroundColor: "#FEF3E7",
+             paddingVertical: 12,
+             paddingHorizontal: 16,
+             borderRadius: 12,
+             marginBottom: 12,
+             alignItems: "center",
+           }}
+         >
+           <View style={{ flexDirection: "row", alignItems: "center" }}>
+             <Ionicons name="hourglass-outline" size={16} color="#FB923C" />
+             <Text
+               style={{
+                 marginLeft: 8,
+                 fontSize: 14,
+                 color: "#FB923C",
+                 fontWeight: "600",
+               }}
+             >
+               {selectedDateTime.duration} giờ | {selectedDateTime.startTime} → {selectedDateTime.endTime}, {selectedDateTime.date}
+             </Text>
+           </View>
+         </TouchableOpacity>
 
         {/* Price and Button Section */}
         <View
@@ -1067,15 +1108,31 @@ export default function HotelDetailScreen() {
                 {(hotel.giaThapNhat || 800000).toLocaleString("vi-VN")}₫
               </Text>
             </Text>
-            <Text
-              style={{
-                fontSize: 24,
-                fontWeight: "bold",
-                color: "#1F2937",
-              }}
-            >
-              {((hotel.giaThapNhat || 800000) * 0.85).toLocaleString("vi-VN")}₫
-            </Text>
+             <Text
+               style={{
+                 fontSize: 24,
+                 fontWeight: "bold",
+                 color: "#1F2937",
+               }}
+             >
+               {(() => {
+                 const basePrice = (hotel.giaThapNhat || 800000) * 0.85;
+                 const finalPrice = calculatePriceWithPromotion(basePrice);
+                 return finalPrice.toLocaleString("vi-VN") + "₫";
+               })()}
+             </Text>
+             {selectedPromotion && (
+               <Text
+                 style={{
+                   fontSize: 12,
+                   color: "#FB923C",
+                   fontWeight: "600",
+                   marginTop: 2,
+                 }}
+               >
+                 {getPromotionText()}
+               </Text>
+             )}
           </View>
 
           <TouchableOpacity
@@ -1156,316 +1213,6 @@ export default function HotelDetailScreen() {
               ))}
             </View>
           </ScrollView>
-        </View>
-      </Modal>
-
-      {/* Time Picker Modal */}
-      <Modal
-        visible={showTimePickerModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowTimePickerModal(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-          {/* Modal Header */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingTop: 40,
-              paddingHorizontal: 16,
-              paddingBottom: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: "#F3F4F6",
-            }}
-          >
-            <TouchableOpacity onPress={() => setShowTimePickerModal(false)}>
-              <Ionicons name="chevron-back" size={24} color="#333" />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: "600", color: "#333" }}>
-              Chọn thời gian
-            </Text>
-            <View style={{ width: 24 }} />
-          </View>
-
-          {/* Booking Type Tabs */}
-          <View
-            style={{
-              flexDirection: "row",
-              paddingHorizontal: 16,
-              paddingVertical: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: "#F3F4F6",
-            }}
-          >
-            {["Theo giờ", "Qua đêm", "Theo ngày"].map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  alignItems: "center",
-                  borderBottomWidth: bookingType === type ? 2 : 0,
-                  borderBottomColor:
-                    bookingType === type ? "#FB923C" : "transparent",
-                }}
-                onPress={() => setBookingType(type)}
-              >
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: bookingType === type ? "600" : "400",
-                    color: bookingType === type ? "#FB923C" : "#6B7280",
-                  }}
-                >
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Calendar Section */}
-          <View style={{ flex: 1, padding: 16 }}>
-            {/* Calendar Header */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 16,
-              }}
-            >
-              <Text
-                style={{ fontSize: 18, fontWeight: "600", color: "#1F2937" }}
-              >
-                Tháng 10, 2025
-              </Text>
-              <View style={{ flexDirection: "row" }}>
-                <TouchableOpacity style={{ padding: 8 }}>
-                  <Ionicons name="chevron-back" size={20} color="#6B7280" />
-                </TouchableOpacity>
-                <TouchableOpacity style={{ padding: 8 }}>
-                  <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Days of Week */}
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-around",
-                marginBottom: 16,
-              }}
-            >
-              {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => (
-                <Text
-                  key={day}
-                  style={{
-                    fontSize: 14,
-                    color: "#9CA3AF",
-                    fontWeight: "500",
-                    width: 40,
-                    textAlign: "center",
-                  }}
-                >
-                  {day}
-                </Text>
-              ))}
-            </View>
-
-            {/* Calendar Grid */}
-            <View style={{ marginBottom: 24 }}>
-              {[
-                [1, 2, 3, 4, 5, 6, 7],
-                [8, 9, 10, 11, 12, 13, 14],
-                [15, 16, 17, 18, 19, 20, 21],
-                [22, 23, 24, 25, 26, 27, 28],
-                [29, 30, 31, null, null, null, null],
-              ].map((week, weekIndex) => (
-                <View
-                  key={weekIndex}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-around",
-                    marginBottom: 8,
-                  }}
-                >
-                  {week.map((day, dayIndex) => (
-                    <TouchableOpacity
-                      key={`${weekIndex}-${dayIndex}-${day || "null"}`}
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor:
-                          day === 3 || day === 4
-                            ? "#FB923C"
-                            : day === 1 || day === 2
-                              ? "transparent"
-                              : "transparent",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 16,
-                          color:
-                            day === 3 || day === 4
-                              ? "#FFFFFF"
-                              : day === 1 || day === 2
-                                ? "#D1D5DB"
-                                : "#1F2937",
-                          fontWeight: day === 3 || day === 4 ? "600" : "400",
-                        }}
-                      >
-                        {day}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ))}
-            </View>
-
-            {/* Time Selection for Hourly Booking */}
-            {bookingType === "Theo giờ" && (
-              <>
-                <Text
-                  style={{ fontSize: 16, fontWeight: "600", marginBottom: 12 }}
-                >
-                  Giờ nhận phòng
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={{ flexDirection: "row", paddingRight: 16 }}>
-                    {["15:00", "15:30", "16:00", "16:30", "17:00"].map(
-                      (time) => (
-                        <TouchableOpacity
-                          key={time}
-                          style={{
-                            backgroundColor:
-                              time === "15:00" ? "#FB923C" : "#F3F4F6",
-                            paddingHorizontal: 16,
-                            paddingVertical: 8,
-                            borderRadius: 20,
-                            marginRight: 8,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color: time === "15:00" ? "#FFFFFF" : "#6B7280",
-                              fontWeight: time === "15:00" ? "600" : "400",
-                            }}
-                          >
-                            {time}
-                          </Text>
-                        </TouchableOpacity>
-                      )
-                    )}
-                  </View>
-                </ScrollView>
-
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "600",
-                    marginTop: 16,
-                    marginBottom: 12,
-                  }}
-                >
-                  Số giờ sử dụng
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={{ flexDirection: "row", paddingRight: 16 }}>
-                    {["1 giờ", "2 giờ", "3 giờ", "4 giờ", "5 giờ", "6 giờ"].map(
-                      (duration) => (
-                        <TouchableOpacity
-                          key={duration}
-                          style={{
-                            backgroundColor:
-                              duration === "2 giờ" ? "#FB923C" : "#F3F4F6",
-                            paddingHorizontal: 16,
-                            paddingVertical: 8,
-                            borderRadius: 20,
-                            marginRight: 8,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color:
-                                duration === "2 giờ" ? "#FFFFFF" : "#6B7280",
-                              fontWeight: duration === "2 giờ" ? "600" : "400",
-                            }}
-                          >
-                            {duration}
-                          </Text>
-                        </TouchableOpacity>
-                      )
-                    )}
-                  </View>
-                </ScrollView>
-              </>
-            )}
-
-            {/* Booking Summary */}
-            <View
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0,
-                backgroundColor: "#FFFFFF",
-                paddingHorizontal: 16,
-                paddingVertical: 16,
-                borderTopWidth: 1,
-                borderTopColor: "#F3F4F6",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <View>
-                <Text
-                  style={{ fontSize: 14, color: "#6B7280", marginBottom: 4 }}
-                >
-                  Nhận phòng
-                </Text>
-                <Text
-                  style={{ fontSize: 16, color: "#1F2937", fontWeight: "600" }}
-                >
-                  15:00, 03/10
-                </Text>
-              </View>
-              <View>
-                <Text
-                  style={{ fontSize: 14, color: "#6B7280", marginBottom: 4 }}
-                >
-                  Trả phòng
-                </Text>
-                <Text
-                  style={{ fontSize: 16, color: "#1F2937", fontWeight: "600" }}
-                >
-                  17:00, 03/10
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setShowTimePickerModal(false)}
-                style={{
-                  backgroundColor: "#FB923C",
-                  borderRadius: 25,
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                }}
-              >
-                <Text
-                  style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "bold" }}
-                >
-                  Áp dụng
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
       </Modal>
 
@@ -1915,14 +1662,15 @@ export default function HotelDetailScreen() {
               data={promotions.length > 0 ? promotions : []}
               keyExtractor={(item) => item.maKM || `promo-${Math.random()}`}
               renderItem={({ item }) => (
-                <View
+                <TouchableOpacity
+                  onPress={() => handleSelectPromotion(item)}
                   style={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: selectedPromotion?.maKM === item.maKM ? "#FEF3E7" : "#FFFFFF",
                     borderRadius: 12,
                     padding: 16,
                     marginBottom: 16,
                     borderWidth: 1,
-                    borderColor: "#F3F4F6",
+                    borderColor: selectedPromotion?.maKM === item.maKM ? "#FB923C" : "#F3F4F6",
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.1,
@@ -1995,7 +1743,29 @@ export default function HotelDetailScreen() {
                       </Text>
                     </View>
                   </View>
-                </View>
+                  
+                  {/* Select Button */}
+                  <View style={{ marginTop: 12, alignItems: 'flex-end' }}>
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: selectedPromotion?.maKM === item.maKM ? "#FB923C" : "#F3F4F6",
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: selectedPromotion?.maKM === item.maKM ? "#FFFFFF" : "#6B7280",
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {selectedPromotion?.maKM === item.maKM ? "Đã chọn" : "Chọn"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
               )}
               showsVerticalScrollIndicator={false}
             />
@@ -2143,6 +1913,30 @@ export default function HotelDetailScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* DateTime Picker Modal */}
+      <CustomDateTimePicker
+        visible={showDateTimePicker}
+        onClose={() => setShowDateTimePicker(false)}
+        onConfirm={(data) => {
+          setSelectedDateTime({
+            duration: data.duration,
+            startTime: data.checkInTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            endTime: data.checkOutTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            date: data.checkInDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+            bookingType: data.bookingType,
+          });
+          setBookingType(data.bookingType === 'hourly' ? 'Theo giờ' : data.bookingType === 'overnight' ? 'Qua đêm' : 'Theo ngày');
+        }}
+        initialData={{
+          checkInDate: new Date(),
+          checkOutDate: new Date(),
+          checkInTime: new Date(),
+          checkOutTime: new Date(),
+          bookingType: selectedDateTime.bookingType,
+          duration: selectedDateTime.duration,
+        }}
+      />
     </View>
   );
 }

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { PhongServices, PhongData } from "../../services/PhongServices";
 import { KhachSanServices } from "../../services/KhachSanServices";
 import { getImageUrl } from "../../utils/getImageUrl";
@@ -172,11 +172,11 @@ export default function RoomListScreen() {
       return () => clearInterval(interval);
     }, [images.length]);
 
-    const onViewableItemsChanged = ({ viewableItems }: any) => {
+    const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
       if (viewableItems.length > 0) {
         setCurrentIndex(viewableItems[0].index);
       }
-    };
+    }, []);
 
     const viewabilityConfig = {
       itemVisiblePercentThreshold: 50,
