@@ -16,6 +16,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { PhongServices, PhongData } from "../../services/PhongServices";
 import { KhachSanServices } from "../../services/KhachSanServices";
 import { getImageUrl } from "../../utils/getImageUrl";
+import CustomDateTimePicker from "../../components/DateTimePicker";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -46,18 +47,36 @@ interface RoomWithPricing extends PhongData {
 }
 
 export default function RoomListScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, bookingData } = useLocalSearchParams();
   const router = useRouter();
   const [rooms, setRooms] = useState<RoomWithPricing[]>([]);
   const [hotel, setHotel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
-  const [bookingTime, setBookingTime] = useState({
-    checkIn: "18:00, 04/10",
-    checkOut: "20:00, 04/10",
-    hours: 2,
+  const [bookingTime, setBookingTime] = useState(() => {
+    // Parse booking data from params or use default
+    if (bookingData && typeof bookingData === "string") {
+      try {
+        const parsed = JSON.parse(bookingData);
+        return {
+          checkIn: parsed.startTime + ", " + parsed.date,
+          checkOut: parsed.endTime + ", " + parsed.date,
+          hours: parsed.duration,
+          bookingType: parsed.bookingType,
+        };
+      } catch (error) {
+        console.error("Error parsing booking data:", error);
+      }
+    }
+    return {
+      checkIn: "18:00, 04/10",
+      checkOut: "20:00, 04/10",
+      hours: 2,
+      bookingType: "hourly",
+    };
   });
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -95,7 +114,7 @@ export default function RoomListScreen() {
   };
 
   const handleChangeBookingTime = () => {
-    Alert.alert("Thay đổi thời gian", "Chức năng sẽ được cập nhật");
+    setShowDateTimePicker(true);
   };
 
   const handleRoomDetail = (room: RoomWithPricing) => {
@@ -301,6 +320,7 @@ export default function RoomListScreen() {
             color: "#333",
             marginLeft: 16,
             flex: 1,
+            textAlign: "center",
           }}
         >
           Danh sách phòng
@@ -340,7 +360,11 @@ export default function RoomListScreen() {
                 color: "#1F2937",
               }}
             >
-              Theo giờ | {bookingTime.hours} giờ
+              {bookingTime.bookingType === "hourly"
+                ? `Theo giờ | ${bookingTime.hours} giờ`
+                : bookingTime.bookingType === "overnight"
+                  ? "Qua đêm"
+                  : "Theo ngày"}
             </Text>
             <TouchableOpacity
               style={{ marginLeft: "auto" }}
@@ -491,8 +515,12 @@ export default function RoomListScreen() {
                   <Text style={{ fontSize: 14, color: "#6B7280" }}>
                     {room.dienTich}
                   </Text>
-                  <Text style={{ fontSize: 14, color: "#6B7280" }}>
-                    {room.moTa}
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", lineHeight: 22 }}
+                  >
+                    {Array.isArray(room.moTa)
+                      ? room.moTa.join("\n")
+                      : room.moTa}
                   </Text>
                 </View>
 
@@ -719,29 +747,82 @@ export default function RoomListScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-
-                {/* Show More */}
-                <TouchableOpacity
-                  style={{
-                    alignItems: "center",
-                    paddingVertical: 12,
-                  }}
-                >
-                  <Text style={{ color: "#6B7280", fontSize: 14 }}>
-                    Hiển thị thêm
-                  </Text>
-                  <Ionicons
-                    name="chevron-down"
-                    size={20}
-                    color="#6B7280"
-                    style={{ marginTop: 4 }}
-                  />
-                </TouchableOpacity>
               </View>
             </View>
           );
         })}
       </ScrollView>
+
+      {/* DateTime Picker Modal */}
+      <CustomDateTimePicker
+        visible={showDateTimePicker}
+        onClose={() => setShowDateTimePicker(false)}
+        onConfirm={(data) => {
+          // Calculate checkout date and time based on booking type
+          const calculateCheckoutDateTime = (checkInDate: Date, checkInTime: Date, bookingType: string, duration: number) => {
+            const checkoutDate = new Date(checkInDate);
+            const checkoutTime = new Date(checkInTime);
+
+            switch (bookingType) {
+              case 'hourly':
+                // Add duration hours to checkout time
+                checkoutTime.setHours(checkoutTime.getHours() + duration);
+                // If checkout time goes to next day, update checkout date
+                if (checkoutTime.getHours() >= 24) {
+                  checkoutDate.setDate(checkoutDate.getDate() + 1);
+                  checkoutTime.setHours(checkoutTime.getHours() - 24);
+                }
+                break;
+              case 'overnight':
+                // Add 1 day and set checkout time to 9:00 AM
+                checkoutDate.setDate(checkoutDate.getDate() + 1);
+                checkoutTime.setHours(9, 0, 0, 0);
+                break;
+              case 'daily':
+                // Add 1 day and set checkout time to 12:00 PM
+                checkoutDate.setDate(checkoutDate.getDate() + 1);
+                checkoutTime.setHours(12, 0, 0, 0);
+                break;
+            }
+
+            return { checkoutDate, checkoutTime };
+          };
+
+          const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(
+            data.checkInDate, 
+            data.checkInTime, 
+            data.bookingType, 
+            data.duration
+          );
+
+          setBookingTime({
+            checkIn: data.checkInTime.toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }) + ", " + data.checkInDate.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
+            checkOut: checkoutTime.toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }) + ", " + checkoutDate.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
+            hours: data.duration,
+            bookingType: data.bookingType,
+          });
+        }}
+        initialData={{
+          checkInDate: new Date(),
+          checkOutDate: new Date(),
+          checkInTime: new Date(),
+          checkOutTime: new Date(),
+          bookingType: bookingTime.bookingType as "hourly" | "overnight" | "daily",
+          duration: bookingTime.hours,
+        }}
+      />
     </View>
   );
 }

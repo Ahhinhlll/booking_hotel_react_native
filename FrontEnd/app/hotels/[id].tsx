@@ -42,7 +42,7 @@ const parseImageUrls = (images: string[] | undefined): string[] => {
 };
 
 export default function HotelDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, bookingData, returnToRooms } = useLocalSearchParams();
   const router = useRouter();
   const [hotel, setHotel] = useState<KhachSanData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,14 +57,30 @@ export default function HotelDetailScreen() {
   const [showPromotionsModal, setShowPromotionsModal] = useState(false);
   const [showHotelDetailsModal, setShowHotelDetailsModal] = useState(false);
   const [promotions, setPromotions] = useState<KhuyenMaiData[]>([]);
-  const [selectedPromotion, setSelectedPromotion] = useState<KhuyenMaiData | null>(null);
+  const [selectedPromotion, setSelectedPromotion] =
+    useState<KhuyenMaiData | null>(null);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
-  const [selectedDateTime, setSelectedDateTime] = useState({
-    duration: 2,
-    startTime: "18:00",
-    endTime: "20:00",
-    date: "04/10",
-    bookingType: "hourly" as "hourly" | "overnight" | "daily",
+  const [selectedDateTime, setSelectedDateTime] = useState(() => {
+    const now = new Date();
+    const startTime = new Date(now);
+    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+    
+    return {
+      duration: 2,
+      startTime: startTime.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      endTime: endTime.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      date: now.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+      }),
+      bookingType: "hourly" as "hourly" | "overnight" | "daily",
+    };
   });
 
   useEffect(() => {
@@ -73,6 +89,31 @@ export default function HotelDetailScreen() {
       loadPromotions();
     }
   }, [id]);
+
+  // Handle booking data from rooms screen
+  useEffect(() => {
+    if (bookingData && typeof bookingData === 'string') {
+      try {
+        const parsed = JSON.parse(bookingData);
+        setSelectedDateTime({
+          duration: parsed.duration || 2,
+          startTime: parsed.startTime || "18:00",
+          endTime: parsed.endTime || "20:00",
+          date: parsed.date || "04/10",
+          bookingType: parsed.bookingType || "hourly",
+        });
+        setBookingType(
+          parsed.bookingType === "hourly"
+            ? "Theo giờ"
+            : parsed.bookingType === "overnight"
+              ? "Qua đêm"
+              : "Theo ngày"
+        );
+      } catch (error) {
+        console.error('Error parsing booking data:', error);
+      }
+    }
+  }, [bookingData]);
 
   // ... (các hàm useEffect, loadHotelDetail, handleBack, handleFavorite, handleShare, handleSelectRoom giữ nguyên)
   useEffect(() => {
@@ -159,18 +200,33 @@ export default function HotelDetailScreen() {
   };
 
   const handleSelectRoom = () => {
-    router.push(`/rooms/${id}`);
+    // Prepare booking data to pass to rooms screen
+    const bookingData = {
+      startTime: selectedDateTime.startTime,
+      endTime: selectedDateTime.endTime,
+      date: selectedDateTime.date,
+      duration: selectedDateTime.duration,
+      bookingType: selectedDateTime.bookingType,
+    };
+
+    if (returnToRooms === "true") {
+      // If coming back from rooms screen, go back to rooms with updated data
+      router.back();
+    } else {
+      // First time going to rooms screen
+      router.push({
+        pathname: "/rooms/[id]",
+        params: { 
+          id: id as string,
+          bookingData: JSON.stringify(bookingData)
+        },
+      });
+    }
   };
 
   const loadPromotions = async () => {
     try {
       const data = await KhuyenMaiServices.getAll();
-      console.log("Promotions data:", JSON.stringify(data, null, 2));
-      console.log("Number of promotions:", data?.length || 0);
-      if (data && data.length > 0) {
-        console.log("First promotion:", data[0]);
-        console.log("First promotion anh:", data[0]?.anh);
-      }
       setPromotions(data || []);
     } catch (error) {
       console.error("Error loading promotions:", error);
@@ -205,14 +261,14 @@ export default function HotelDetailScreen() {
 
   const calculatePriceWithPromotion = (basePrice: number) => {
     if (!selectedPromotion) return basePrice;
-    
+
     // Parse discount from thongTinKM (e.g., "giảm 40K" -> 40000)
     const discountMatch = selectedPromotion.thongTinKM?.match(/giảm\s*(\d+)k/i);
     if (discountMatch) {
       const discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
       return Math.max(0, basePrice - discountAmount);
     }
-    
+
     return basePrice;
   };
 
@@ -670,8 +726,7 @@ export default function HotelDetailScreen() {
                       flex: 1,
                     }}
                   >
-                    {(hotel as any).KhuyenMais[0].thongTinKM ||
-                      "Giảm 27K, đặt tối thiểu 150K"}
+                    {selectedPromotion ? getPromotionText() : "Ưu đãi có sẵn"}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#FB923C" />
@@ -1067,31 +1122,32 @@ export default function HotelDetailScreen() {
         }}
       >
         {/* Booking Time Section */}
-         <TouchableOpacity
-           onPress={() => setShowDateTimePicker(true)}
-           style={{
-             backgroundColor: "#FEF3E7",
-             paddingVertical: 12,
-             paddingHorizontal: 16,
-             borderRadius: 12,
-             marginBottom: 12,
-             alignItems: "center",
-           }}
-         >
-           <View style={{ flexDirection: "row", alignItems: "center" }}>
-             <Ionicons name="hourglass-outline" size={16} color="#FB923C" />
-             <Text
-               style={{
-                 marginLeft: 8,
-                 fontSize: 14,
-                 color: "#FB923C",
-                 fontWeight: "600",
-               }}
-             >
-               {selectedDateTime.duration} giờ | {selectedDateTime.startTime} → {selectedDateTime.endTime}, {selectedDateTime.date}
-             </Text>
-           </View>
-         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setShowDateTimePicker(true)}
+          style={{
+            backgroundColor: "#FEF3E7",
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 12,
+            marginBottom: 12,
+            alignItems: "center",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons name="hourglass-outline" size={16} color="#FB923C" />
+            <Text
+              style={{
+                marginLeft: 8,
+                fontSize: 14,
+                color: "#FB923C",
+                fontWeight: "600",
+              }}
+            >
+              {selectedDateTime.duration} giờ | {selectedDateTime.startTime} →{" "}
+              {selectedDateTime.endTime}, {selectedDateTime.date}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Price and Button Section */}
         <View
@@ -1103,36 +1159,36 @@ export default function HotelDetailScreen() {
         >
           <View>
             <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
-              Chỉ từ{" "}
-              <Text style={{ textDecorationLine: "line-through" }}>
-                {(hotel.giaThapNhat || 800000).toLocaleString("vi-VN")}₫
-              </Text>
+              Giá chỉ từ
             </Text>
-             <Text
-               style={{
-                 fontSize: 24,
-                 fontWeight: "bold",
-                 color: "#1F2937",
-               }}
-             >
-               {(() => {
-                 const basePrice = (hotel.giaThapNhat || 800000) * 0.85;
-                 const finalPrice = calculatePriceWithPromotion(basePrice);
-                 return finalPrice.toLocaleString("vi-VN") + "₫";
-               })()}
-             </Text>
-             {selectedPromotion && (
-               <Text
-                 style={{
-                   fontSize: 12,
-                   color: "#FB923C",
-                   fontWeight: "600",
-                   marginTop: 2,
-                 }}
-               >
-                 {getPromotionText()}
-               </Text>
-             )}
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: "bold",
+                color: "#1F2937",
+              }}
+            >
+              {(() => {
+                const basePrice = hotel.giaThapNhat || 800000;
+                if (selectedPromotion) {
+                  const finalPrice = calculatePriceWithPromotion(basePrice);
+                  return finalPrice.toLocaleString("vi-VN") + "₫";
+                }
+                return basePrice.toLocaleString("vi-VN") + "₫";
+              })()}
+            </Text>
+            {selectedPromotion && (
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: "#FB923C",
+                  fontWeight: "600",
+                  marginTop: 2,
+                }}
+              >
+                {getPromotionText()}
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity
@@ -1665,12 +1721,18 @@ export default function HotelDetailScreen() {
                 <TouchableOpacity
                   onPress={() => handleSelectPromotion(item)}
                   style={{
-                    backgroundColor: selectedPromotion?.maKM === item.maKM ? "#FEF3E7" : "#FFFFFF",
+                    backgroundColor:
+                      selectedPromotion?.maKM === item.maKM
+                        ? "#FEF3E7"
+                        : "#FFFFFF",
                     borderRadius: 12,
                     padding: 16,
                     marginBottom: 16,
                     borderWidth: 1,
-                    borderColor: selectedPromotion?.maKM === item.maKM ? "#FB923C" : "#F3F4F6",
+                    borderColor:
+                      selectedPromotion?.maKM === item.maKM
+                        ? "#FB923C"
+                        : "#F3F4F6",
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.1,
@@ -1743,12 +1805,15 @@ export default function HotelDetailScreen() {
                       </Text>
                     </View>
                   </View>
-                  
+
                   {/* Select Button */}
-                  <View style={{ marginTop: 12, alignItems: 'flex-end' }}>
+                  <View style={{ marginTop: 12, alignItems: "flex-end" }}>
                     <TouchableOpacity
                       style={{
-                        backgroundColor: selectedPromotion?.maKM === item.maKM ? "#FB923C" : "#F3F4F6",
+                        backgroundColor:
+                          selectedPromotion?.maKM === item.maKM
+                            ? "#FB923C"
+                            : "#F3F4F6",
                         paddingHorizontal: 16,
                         paddingVertical: 8,
                         borderRadius: 20,
@@ -1756,12 +1821,17 @@ export default function HotelDetailScreen() {
                     >
                       <Text
                         style={{
-                          color: selectedPromotion?.maKM === item.maKM ? "#FFFFFF" : "#6B7280",
+                          color:
+                            selectedPromotion?.maKM === item.maKM
+                              ? "#FFFFFF"
+                              : "#6B7280",
                           fontSize: 12,
                           fontWeight: "600",
                         }}
                       >
-                        {selectedPromotion?.maKM === item.maKM ? "Đã chọn" : "Chọn"}
+                        {selectedPromotion?.maKM === item.maKM
+                          ? "Đã chọn"
+                          : "Chọn"}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1919,14 +1989,66 @@ export default function HotelDetailScreen() {
         visible={showDateTimePicker}
         onClose={() => setShowDateTimePicker(false)}
         onConfirm={(data) => {
+          // Calculate checkout date and time based on booking type
+          const calculateCheckoutDateTime = (checkInDate: Date, checkInTime: Date, bookingType: string, duration: number) => {
+            const checkoutDate = new Date(checkInDate);
+            const checkoutTime = new Date(checkInTime);
+
+            switch (bookingType) {
+              case 'hourly':
+                // Add duration hours to checkout time
+                checkoutTime.setHours(checkoutTime.getHours() + duration);
+                // If checkout time goes to next day, update checkout date
+                if (checkoutTime.getHours() >= 24) {
+                  checkoutDate.setDate(checkoutDate.getDate() + 1);
+                  checkoutTime.setHours(checkoutTime.getHours() - 24);
+                }
+                break;
+              case 'overnight':
+                // Add 1 day and set checkout time to 9:00 AM
+                checkoutDate.setDate(checkoutDate.getDate() + 1);
+                checkoutTime.setHours(9, 0, 0, 0);
+                break;
+              case 'daily':
+                // Add 1 day and set checkout time to 12:00 PM
+                checkoutDate.setDate(checkoutDate.getDate() + 1);
+                checkoutTime.setHours(12, 0, 0, 0);
+                break;
+            }
+
+            return { checkoutDate, checkoutTime };
+          };
+
+          const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(
+            data.checkInDate, 
+            data.checkInTime, 
+            data.bookingType, 
+            data.duration
+          );
+
           setSelectedDateTime({
             duration: data.duration,
-            startTime: data.checkInTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-            endTime: data.checkOutTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-            date: data.checkInDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+            startTime: data.checkInTime.toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            endTime: checkoutTime.toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            date: data.checkInDate.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
             bookingType: data.bookingType,
           });
-          setBookingType(data.bookingType === 'hourly' ? 'Theo giờ' : data.bookingType === 'overnight' ? 'Qua đêm' : 'Theo ngày');
+          setBookingType(
+            data.bookingType === "hourly"
+              ? "Theo giờ"
+              : data.bookingType === "overnight"
+                ? "Qua đêm"
+                : "Theo ngày"
+          );
         }}
         initialData={{
           checkInDate: new Date(),

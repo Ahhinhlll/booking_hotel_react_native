@@ -1,5 +1,5 @@
 // components/DateTimePicker.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -55,8 +55,45 @@ export default function CustomDateTimePicker({
   );
   const [duration, setDuration] = useState(initialData?.duration || 2);
 
-  const [showDatePicker, setShowDatePicker] = useState<'checkin' | 'checkout' | null>(null);
-  const [showTimePicker, setShowTimePicker] = useState<'checkin' | 'checkout' | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<'checkin' | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState<'checkin' | null>(null);
+
+  // Function to calculate checkout date and time based on checkin and booking type
+  const calculateCheckoutDateTime = (checkInDate: Date, checkInTime: Date, bookingType: string, duration: number) => {
+    const checkoutDate = new Date(checkInDate);
+    const checkoutTime = new Date(checkInTime);
+
+    switch (bookingType) {
+      case 'hourly':
+        // Add duration hours to checkout time
+        checkoutTime.setHours(checkoutTime.getHours() + duration);
+        // If checkout time goes to next day, update checkout date
+        if (checkoutTime.getHours() >= 24) {
+          checkoutDate.setDate(checkoutDate.getDate() + 1);
+          checkoutTime.setHours(checkoutTime.getHours() - 24);
+        }
+        break;
+      case 'overnight':
+        // Add 1 day and set checkout time to 9:00 AM
+        checkoutDate.setDate(checkoutDate.getDate() + 1);
+        checkoutTime.setHours(9, 0, 0, 0);
+        break;
+      case 'daily':
+        // Add 1 day and set checkout time to 12:00 PM
+        checkoutDate.setDate(checkoutDate.getDate() + 1);
+        checkoutTime.setHours(12, 0, 0, 0);
+        break;
+    }
+
+    return { checkoutDate, checkoutTime };
+  };
+
+  // Auto-calculate checkout when checkin, booking type, or duration changes
+  useEffect(() => {
+    const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(checkInDate, checkInTime, bookingType, duration);
+    setCheckOutDate(checkoutDate);
+    setCheckOutTime(checkoutTime);
+  }, [checkInDate, checkInTime, bookingType, duration]);
 
   const handleConfirm = () => {
     onConfirm({
@@ -204,28 +241,22 @@ export default function CustomDateTimePicker({
 
           {/* Check-out Date */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ngày trả phòng</Text>
-            <TouchableOpacity
-              style={styles.dateTimeButton}
-              onPress={() => setShowDatePicker('checkout')}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#FB923C" />
-              <Text style={styles.dateTimeText}>{formatDate(checkOutDate)}</Text>
-              <Ionicons name="chevron-down" size={20} color="#6B7280" />
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Ngày trả phòng (Tự động)</Text>
+            <View style={[styles.dateTimeButton, { backgroundColor: '#F9FAFB' }]}>
+              <Ionicons name="calendar-outline" size={20} color="#10B981" />
+              <Text style={[styles.dateTimeText, { color: '#10B981' }]}>{formatDate(checkOutDate)}</Text>
+              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            </View>
           </View>
 
           {/* Check-out Time */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Giờ trả phòng</Text>
-            <TouchableOpacity
-              style={styles.dateTimeButton}
-              onPress={() => setShowTimePicker('checkout')}
-            >
-              <Ionicons name="time-outline" size={20} color="#FB923C" />
-              <Text style={styles.dateTimeText}>{formatTime(checkOutTime)}</Text>
-              <Ionicons name="chevron-down" size={20} color="#6B7280" />
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Giờ trả phòng (Tự động)</Text>
+            <View style={[styles.dateTimeButton, { backgroundColor: '#F9FAFB' }]}>
+              <Ionicons name="time-outline" size={20} color="#10B981" />
+              <Text style={[styles.dateTimeText, { color: '#10B981' }]}>{formatTime(checkOutTime)}</Text>
+              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            </View>
           </View>
 
           {/* Summary */}
@@ -253,16 +284,12 @@ export default function CustomDateTimePicker({
         {/* Date Picker */}
         {showDatePicker && (
           <DateTimePicker
-            value={showDatePicker === 'checkin' ? checkInDate : checkOutDate}
+            value={checkInDate}
             mode="date"
             display="default"
             onChange={(event, selectedDate) => {
               if (selectedDate) {
-                if (showDatePicker === 'checkin') {
-                  setCheckInDate(selectedDate);
-                } else {
-                  setCheckOutDate(selectedDate);
-                }
+                setCheckInDate(selectedDate);
               }
               setShowDatePicker(null);
             }}
@@ -272,16 +299,12 @@ export default function CustomDateTimePicker({
         {/* Time Picker */}
         {showTimePicker && (
           <DateTimePicker
-            value={showTimePicker === 'checkin' ? checkInTime : checkOutTime}
+            value={checkInTime}
             mode="time"
             display="default"
             onChange={(event, selectedTime) => {
               if (selectedTime) {
-                if (showTimePicker === 'checkin') {
-                  setCheckInTime(selectedTime);
-                } else {
-                  setCheckOutTime(selectedTime);
-                }
+                setCheckInTime(selectedTime);
               }
               setShowTimePicker(null);
             }}
