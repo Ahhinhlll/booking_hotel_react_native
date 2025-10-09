@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   Alert,
   Platform,
   StatusBar,
@@ -13,28 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PhongServices } from '../../services/PhongServices';
 import { KhachSanServices } from '../../services/KhachSanServices';
-import { getImageUrl } from '../../utils/getImageUrl';
-
-interface BookingData {
-  roomId: string;
-  hotelId: string;
-  checkInTime: string;
-  checkOutTime: string;
-  checkInDate: string;
-  checkOutDate: string;
-  duration: number;
-  bookingType: string;
-  totalAmount: number;
-  promotionId?: string;
-}
-
-interface PaymentMethod {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  promotion?: string;
-}
+import { BookingServices, BookingData, formatCurrency, PAYMENT_METHODS } from '../../services/BookingServices';
+import PaymentMethodModal from '../../components/PaymentMethodModal';
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
@@ -45,47 +24,6 @@ export default function BookingConfirmationScreen() {
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [roomInfo, setRoomInfo] = useState<any>(null);
   const [hotelInfo, setHotelInfo] = useState<any>(null);
-
-  const paymentMethods: PaymentMethod[] = [
-    {
-      id: 'momo',
-      name: 'Ví MoMo',
-      icon: 'card',
-      color: '#D82D8B',
-    },
-    {
-      id: 'zalopay',
-      name: 'Ví ZaloPay',
-      icon: 'card',
-      color: '#0068FF',
-      promotion: 'Nhập mã SALEZLP để được giảm giá cho đơn từ 150K',
-    },
-    {
-      id: 'shopeepay',
-      name: 'Ví ShopeePay',
-      icon: 'card',
-      color: '#EE4D2D',
-      promotion: 'Ưu đãi ShopeePay giảm đến 50.000₫',
-    },
-    {
-      id: 'credit',
-      name: 'Thẻ Credit',
-      icon: 'card',
-      color: '#1F2937',
-    },
-    {
-      id: 'atm',
-      name: 'Thẻ ATM',
-      icon: 'card',
-      color: '#3B82F6',
-    },
-    {
-      id: 'hotel',
-      name: 'Trả tại khách sạn',
-      icon: 'business',
-      color: '#6B7280',
-    },
-  ];
 
   useEffect(() => {
     if (params.bookingData) {
@@ -103,20 +41,31 @@ export default function BookingConfirmationScreen() {
 
   const loadRoomAndHotelInfo = async (roomId: string, hotelId: string) => {
     try {
-      const [room, hotel] = await Promise.all([
-        PhongServices.getById(roomId),
-        KhachSanServices.getById(hotelId),
-      ]);
+      // Load room data first
+      const room = await PhongServices.getById(roomId);
       setRoomInfo(room);
-      setHotelInfo(hotel);
+
+      // Try to load hotel data
+      let hotel = null;
+      try {
+        hotel = await KhachSanServices.getById(hotelId);
+        setHotelInfo(hotel);
+      } catch (hotelError) {
+        console.warn('Could not load hotel data:', hotelError);
+        // Create a fallback hotel object
+        hotel = {
+          maKS: hotelId,
+          tenKS: 'Khách sạn không xác định',
+          diaChi: 'Địa chỉ không xác định',
+          hangSao: 3,
+          anh: null
+        };
+        setHotelInfo(hotel);
+      }
     } catch (error) {
       console.error('Error loading room and hotel info:', error);
       Alert.alert('Lỗi', 'Không thể tải thông tin phòng và khách sạn');
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('vi-VN') + '₫';
   };
 
   const handleSelectPaymentMethod = (methodId: string) => {
@@ -138,39 +87,15 @@ export default function BookingConfirmationScreen() {
     setLoading(true);
 
     try {
-      // Gọi API đặt phòng với backend đã được sửa
-      const response = await fetch('http://localhost:3000/api/bookings/confirm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomId: bookingData.roomId,
-          hotelId: bookingData.hotelId,
-          checkInDateTime: `${bookingData.checkInDate} ${bookingData.checkInTime}`,
-          checkOutDateTime: `${bookingData.checkOutDate} ${bookingData.checkOutTime}`,
-          bookingType: bookingData.bookingType,
-          duration: bookingData.duration,
-          paymentMethod: selectedPaymentMethod,
-          clientCalculatedTotalAmount: bookingData.totalAmount,
-          promotionId: bookingData.promotionId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Đặt phòng thất bại');
-      }
-
-      const result = await response.json();
+      const result = await BookingServices.confirmBooking(bookingData, selectedPaymentMethod);
       
       Alert.alert(
         'Thành công',
-        `Đặt phòng thành công!\nMã đặt phòng: ${result.bookingId}\nTổng tiền: ${formatCurrency(result.finalAmount)}`,
+        `Đặt phòng thành công!\nMã đặt phòng: ${result.bookingId}\nTổng tiền: ${formatCurrency(result.finalAmount || 0)}`,
         [
           {
             text: 'OK',
-            onPress: () => router.push('/booking-success'),
+            onPress: () => router.push('/booking/success'),
           },
         ]
       );
@@ -179,10 +104,6 @@ export default function BookingConfirmationScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getSelectedPaymentMethod = () => {
-    return paymentMethods.find(method => method.id === selectedPaymentMethod);
   };
 
   if (!bookingData || !roomInfo || !hotelInfo) {
@@ -289,7 +210,7 @@ export default function BookingConfirmationScreen() {
         {selectedPaymentMethod && (
           <View style={styles.selectedPaymentBox}>
             <Text style={styles.selectedPaymentText}>
-              Đã chọn: {getSelectedPaymentMethod()?.name}
+              Đã chọn: {PAYMENT_METHODS.find(method => method.id === selectedPaymentMethod)?.name}
             </Text>
           </View>
         )}
@@ -313,47 +234,12 @@ export default function BookingConfirmationScreen() {
       </View>
 
       {/* Payment Method Modal */}
-      {showPaymentModal && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Phương thức thanh toán</Text>
-              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.paymentMethodsList}>
-              {paymentMethods.map((method) => (
-                <TouchableOpacity
-                  key={method.id}
-                  style={styles.paymentMethodItem}
-                  onPress={() => handleSelectPaymentMethod(method.id)}
-                >
-                  <View style={styles.paymentMethodLeft}>
-                    <View style={[styles.paymentMethodIcon, { backgroundColor: method.color }]}>
-                      <Ionicons name={method.icon as any} size={20} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.paymentMethodName}>{method.name}</Text>
-                  </View>
-                  <View style={styles.radioButton}>
-                    {selectedPaymentMethod === method.id && (
-                      <View style={styles.radioButtonSelected} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TouchableOpacity 
-              style={styles.confirmButton}
-              onPress={() => setShowPaymentModal(false)}
-            >
-              <Text style={styles.confirmButtonText}>Xác nhận</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      <PaymentMethodModal
+        visible={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSelect={handleSelectPaymentMethod}
+        selectedMethod={selectedPaymentMethod}
+      />
     </View>
   );
 }
@@ -587,90 +473,6 @@ const styles = {
     backgroundColor: '#9CA3AF',
   },
   bookButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold' as const,
-    color: '#FFFFFF',
-  },
-  modalOverlay: {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    width: '90%',
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold' as const,
-    color: '#1F2937',
-  },
-  paymentMethodsList: {
-    maxHeight: 400,
-  },
-  paymentMethodItem: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  paymentMethodLeft: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-  },
-  paymentMethodIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginRight: 12,
-  },
-  paymentMethodName: {
-    fontSize: 16,
-    color: '#1F2937',
-    fontWeight: '500' as const,
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  radioButtonSelected: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#3B82F6',
-  },
-  confirmButton: {
-    backgroundColor: '#FB923C',
-    paddingVertical: 16,
-    margin: 16,
-    borderRadius: 10,
-    alignItems: 'center' as const,
-  },
-  confirmButtonText: {
     fontSize: 16,
     fontWeight: 'bold' as const,
     color: '#FFFFFF',

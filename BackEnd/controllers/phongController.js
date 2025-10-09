@@ -58,10 +58,12 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    console.log("Getting room by ID:", req.params.id);
     const item = await Phong.findByPk(req.params.id, {
       include: [
-        { model: db.KhachSan, attributes: ["tenKS", "diaChi", "hangSao", "anh"] },
+        {
+          model: db.KhachSan,
+          attributes: ["tenKS", "diaChi", "hangSao", "anh"],
+        },
         { model: db.LoaiPhong, attributes: ["tenLoaiPhong"] },
         {
           model: db.GiaPhong,
@@ -81,13 +83,7 @@ exports.getById = async (req, res) => {
         { model: db.SuCo, attributes: ["moTa", "chiPhi"] },
       ],
     });
-    
-    console.log("Found room:", item ? "Yes" : "No");
-    if (item) {
-      console.log("Room TienNghis:", item.TienNghis);
-      console.log("Room TienNghis length:", item.TienNghis?.length);
-    }
-    
+
     if (item) res.status(200).json(item);
     else res.status(404).json({ message: "Không tìm thấy phòng" });
   } catch (error) {
@@ -148,7 +144,6 @@ exports.update = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-
 
 exports.remove = async (req, res) => {
   try {

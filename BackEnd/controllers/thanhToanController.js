@@ -4,7 +4,7 @@ const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await ThanhToan.findAll({
-      include: [{ model: db.DatPhong }, { model: db.ChiTietThanhToan }],
+      include: [{ model: db.DatPhong }],
     });
     res.status(200).json(items);
   } catch (error) {
@@ -14,8 +14,9 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const item = await ThanhToan.findByPk(req.params.id, {
-      include: [{ model: db.DatPhong }, { model: db.ChiTietThanhToan }],
+    const item = await ThanhToan.findOne({
+      where: { maTT: req.params.id },
+      include: [{ model: db.DatPhong }],
     });
     if (item) res.status(200).json(item);
     else res.status(404).json({ message: "Không tìm thấy thanh toán" });
@@ -95,9 +96,15 @@ exports.insert = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const item = await ThanhToan.findByPk(req.params.id);
+    const { maTT, ...updateData } = req.body;
+
+    if (!maTT) {
+      return res.status(400).json({ message: "Thiếu mã thanh toán (maTT)" });
+    }
+
+    const item = await ThanhToan.findOne({ where: { maTT: maTT } });
     if (item) {
-      await item.update(req.body);
+      await item.update(updateData);
       res.status(200).json(item);
     } else res.status(404).json({ message: "Không tìm thấy thanh toán" });
   } catch (error) {
@@ -122,7 +129,7 @@ exports.search = async (req, res) => {
       where: {
         phuongThuc: { [Op.like]: `%${q}%` },
       },
-      include: [{ model: db.DatPhong }, { model: db.ChiTietThanhToan }],
+      include: [{ model: db.DatPhong }],
     });
     res.status(200).json(items);
   } catch (error) {

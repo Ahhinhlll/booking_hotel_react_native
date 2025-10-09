@@ -23,6 +23,7 @@ import {
   KhuyenMaiServices,
   KhuyenMaiData,
 } from "../../services/KhuyenMaiServices";
+import { KhachSanServices } from "../../services/KhachSanServices";
 import { getImageUrl } from "../../utils/getImageUrl";
 import CustomDateTimePicker from "../../components/DateTimePicker";
 
@@ -115,6 +116,24 @@ export default function RoomDetailScreen() {
         maPhong as string
       );
       setGiaPhongs(pricingData);
+
+      // Load hotel data if room has hotel info
+      if (roomData?.maKS) {
+        try {
+          const hotelData = await KhachSanServices.getById(roomData.maKS);
+          // Update room with hotel data
+          setRoom(prevRoom => {
+            if (!prevRoom) return prevRoom;
+            return {
+              ...prevRoom,
+              KhachSan: hotelData
+            } as unknown as RoomData;
+          });
+        } catch (hotelError) {
+          console.warn("Could not load hotel data:", hotelError);
+          // Continue without hotel data
+        }
+      }
     } catch (error) {
       console.error("Error loading room detail:", error);
       Alert.alert("Lỗi", "Không thể tải thông tin phòng");
@@ -205,9 +224,12 @@ export default function RoomDetailScreen() {
   const handleBookRoom = () => {
     if (!room) return;
 
+    // Ensure we have a valid hotel ID
+    const hotelId = (room.KhachSan as any)?.maKS || "1";
+    
     const bookingData = {
       roomId: room.maPhong,
-      hotelId: room.KhachSan?.makS || "1", // Fallback hotel ID
+      hotelId: hotelId,
       checkInTime: selectedDateTime.startTime,
       checkOutTime: selectedDateTime.endTime,
       checkInDate: selectedDateTime.date,
@@ -218,8 +240,10 @@ export default function RoomDetailScreen() {
       promotionId: selectedPromotion?.maKM,
     };
 
+    console.log('Booking data:', bookingData); // Debug log
+
     router.push({
-      pathname: "/booking-confirmation",
+      pathname: "/booking/confirmation",
       params: {
         bookingData: JSON.stringify(bookingData),
       },
