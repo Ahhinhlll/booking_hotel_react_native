@@ -8,7 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { PAYMENT_METHODS, PaymentMethod } from '../services/BookingServices';
+import { PAYMENT_METHODS, PaymentMethod } from '../services/DatPhongServices';
 
 interface PaymentMethodModalProps {
   visible: boolean;
@@ -23,6 +23,60 @@ export default function PaymentMethodModal({
   onSelect,
   selectedMethod,
 }: PaymentMethodModalProps) {
+  const handleConfirm = () => {
+    if (selectedMethod) {
+      onSelect(selectedMethod);
+    }
+    onClose();
+  };
+
+  const getPaymentIcon = (method: PaymentMethod) => {
+    switch (method.id) {
+      case 'momo':
+        return (
+          <View style={[styles.paymentIcon, { backgroundColor: '#D946EF' }]}>
+            <Text style={styles.paymentIconText}>mo mo</Text>
+          </View>
+        );
+      case 'zalopay':
+        return (
+          <View style={[styles.paymentIcon, { backgroundColor: '#00A651' }]}>
+            <Text style={styles.paymentIconText}>Zalo Pay</Text>
+          </View>
+        );
+      case 'shopeepay':
+        return (
+          <View style={[styles.paymentIcon, { backgroundColor: '#FF6B35' }]}>
+            <Text style={styles.paymentIconText}>S</Text>
+          </View>
+        );
+      case 'credit':
+        return (
+          <View style={[styles.paymentIcon, { backgroundColor: '#1E40AF' }]}>
+            <Ionicons name="card" size={20} color="#FFFFFF" />
+          </View>
+        );
+      case 'atm':
+        return (
+          <View style={[styles.paymentIcon, { backgroundColor: '#2563EB' }]}>
+            <Text style={styles.paymentIconText}>ATM</Text>
+          </View>
+        );
+      case 'hotel':
+        return (
+          <View style={[styles.paymentIcon, { backgroundColor: '#6B7280' }]}>
+            <Ionicons name="business" size={20} color="#FFFFFF" />
+          </View>
+        );
+      default:
+        return (
+          <View style={[styles.paymentIcon, { backgroundColor: '#6B7280' }]}>
+            <Ionicons name="card" size={20} color="#FFFFFF" />
+          </View>
+        );
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -33,10 +87,11 @@ export default function PaymentMethodModal({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Phương thức thanh toán</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#6B7280" />
+              <Ionicons name="chevron-back" size={24} color="#1F2937" />
             </TouchableOpacity>
+            <Text style={styles.modalTitle}>Phương thức thanh toán</Text>
+            <View style={{ width: 24 }} />
           </View>
           
           <ScrollView style={styles.paymentMethodsList}>
@@ -47,13 +102,13 @@ export default function PaymentMethodModal({
                 onPress={() => onSelect(method.id)}
               >
                 <View style={styles.paymentMethodLeft}>
-                  <View style={[styles.paymentMethodIcon, { backgroundColor: method.color }]}>
-                    <Ionicons name={method.icon as any} size={20} color="#FFFFFF" />
-                  </View>
+                  {getPaymentIcon(method)}
                   <View style={styles.paymentMethodInfo}>
                     <Text style={styles.paymentMethodName}>{method.name}</Text>
                     {method.promotion && (
-                      <Text style={styles.promotionText}>{method.promotion}</Text>
+                      <View style={styles.promotionBox}>
+                        <Text style={styles.promotionText}>{method.promotion}</Text>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -67,10 +122,19 @@ export default function PaymentMethodModal({
           </ScrollView>
 
           <TouchableOpacity 
-            style={styles.confirmButton}
-            onPress={onClose}
+            style={[
+              styles.confirmButton,
+              !selectedMethod && styles.confirmButtonDisabled
+            ]}
+            onPress={handleConfirm}
+            disabled={!selectedMethod}
           >
-            <Text style={styles.confirmButtonText}>Xác nhận</Text>
+            <Text style={[
+              styles.confirmButtonText,
+              !selectedMethod && styles.confirmButtonTextDisabled
+            ]}>
+              Xác nhận
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -82,13 +146,12 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    width: '90%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: '80%',
   },
   modalHeader: {
@@ -120,13 +183,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  paymentMethodIcon: {
+  paymentIcon: {
     width: 40,
     height: 40,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  paymentIconText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   paymentMethodInfo: {
     flex: 1,
@@ -135,11 +203,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1F2937',
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  promotionBox: {
+    backgroundColor: '#E0F2FE',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
   },
   promotionText: {
     fontSize: 12,
-    color: '#FB923C',
+    color: '#0EA5E9',
     fontWeight: '500',
   },
   radioButton: {
@@ -164,9 +239,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
+  confirmButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+  },
   confirmButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  confirmButtonTextDisabled: {
+    color: '#9CA3AF',
   },
 });

@@ -35,6 +35,7 @@ exports.getAll = async (req, res) => {
         {
           model: db.GiaPhong,
           attributes: [
+            "maGiaPhong",
             "loaiDat",
             "giaQuaDem",
             "giaTheoNgay",
@@ -68,6 +69,7 @@ exports.getById = async (req, res) => {
         {
           model: db.GiaPhong,
           attributes: [
+            "maGiaPhong",
             "loaiDat",
             "giaQuaDem",
             "giaTheoNgay",

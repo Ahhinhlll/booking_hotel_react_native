@@ -1,6 +1,12 @@
 const DatPhong = require("../models/datPhongModel");
+const Phong = require("../models/phongModel");
+const GiaPhong = require("../models/giaPhongModel");
+const KhuyenMai = require("../models/khuyenMaiModel");
+const ThanhToan = require("../models/thanhToanModel");
+const KhachSan = require("../models/khachSanModel");
 const { Op } = require("sequelize");
 const db = require("../models");
+const sequelize = require("../config/config");
 
 // Lấy tất cả đơn đặt phòng
 exports.getAll = async (req, res) => {
@@ -164,18 +170,60 @@ exports.insert = async (req, res) => {
       phuongThucThanhToan, // Thêm phương thức thanh toán
     } = req.body;
 
-    // Kiểm tra thông tin bắt buộc
-    if (!maND || !maPhong || !maGiaPhong || !loaiDat) {
+    console.log("Received booking data:", {
+      maND,
+      maPhong,
+      maGiaPhong,
+      loaiDat,
+      ngayNhan,
+      ngayTra,
+      soNguoiLon,
+      soTreEm,
+      soGio,
+      soNgay,
+      ghiChu,
+      maKS,
+      phuongThucThanhToan,
+    });
+
+    // Kiểm tra thông tin bắt buộc với debug chi tiết
+    if (!maND) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message:
-          "Thiếu thông tin bắt buộc (maND, maPhong, maGiaPhong, loaiDat)",
+        message: "Thiếu maND (mã người dùng)",
+        received: { maND },
+      });
+    }
+    if (!maPhong) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu maPhong (mã phòng)",
+        received: { maPhong },
+      });
+    }
+    if (!maGiaPhong) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu maGiaPhong (mã giá phòng)",
+        received: { maGiaPhong },
+      });
+    }
+    if (!loaiDat) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu loaiDat (loại đặt)",
+        received: { loaiDat },
       });
     }
 
     // Kiểm tra người dùng
     const nguoiDung = await db.NguoiDung.findByPk(maND, { transaction });
     if (!nguoiDung) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: "Người dùng không tồn tại",
@@ -286,6 +334,7 @@ exports.insert = async (req, res) => {
     }
 
     // Tạo đơn đặt phòng
+    console.log("Creating DatPhong with maND:", maND);
     const newBooking = await DatPhong.create(
       {
         maND,
@@ -544,3 +593,538 @@ exports.updateStatus = async (req, res) => {
     });
   }
 };
+
+// API endpoint để xác nhận đặt phòng và xử lý thanh toán
+exports.confirmBooking = async (req, res) => {
+  try {
+    const {
+      roomId,
+      hotelId,
+      checkInDateTime,
+      checkOutDateTime,
+      bookingType,
+      duration,
+      paymentMethod,
+      clientCalculatedTotalAmount,
+      promotionId,
+      bookerInfo = {
+        phoneNumber: "+84 387238815",
+        name: "Joyer.651",
+      },
+    } = req.body;
+
+    // 1. Validation đầu vào
+    if (
+      !roomId ||
+      !hotelId ||
+      !checkInDateTime ||
+      !checkOutDateTime ||
+      !bookingType ||
+      !paymentMethod
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Thiếu thông tin bắt buộc: roomId, hotelId, checkInDateTime, checkOutDateTime, bookingType, paymentMethod",
+      });
+    }
+
+    // 2. Kiểm tra phòng có tồn tại không
+    const room = await Phong.findByPk(roomId, {
+      include: [{ model: db.GiaPhong }],
+    });
+
+    if (!room) {
+      return res.status(400).json({
+        success: false,
+        message: "Phòng không tồn tại",
+      });
+    }
+
+    // 3. Kiểm tra khách sạn có tồn tại không
+    const hotel = await KhachSan.findByPk(hotelId);
+    if (!hotel) {
+      return res.status(400).json({
+        success: false,
+        message: "Khách sạn không tồn tại",
+      });
+    }
+
+    // 4. Kiểm tra tính khả dụng của phòng (CRITICAL)
+    const checkInDate = new Date(checkInDateTime);
+    const checkOutDate = new Date(checkOutDateTime);
+
+    // Validate dates
+    if (checkInDate >= checkOutDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Ngày nhận phòng phải trước ngày trả phòng",
+      });
+    }
+
+    const existingBooking = await DatPhong.findOne({
+      where: {
+        maPhong: roomId,
+        trangThai: {
+          [Op.notIn]: ["Đã hủy", "Đã hoàn thành"],
+        },
+        [Op.or]: [
+          {
+            ngayNhan: { [Op.lt]: checkOutDate },
+            ngayTra: { [Op.gt]: checkInDate },
+          },
+          {
+            ngayNhan: { [Op.between]: [checkInDate, checkOutDate] },
+          },
+          {
+            ngayTra: { [Op.between]: [checkInDate, checkOutDate] },
+          },
+        ],
+      },
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: "Phòng đã được đặt trong khoảng thời gian này",
+      });
+    }
+
+    // 5. Tính toán giá phòng trên server (SECURITY)
+    const giaPhong = room.GiaPhongs?.[0];
+    if (!giaPhong) {
+      return res.status(400).json({
+        success: false,
+        message: "Không tìm thấy thông tin giá phòng",
+      });
+    }
+
+    let serverCalculatedBasePrice = 0;
+
+    switch (bookingType) {
+      case "hourly":
+        if (duration <= 2) {
+          serverCalculatedBasePrice = giaPhong.gia2GioDau;
+        } else {
+          serverCalculatedBasePrice =
+            giaPhong.gia2GioDau + (duration - 2) * giaPhong.gia1GioThem;
+        }
+        break;
+      case "overnight":
+        serverCalculatedBasePrice = giaPhong.giaQuaDem;
+        break;
+      case "daily":
+        serverCalculatedBasePrice = giaPhong.giaTheoNgay;
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          message: "Loại đặt phòng không hợp lệ",
+        });
+    }
+
+    // 6. Xử lý khuyến mãi nếu có
+    let finalPrice = serverCalculatedBasePrice;
+    let appliedPromotion = null;
+
+    if (promotionId) {
+      const promotion = await KhuyenMai.findByPk(promotionId);
+
+      if (promotion) {
+        // Kiểm tra khuyến mãi có còn hiệu lực không
+        const now = new Date();
+        const startDate = new Date(promotion.ngayBatDau);
+        const endDate = new Date(promotion.ngayKetThuc);
+
+        if (now >= startDate && now <= endDate) {
+          if (promotion.phanTramGiam > 0) {
+            finalPrice =
+              serverCalculatedBasePrice -
+              (serverCalculatedBasePrice * promotion.phanTramGiam) / 100;
+          } else if (promotion.giaTriGiam > 0) {
+            finalPrice = serverCalculatedBasePrice - promotion.giaTriGiam;
+          }
+          finalPrice = Math.max(finalPrice, 0); // Không cho phép giá âm
+          appliedPromotion = promotion;
+        }
+      }
+    }
+
+    // 7. So sánh giá với client (SECURITY CHECK)
+    const priceDifference = Math.abs(finalPrice - clientCalculatedTotalAmount);
+    const tolerance = 1000; // Cho phép sai lệch 1000đ
+
+    if (priceDifference > tolerance) {
+      return res.status(400).json({
+        success: false,
+        message: `Giá không khớp. Giá server: ${finalPrice.toLocaleString(
+          "vi-VN"
+        )}₫, Giá client: ${clientCalculatedTotalAmount.toLocaleString(
+          "vi-VN"
+        )}₫`,
+      });
+    }
+
+    // 8. Chuẩn bị dữ liệu cho insert function
+    const insertData = {
+      maND: "temp_user_id", // Trong thực tế sẽ lấy từ JWT token
+      maPhong: roomId,
+      maGiaPhong: giaPhong.maGiaPhong,
+      maKM: promotionId || null,
+      loaiDat:
+        bookingType === "hourly"
+          ? "Theo giờ"
+          : bookingType === "overnight"
+          ? "Qua đêm"
+          : "Theo ngày",
+      ngayNhan: checkInDate,
+      ngayTra: checkOutDate,
+      soNguoiLon: 1,
+      soTreEm: 0,
+      soGio: bookingType === "hourly" ? duration : null,
+      soNgay: bookingType === "daily" ? 1 : null,
+      ghiChu: `Thông tin người đặt: ${bookerInfo.name} - ${bookerInfo.phoneNumber}`,
+      maKS: hotelId,
+      phuongThucThanhToan: paymentMethod,
+    };
+
+    console.log("Creating booking with data:", insertData); // Debug log
+
+    // 9. Sử dụng insert function có sẵn
+    const insertReq = { body: insertData };
+    const insertRes = {
+      status: (code) => ({
+        json: (data) => {
+          if (code === 201) {
+            // Insert thành công, tiếp tục xử lý thanh toán
+            handlePaymentProcessing(data.data, paymentMethod, finalPrice, res);
+          } else {
+            // Insert thất bại
+            res.status(code).json(data);
+          }
+        },
+      }),
+    };
+
+    await exports.insert(insertReq, insertRes);
+  } catch (error) {
+    console.error("Lỗi khi xác nhận đặt phòng:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi xử lý đặt phòng",
+      error: error.message,
+    });
+  }
+};
+
+// Helper function để xử lý thanh toán sau khi insert thành công
+async function handlePaymentProcessing(
+  bookingData,
+  paymentMethod,
+  finalPrice,
+  res
+) {
+  try {
+    // Tạo payment record
+    const paymentData = {
+      maDatPhong: bookingData.maDatPhong,
+      phuongThuc: paymentMethod,
+      soTien: finalPrice,
+      trangThai: "Chưa thanh toán",
+      maGiaoDich: `TXN_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
+    };
+
+    console.log("Creating payment with data:", paymentData); // Debug log
+
+    const payment = await ThanhToan.create(paymentData);
+
+    // Xử lý thanh toán dựa trên phương thức
+    let paymentResult = { success: false, message: "Chưa xử lý thanh toán" };
+
+    switch (paymentMethod) {
+      case "momo":
+        paymentResult = await processMoMoPayment(
+          finalPrice,
+          bookingData.maDatPhong
+        );
+        break;
+      case "zalopay":
+        paymentResult = await processZaloPayPayment(
+          finalPrice,
+          bookingData.maDatPhong
+        );
+        break;
+      case "shopeepay":
+        paymentResult = await processShopeePayPayment(
+          finalPrice,
+          bookingData.maDatPhong
+        );
+        break;
+      case "credit":
+        paymentResult = await processCreditCardPayment(
+          finalPrice,
+          bookingData.maDatPhong
+        );
+        break;
+      case "atm":
+        paymentResult = await processATMPayment(
+          finalPrice,
+          bookingData.maDatPhong
+        );
+        break;
+      case "hotel":
+        paymentResult = { success: true, message: "Thanh toán tại khách sạn" };
+        break;
+      default:
+        paymentResult = {
+          success: false,
+          message: "Phương thức thanh toán không hỗ trợ",
+        };
+    }
+
+    // Cập nhật trạng thái dựa trên kết quả thanh toán
+    if (paymentResult.success) {
+      await DatPhong.update(
+        { trangThai: "Đã xác nhận" },
+        { where: { maDatPhong: bookingData.maDatPhong } }
+      );
+      await payment.update({ trangThai: "Đã thanh toán" });
+    } else {
+      await DatPhong.update(
+        { trangThai: "Thanh toán thất bại" },
+        { where: { maDatPhong: bookingData.maDatPhong } }
+      );
+      await payment.update({ trangThai: "Thanh toán thất bại" });
+    }
+
+    console.log("Booking created successfully:", bookingData.maDatPhong); // Debug log
+
+    res.status(200).json({
+      success: true,
+      data: {
+        bookingId: bookingData.maDatPhong,
+        finalAmount: finalPrice,
+        basePrice: bookingData.tongTienGoc,
+        discountAmount: bookingData.tongTienGoc - finalPrice,
+        paymentStatus: paymentResult.success ? "success" : "failed",
+        paymentMessage: paymentResult.message,
+        promotion: null, // Có thể thêm logic promotion sau
+      },
+      message: paymentResult.success
+        ? "Đặt phòng và thanh toán thành công"
+        : "Đặt phòng thành công, thanh toán thất bại",
+    });
+  } catch (error) {
+    console.error("Lỗi khi xử lý thanh toán:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi xử lý thanh toán",
+      error: error.message,
+    });
+  }
+}
+
+// API để tính giá trước khi đặt phòng
+exports.calculatePrice = async (req, res) => {
+  try {
+    const { roomId, bookingType, duration, promotionId } = req.body;
+
+    if (!roomId || !bookingType) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin bắt buộc",
+      });
+    }
+
+    const room = await Phong.findByPk(roomId, {
+      include: [{ model: db.GiaPhong }],
+    });
+
+    if (!room) {
+      return res.status(400).json({
+        success: false,
+        message: "Phòng không tồn tại",
+      });
+    }
+
+    const giaPhong = room.GiaPhongs?.[0];
+    if (!giaPhong) {
+      return res.status(400).json({
+        success: false,
+        message: "Không tìm thấy thông tin giá phòng",
+      });
+    }
+
+    let basePrice = 0;
+
+    switch (bookingType) {
+      case "hourly":
+        if (duration <= 2) {
+          basePrice = giaPhong.gia2GioDau;
+        } else {
+          basePrice =
+            giaPhong.gia2GioDau + (duration - 2) * giaPhong.gia1GioThem;
+        }
+        break;
+      case "overnight":
+        basePrice = giaPhong.giaQuaDem;
+        break;
+      case "daily":
+        basePrice = giaPhong.giaTheoNgay;
+        break;
+    }
+
+    let finalPrice = basePrice;
+    let appliedPromotion = null;
+
+    if (promotionId) {
+      const promotion = await KhuyenMai.findByPk(promotionId);
+
+      if (promotion) {
+        const now = new Date();
+        const startDate = new Date(promotion.ngayBatDau);
+        const endDate = new Date(promotion.ngayKetThuc);
+
+        if (now >= startDate && now <= endDate) {
+          if (promotion.phanTramGiam > 0) {
+            finalPrice = basePrice - (basePrice * promotion.phanTramGiam) / 100;
+          } else if (promotion.giaTriGiam > 0) {
+            finalPrice = basePrice - promotion.giaTriGiam;
+          }
+          finalPrice = Math.max(finalPrice, 0);
+          appliedPromotion = promotion;
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        basePrice,
+        finalPrice,
+        discountAmount: basePrice - finalPrice,
+        promotion: appliedPromotion
+          ? {
+              name: appliedPromotion.tenKM,
+              discount:
+                appliedPromotion.phanTramGiam || appliedPromotion.giaTriGiam,
+            }
+          : null,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi tính giá:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi tính giá",
+      error: error.message,
+    });
+  }
+};
+
+// API để kiểm tra tính khả dụng của phòng
+exports.checkAvailability = async (req, res) => {
+  try {
+    const { roomId, checkInDateTime, checkOutDateTime } = req.query;
+
+    if (!roomId || !checkInDateTime || !checkOutDateTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin bắt buộc",
+      });
+    }
+
+    const checkInDate = new Date(checkInDateTime);
+    const checkOutDate = new Date(checkOutDateTime);
+
+    const existingBooking = await DatPhong.findOne({
+      where: {
+        maPhong: roomId,
+        trangThai: {
+          [Op.notIn]: ["Đã hủy", "Đã hoàn thành"],
+        },
+        [Op.or]: [
+          {
+            ngayNhan: { [Op.lt]: checkOutDate },
+            ngayTra: { [Op.gt]: checkInDate },
+          },
+          {
+            ngayNhan: { [Op.between]: [checkInDate, checkOutDate] },
+          },
+          {
+            ngayTra: { [Op.between]: [checkInDate, checkOutDate] },
+          },
+        ],
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        available: !existingBooking,
+        message: existingBooking
+          ? "Phòng đã được đặt trong khoảng thời gian này"
+          : "Phòng có sẵn",
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi kiểm tra tính khả dụng:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi kiểm tra tính khả dụng",
+      error: error.message,
+    });
+  }
+};
+
+// Hàm xử lý thanh toán MoMo (Mock)
+async function processMoMoPayment(amount, bookingId) {
+  // Trong thực tế sẽ tích hợp với MoMo API
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, message: "Thanh toán MoMo thành công" });
+    }, 1000);
+  });
+}
+
+// Hàm xử lý thanh toán ZaloPay (Mock)
+async function processZaloPayPayment(amount, bookingId) {
+  // Trong thực tế sẽ tích hợp với ZaloPay API
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, message: "Thanh toán ZaloPay thành công" });
+    }, 1000);
+  });
+}
+
+// Hàm xử lý thanh toán ShopeePay (Mock)
+async function processShopeePayPayment(amount, bookingId) {
+  // Trong thực tế sẽ tích hợp với ShopeePay API
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, message: "Thanh toán ShopeePay thành công" });
+    }, 1000);
+  });
+}
+
+// Hàm xử lý thanh toán Credit Card (Mock)
+async function processCreditCardPayment(amount, bookingId) {
+  // Trong thực tế sẽ tích hợp với Stripe hoặc VNPay
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, message: "Thanh toán thẻ tín dụng thành công" });
+    }, 1000);
+  });
+}
+
+// Hàm xử lý thanh toán ATM (Mock)
+async function processATMPayment(amount, bookingId) {
+  // Trong thực tế sẽ tích hợp với ngân hàng
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, message: "Thanh toán ATM thành công" });
+    }, 1000);
+  });
+}

@@ -31,6 +31,7 @@ exports.insert = async (req, res) => {
     const { maDatPhong, phuongThuc, soTien, trangThai, maGiaoDich } = req.body;
 
     if (!maDatPhong || !phuongThuc) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: "Thiếu mã đặt phòng hoặc phương thức thanh toán",
@@ -40,6 +41,7 @@ exports.insert = async (req, res) => {
     // Kiểm tra DatPhong tồn tại
     const datPhong = await db.DatPhong.findByPk(maDatPhong, { transaction });
     if (!datPhong) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: "Đặt phòng không tồn tại",

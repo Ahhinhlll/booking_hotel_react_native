@@ -64,7 +64,7 @@ export default function HotelDetailScreen() {
     const now = new Date();
     const startTime = new Date(now);
     const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-    
+
     return {
       duration: 2,
       startTime: startTime.toLocaleTimeString("vi-VN", {
@@ -92,7 +92,7 @@ export default function HotelDetailScreen() {
 
   // Handle booking data from rooms screen
   useEffect(() => {
-    if (bookingData && typeof bookingData === 'string') {
+    if (bookingData && typeof bookingData === "string") {
       try {
         const parsed = JSON.parse(bookingData);
         setSelectedDateTime({
@@ -110,7 +110,7 @@ export default function HotelDetailScreen() {
               : "Theo ngày"
         );
       } catch (error) {
-        console.error('Error parsing booking data:', error);
+        console.error("Error parsing booking data:", error);
       }
     }
   }, [bookingData]);
@@ -216,9 +216,9 @@ export default function HotelDetailScreen() {
       // First time going to rooms screen
       router.push({
         pathname: "/rooms/[id]",
-        params: { 
+        params: {
           id: id as string,
-          bookingData: JSON.stringify(bookingData)
+          bookingData: JSON.stringify(bookingData),
         },
       });
     }
@@ -254,10 +254,7 @@ export default function HotelDetailScreen() {
     setShowPromotionsModal(true);
   };
 
-  const handleSelectPromotion = (promotion: KhuyenMaiData) => {
-    setSelectedPromotion(promotion);
-    setShowPromotionsModal(false);
-  };
+  // Removed handleSelectPromotion - chỉ hiển thị thông tin khuyến mãi
 
   const calculatePriceWithPromotion = (basePrice: number) => {
     if (!selectedPromotion) return basePrice;
@@ -616,7 +613,7 @@ export default function HotelDetailScreen() {
               >
                 {hotel.hangSao || 5}.0{" "}
                 <Text style={{ color: "#9CA3AF" }}>
-                  ({hotel.diemDanhGia || 19})
+                  ({hotel.diemDanhGia || 0})
                 </Text>
               </Text>
             </View>
@@ -776,7 +773,7 @@ export default function HotelDetailScreen() {
                 </Text>
 
                 <Text style={{ fontSize: 13, color: "#6B7280" }}>
-                  {hotel.diemDanhGia} đánh giá
+                  {hotel.diemDanhGia || 0} đánh giá
                 </Text>
               </View>
             </View>
@@ -1338,7 +1335,7 @@ export default function HotelDetailScreen() {
                           : "Tuyệt vời"}
                 </Text>
                 <Text style={{ fontSize: 14, color: "#6B7280" }}>
-                  {hotel.diemDanhGia} đánh giá
+                  {hotel.diemDanhGia || 0} đánh giá
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -1718,21 +1715,14 @@ export default function HotelDetailScreen() {
               data={promotions.length > 0 ? promotions : []}
               keyExtractor={(item) => item.maKM || `promo-${Math.random()}`}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => handleSelectPromotion(item)}
+                <View
                   style={{
-                    backgroundColor:
-                      selectedPromotion?.maKM === item.maKM
-                        ? "#FEF3E7"
-                        : "#FFFFFF",
+                    backgroundColor: "#FFFFFF",
                     borderRadius: 12,
                     padding: 16,
                     marginBottom: 16,
                     borderWidth: 1,
-                    borderColor:
-                      selectedPromotion?.maKM === item.maKM
-                        ? "#FB923C"
-                        : "#F3F4F6",
+                    borderColor: "#F3F4F6",
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.1,
@@ -1805,37 +1795,7 @@ export default function HotelDetailScreen() {
                       </Text>
                     </View>
                   </View>
-
-                  {/* Select Button */}
-                  <View style={{ marginTop: 12, alignItems: "flex-end" }}>
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor:
-                          selectedPromotion?.maKM === item.maKM
-                            ? "#FB923C"
-                            : "#F3F4F6",
-                        paddingHorizontal: 16,
-                        paddingVertical: 8,
-                        borderRadius: 20,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color:
-                            selectedPromotion?.maKM === item.maKM
-                              ? "#FFFFFF"
-                              : "#6B7280",
-                          fontSize: 12,
-                          fontWeight: "600",
-                        }}
-                      >
-                        {selectedPromotion?.maKM === item.maKM
-                          ? "Đã chọn"
-                          : "Chọn"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
+                </View>
               )}
               showsVerticalScrollIndicator={false}
             />
@@ -1990,12 +1950,17 @@ export default function HotelDetailScreen() {
         onClose={() => setShowDateTimePicker(false)}
         onConfirm={(data) => {
           // Calculate checkout date and time based on booking type
-          const calculateCheckoutDateTime = (checkInDate: Date, checkInTime: Date, bookingType: string, duration: number) => {
+          const calculateCheckoutDateTime = (
+            checkInDate: Date,
+            checkInTime: Date,
+            bookingType: string,
+            duration: number
+          ) => {
             const checkoutDate = new Date(checkInDate);
             const checkoutTime = new Date(checkInTime);
 
             switch (bookingType) {
-              case 'hourly':
+              case "hourly":
                 // Add duration hours to checkout time
                 checkoutTime.setHours(checkoutTime.getHours() + duration);
                 // If checkout time goes to next day, update checkout date
@@ -2004,12 +1969,12 @@ export default function HotelDetailScreen() {
                   checkoutTime.setHours(checkoutTime.getHours() - 24);
                 }
                 break;
-              case 'overnight':
+              case "overnight":
                 // Add 1 day and set checkout time to 9:00 AM
                 checkoutDate.setDate(checkoutDate.getDate() + 1);
                 checkoutTime.setHours(9, 0, 0, 0);
                 break;
-              case 'daily':
+              case "daily":
                 // Add 1 day and set checkout time to 12:00 PM
                 checkoutDate.setDate(checkoutDate.getDate() + 1);
                 checkoutTime.setHours(12, 0, 0, 0);
@@ -2020,9 +1985,9 @@ export default function HotelDetailScreen() {
           };
 
           const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(
-            data.checkInDate, 
-            data.checkInTime, 
-            data.bookingType, 
+            data.checkInDate,
+            data.checkInTime,
+            data.bookingType,
             data.duration
           );
 

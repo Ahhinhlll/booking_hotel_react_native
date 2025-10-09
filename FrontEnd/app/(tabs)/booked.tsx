@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,115 +6,124 @@ import {
   StyleSheet,
   Platform,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-
-const demoData = [
-  {
-    id: "1",
-    date: "26/08/2025",
-    time: "14:15",
-    status: "Đã huỷ",
-    code: "3808835",
-    hotel: "Dal Vostro Homestay",
-    room: "Theo giờ | CLASSIC- HÀN QUỐC (DOUBLE)",
-    price: 200000,
-    payment: "atm",
-  },
-  {
-    id: "2",
-    date: "26/08/2025",
-    time: "13:53",
-    status: "Đã huỷ",
-    code: "3808783",
-    hotel: "Dal Vostro Homestay",
-    room: "Theo giờ | CLASSIC- HÀN QUỐC (DOUBLE)",
-    price: 150000,
-    payment: "momo",
-  },
-  {
-    id: "3",
-    date: "26/08/2025",
-    time: "14:15",
-    status: "Đã huỷ",
-    code: "3808835",
-    hotel: "Dal Vostro Homestay",
-    room: "Theo giờ | CLASSIC- HÀN QUỐC (DOUBLE)",
-    price: 200000,
-    payment: "atm",
-  },
-  {
-    id: "4",
-    date: "26/08/2025",
-    time: "13:53",
-    status: "Đã huỷ",
-    code: "3808783",
-    hotel: "Dal Vostro Homestay",
-    room: "Theo giờ | CLASSIC- HÀN QUỐC (DOUBLE)",
-    price: 150000,
-    payment: "momo",
-  },
-  {
-    id: "5",
-    date: "26/08/2025",
-    time: "14:15",
-    status: "Đã huỷ",
-    code: "3808835",
-    hotel: "Dal Vostro Homestay",
-    room: "Theo giờ | CLASSIC- HÀN QUỐC (DOUBLE)",
-    price: 200000,
-    payment: "atm",
-  },
-  {
-    id: "6",
-    date: "26/08/2025",
-    time: "13:53",
-    status: "Đã huỷ",
-    code: "3808783",
-    hotel: "Dal Vostro Homestay",
-    room: "Theo giờ | CLASSIC- HÀN QUỐC (DOUBLE)",
-    price: 150000,
-    payment: "momo",
-  },
-];
-
-const paymentIcon = (type: string) => {
-  if (type === "atm")
-    return (
-      <Ionicons
-        name="card-outline"
-        size={18}
-        color="#2563EB"
-        style={{ marginRight: 4 }}
-      />
-    );
-  if (type === "momo")
-    return (
-      <Ionicons
-        name="logo-usd"
-        size={18}
-        color="#A21CAF"
-        style={{ marginRight: 4 }}
-      />
-    );
-  return null;
-};
+import {
+  DatPhongServices,
+  DatPhongData,
+} from "../../services/DatPhongServices";
 
 export default function BookedScreen() {
+  const [bookings, setBookings] = useState<DatPhongData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
+
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      const data = await DatPhongServices.getAll();
+      setBookings(data || []);
+    } catch (error) {
+      console.error("❌ Error loading bookings:", error);
+      Alert.alert("Lỗi", "Không thể tải danh sách đặt phòng");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadBookings();
+    setRefreshing(false);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getStatusText = (trangThai: string) => {
+    switch (trangThai) {
+      case "Chờ xác nhận thanh toán":
+        return "Chờ thanh toán";
+      case "Đã xác nhận":
+        return "Đã xác nhận";
+      case "Đã hủy":
+        return "Đã hủy";
+      case "Hoàn thành":
+        return "Hoàn thành";
+      case "Đang sử dụng":
+        return "Đang sử dụng";
+      default:
+        return trangThai || "Chờ xác nhận";
+    }
+  };
+
+  const getStatusColor = (trangThai: string) => {
+    switch (trangThai) {
+      case "Chờ xác nhận thanh toán":
+        return "#F59E0B";
+      case "Đã xác nhận":
+        return "#10B981";
+      case "Đã hủy":
+        return "#EF4444";
+      case "Hoàn thành":
+        return "#6B7280";
+      case "Đang sử dụng":
+        return "#3B82F6";
+      default:
+        return "#6B7280";
+    }
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#F5F6FA",
+        }}
+      >
+        <ActivityIndicator size="large" color="#FB923C" />
+        <Text style={{ marginTop: 16, color: "#6B7280" }}>Đang tải...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
       <View
         style={{
-          //paddingTop: 10,
           paddingHorizontal: 16,
           paddingBottom: 10,
-          // backgroundColor: "#fff",
         }}
       ></View>
       <FlatList
-        data={demoData}
-        keyExtractor={(item) => item.id}
+        data={bookings}
+        keyExtractor={(item) => item.maDatPhong}
         contentContainerStyle={{ paddingBottom: 84 }}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View
@@ -124,10 +133,22 @@ export default function BookedScreen() {
                 marginBottom: 4,
               }}
             >
-              <Text style={styles.date}>{item.date}</Text>
-              <Text style={styles.time}>{item.time}</Text>
-              <View style={styles.statusBox}>
-                <Text style={styles.statusText}>{item.status}</Text>
+              <Text style={styles.date}>{formatDate(item.ngayDat)}</Text>
+              <Text style={styles.time}>{formatTime(item.ngayDat)}</Text>
+              <View
+                style={[
+                  styles.statusBox,
+                  { backgroundColor: getStatusColor(item.trangThai) + "20" },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: getStatusColor(item.trangThai) },
+                  ]}
+                >
+                  {getStatusText(item.trangThai)}
+                </Text>
               </View>
               <Ionicons
                 name="ellipsis-vertical"
@@ -136,10 +157,12 @@ export default function BookedScreen() {
                 style={{ marginLeft: "auto" }}
               />
             </View>
-            <Text style={styles.code}>Mã đặt phòng: {item.code}</Text>
-            <Text style={styles.hotel}>{item.hotel}</Text>
+            <Text style={styles.code}>Mã đặt phòng: {item.maDatPhong}</Text>
+            <Text style={styles.hotel}>
+              {item.KhachSan?.tenKS || "Khách sạn"}
+            </Text>
             <Text style={styles.room} numberOfLines={1}>
-              {item.room}
+              {item.loaiDat} | {item.Phong?.tenPhong || "Phòng"}
             </Text>
             <View
               style={{
@@ -148,13 +171,48 @@ export default function BookedScreen() {
                 marginTop: 4,
               }}
             >
-              {paymentIcon(item.payment)}
-              <Text style={styles.price}>{item.price.toLocaleString()}đ</Text>
+              <Ionicons
+                name="card-outline"
+                size={18}
+                color="#2563EB"
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.price}>
+                {item.tongTienSauGiam?.toLocaleString("vi-VN") ||
+                  item.tongTienGoc?.toLocaleString("vi-VN")}
+                ₫
+              </Text>
+              {item.KhuyenMai && (
+                <Text style={styles.discountText}>
+                  (Đã giảm {item.KhuyenMai.thongTinKM})
+                </Text>
+              )}
             </View>
           </View>
         )}
         ItemSeparatorComponent={() => (
           <View style={{ height: 8, backgroundColor: "#F5F6FA" }} />
+        )}
+        ListEmptyComponent={() => (
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingTop: 100,
+            }}
+          >
+            <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
+            <Text style={{ marginTop: 16, color: "#6B7280", fontSize: 16 }}>
+              Chưa có đặt phòng nào
+            </Text>
+            <Text style={{ marginTop: 8, color: "#9CA3AF", fontSize: 12 }}>
+              Debug: bookings.length = {bookings.length}
+            </Text>
+            <Text style={{ marginTop: 4, color: "#9CA3AF", fontSize: 12 }}>
+              loading = {loading.toString()}
+            </Text>
+          </View>
         )}
       />
     </View>
@@ -221,5 +279,11 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontWeight: "bold",
     marginLeft: 2,
+  },
+  discountText: {
+    fontSize: 12,
+    color: "#FB923C",
+    fontWeight: "600",
+    marginLeft: 8,
   },
 });
