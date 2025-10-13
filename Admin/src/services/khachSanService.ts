@@ -4,7 +4,7 @@ import { KhachSan } from '../types';
 export const khachSanService = {
   getAll: async (): Promise<KhachSan[]> => {
     const response = await request.get('/khachsan/getall');
-    return response.data;
+    return response.data || [];
   },
 
   getById: async (id: string): Promise<KhachSan> => {
@@ -30,7 +30,7 @@ export const khachSanService = {
     const response = await request.get('/khachsan/search', {
       params: { keyword },
     });
-    return response.data;
+    return response.data || [];
   },
 };
 

@@ -4,7 +4,7 @@ import { Phong } from '../types';
 export const phongService = {
   getAll: async (): Promise<Phong[]> => {
     const response = await request.get('/phong/getall');
-    return response.data;
+    return response.data || [];
   },
 
   getById: async (id: string): Promise<Phong> => {
@@ -30,7 +30,7 @@ export const phongService = {
     const response = await request.get('/phong/search', {
       params: { keyword },
     });
-    return response.data;
+    return response.data || [];
   },
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Select, message, Tag, Popconfirm, DatePicker, InputNumber } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import request from '../utils/request';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { khuyenMaiService } from '../services/khuyenMaiService';
 import { khachSanService } from '../services/khachSanService';
 import { KhuyenMai, KhachSan } from '../types';
 import dayjs from 'dayjs';
@@ -14,6 +14,7 @@ const PromotionManagement = () => {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<KhuyenMai | null>(null);
+  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -24,10 +25,12 @@ const PromotionManagement = () => {
   const loadPromotions = async () => {
     setLoading(true);
     try {
-      const response = await request.get('/khuyenmai/getall');
-      setPromotions(response.data);
+      const data = await khuyenMaiService.getAll();
+      setPromotions(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error loading promotions:', error);
       message.error('Lỗi khi tải danh sách khuyến mãi!');
+      setPromotions([]);
     } finally {
       setLoading(false);
     }
@@ -36,9 +39,29 @@ const PromotionManagement = () => {
   const loadHotels = async () => {
     try {
       const data = await khachSanService.getAll();
-      setHotels(data);
+      setHotels(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading hotels:', error);
+      setHotels([]);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchText.trim()) {
+      loadPromotions();
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const data = await khuyenMaiService.search(searchText);
+      setPromotions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error searching promotions:', error);
+      message.error('Lỗi khi tìm kiếm!');
+      setPromotions([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,10 +82,11 @@ const PromotionManagement = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      await request.delete(`/khuyenmai/delete/${id}`);
+      await khuyenMaiService.delete(id);
       message.success('Xóa khuyến mãi thành công!');
       loadPromotions();
     } catch (error) {
+      console.error('Error deleting promotion:', error);
       message.error('Lỗi khi xóa khuyến mãi!');
     }
   };
@@ -78,10 +102,10 @@ const PromotionManagement = () => {
       delete submitData.dateRange;
 
       if (editingPromotion) {
-        await request.put('/khuyenmai/update', { ...submitData, maKhuyenMai: editingPromotion.maKhuyenMai });
+        await khuyenMaiService.update({ ...submitData, maKM: editingPromotion.maKM });
         message.success('Cập nhật khuyến mãi thành công!');
       } else {
-        await request.post('/khuyenmai/insert', submitData);
+        await khuyenMaiService.create(submitData);
         message.success('Thêm khuyến mãi thành công!');
       }
       setModalVisible(false);
@@ -94,8 +118,8 @@ const PromotionManagement = () => {
   const columns = [
     {
       title: 'Tên khuyến mãi',
-      dataIndex: 'tenKhuyenMai',
-      key: 'tenKhuyenMai',
+      dataIndex: 'tenKM',
+      key: 'tenKM',
     },
     {
       title: 'Khách sạn',
@@ -103,17 +127,18 @@ const PromotionManagement = () => {
       key: 'hotel',
       render: (khachSan: any) => khachSan?.tenKS || 'N/A',
     },
-    {
-      title: 'Mô tả',
-      dataIndex: 'moTa',
-      key: 'moTa',
-      ellipsis: true,
-    },
+   
     {
       title: 'Phần trăm giảm',
       dataIndex: 'phanTramGiam',
       key: 'phanTramGiam',
-      render: (percent: number) => `${percent}%`,
+      render: (percent: number) => percent ? `${percent}%` : '0%',
+    },
+    {
+      title: 'Giá trị giảm',
+      dataIndex: 'giaTriGiam',
+      key: 'giaTriGiam',
+      render: (value: number) => value ? `${value.toLocaleString()} VNĐ` : '0 VNĐ',
     },
     {
       title: 'Ngày bắt đầu',
@@ -149,7 +174,7 @@ const PromotionManagement = () => {
           </Button>
           <Popconfirm
             title="Bạn có chắc muốn xóa khuyến mãi này?"
-            onConfirm={() => handleDelete(record.maKhuyenMai)}
+            onConfirm={() => handleDelete(record.maKM)}
             okText="Có"
             cancelText="Không"
           >
@@ -171,10 +196,23 @@ const PromotionManagement = () => {
         </Button>
       </div>
 
+      <Space style={{ marginBottom: 16 }}>
+        <Input
+          placeholder="Tìm kiếm khuyến mãi..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          onPressEnter={handleSearch}
+          style={{ width: 300 }}
+        />
+        <Button icon={<SearchOutlined />} onClick={handleSearch}>
+          Tìm kiếm
+        </Button>
+      </Space>
+
       <Table
         columns={columns}
         dataSource={promotions}
-        rowKey="maKhuyenMai"
+        rowKey="maKM"
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
@@ -189,7 +227,7 @@ const PromotionManagement = () => {
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
             label="Tên khuyến mãi"
-            name="tenKhuyenMai"
+            name="tenKM"
             rules={[{ required: true, message: 'Vui lòng nhập tên khuyến mãi!' }]}
           >
             <Input />
@@ -209,16 +247,23 @@ const PromotionManagement = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item label="Mô tả" name="moTa">
-            <Input.TextArea rows={3} />
-          </Form.Item>
-
           <Form.Item
             label="Phần trăm giảm (%)"
             name="phanTramGiam"
-            rules={[{ required: true, message: 'Vui lòng nhập phần trăm giảm!' }]}
           >
             <InputNumber min={0} max={100} style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            label="Giá trị giảm (VNĐ)"
+            name="giaTriGiam"
+          >
+            <InputNumber
+              min={0}
+              style={{ width: '100%' }}
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as any}
+            />
           </Form.Item>
 
           <Form.Item

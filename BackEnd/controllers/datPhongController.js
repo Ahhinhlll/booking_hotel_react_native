@@ -71,7 +71,7 @@ exports.getAll = async (req, res) => {
 // Lấy đơn đặt phòng theo ID
 exports.getById = async (req, res) => {
   try {
-    const item = await DatPhong.findByPk(req.params.id, {
+    const item = await db.DatPhong.findByPk(req.params.id, {
       include: [
         {
           model: db.NguoiDung,
@@ -152,135 +152,90 @@ exports.getById = async (req, res) => {
 // Tạo mới đơn đặt phòng
 exports.insert = async (req, res) => {
   try {
-    const transaction = await db.DatPhong.sequelize.transaction();
     const {
-      maND,
-      maPhong,
-      maGiaPhong,
-      maKM,
-      loaiDat,
-      ngayNhan,
-      ngayTra,
-      soNguoiLon,
-      soTreEm,
-      soGio,
-      soNgay,
-      ghiChu,
-      maKS,
-      phuongThucThanhToan, // Thêm phương thức thanh toán
+      roomId,
+      hotelId,
+      checkInDateTime,
+      checkOutDateTime,
+      bookingType,
+      duration,
+      paymentMethod,
+      clientCalculatedTotalAmount,
+      promotionId,
+      bookerInfo = {
+        phoneNumber: "+84 387238815",
+        name: "Joyer.651",
+      },
     } = req.body;
 
-    console.log("Received booking data:", {
-      maND,
-      maPhong,
-      maGiaPhong,
-      loaiDat,
-      ngayNhan,
-      ngayTra,
-      soNguoiLon,
-      soTreEm,
-      soGio,
-      soNgay,
-      ghiChu,
-      maKS,
-      phuongThucThanhToan,
+    // 1. Validation đầu vào
+    if (
+      !roomId ||
+      !hotelId ||
+      !checkInDateTime ||
+      !checkOutDateTime ||
+      !bookingType ||
+      !paymentMethod
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Thiếu thông tin bắt buộc: roomId, hotelId, checkInDateTime, checkOutDateTime, bookingType, paymentMethod",
+      });
+    }
+
+    // 2. Kiểm tra phòng có tồn tại không
+    const room = await db.Phong.findByPk(roomId, {
+      include: [{ model: db.GiaPhong }],
     });
 
-    // Kiểm tra thông tin bắt buộc với debug chi tiết
-    if (!maND) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu maND (mã người dùng)",
-        received: { maND },
-      });
-    }
-    if (!maPhong) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu maPhong (mã phòng)",
-        received: { maPhong },
-      });
-    }
-    if (!maGiaPhong) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu maGiaPhong (mã giá phòng)",
-        received: { maGiaPhong },
-      });
-    }
-    if (!loaiDat) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu loaiDat (loại đặt)",
-        received: { loaiDat },
-      });
-    }
-
-    // Kiểm tra người dùng
-    const nguoiDung = await db.NguoiDung.findByPk(maND, { transaction });
-    if (!nguoiDung) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Người dùng không tồn tại",
-      });
-    }
-
-    // Kiểm tra phòng
-    const phong = await db.Phong.findByPk(maPhong, { transaction });
-    if (!phong) {
+    if (!room) {
       return res.status(400).json({
         success: false,
         message: "Phòng không tồn tại",
       });
     }
 
-    // Kiểm tra giá phòng
-    const giaPhong = await db.GiaPhong.findByPk(maGiaPhong, { transaction });
-    if (!giaPhong) {
+    // 3. Kiểm tra khách sạn có tồn tại không
+    const hotel = await db.KhachSan.findByPk(hotelId);
+    if (!hotel) {
       return res.status(400).json({
         success: false,
-        message: "Giá phòng không tồn tại",
+        message: "Khách sạn không tồn tại",
       });
     }
 
-    // Kiểm tra khuyến mãi nếu có
-    let khuyenMai = null;
-    if (maKM) {
-      khuyenMai = await db.KhuyenMai.findByPk(maKM, { transaction });
-      if (!khuyenMai) {
-        return res.status(400).json({
-          success: false,
-          message: "Khuyến mãi không tồn tại",
-        });
-      }
+    // 4. Kiểm tra tính khả dụng của phòng (CRITICAL)
+    const checkInDate = new Date(checkInDateTime);
+    const checkOutDate = new Date(checkOutDateTime);
+
+    // Validate dates
+    if (checkInDate >= checkOutDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Ngày nhận phòng phải trước ngày trả phòng",
+      });
     }
 
-    // Kiểm tra xem phòng có đang được đặt trong khoảng thời gian này không
-    const existingBooking = await DatPhong.findOne({
+    const existingBooking = await db.DatPhong.findOne({
       where: {
-        maPhong,
+        maPhong: roomId,
         trangThai: {
           [Op.notIn]: ["Đã hủy", "Đã hoàn thành"],
         },
         [Op.or]: [
           {
-            ngayNhan: { [Op.lt]: ngayTra },
-            ngayTra: { [Op.gt]: ngayNhan },
+            ngayNhan: { [Op.lt]: checkOutDate },
+            ngayTra: { [Op.gt]: checkInDate },
           },
           {
-            ngayNhan: { [Op.between]: [ngayNhan, ngayTra] },
+            ngayNhan: { [Op.between]: [checkInDate, checkOutDate] },
           },
           {
-            ngayTra: { [Op.between]: [ngayNhan, ngayTra] },
+            ngayTra: { [Op.between]: [checkInDate, checkOutDate] },
           },
         ],
       },
-      transaction,
     });
 
     if (existingBooking) {
@@ -290,97 +245,272 @@ exports.insert = async (req, res) => {
       });
     }
 
-    // Tính tổng tiền
-    let tongTienGoc = 0;
-    let tongTienSauGiam = 0;
+    // 5. Tính toán giá phòng trên server (SECURITY)
+    const giaPhong = room.GiaPhongs?.[0];
+    if (!giaPhong) {
+      return res.status(400).json({
+        success: false,
+        message: "Không tìm thấy thông tin giá phòng",
+      });
+    }
 
-    if (loaiDat === "Theo giờ") {
-      if (soGio) {
-        if (soGio <= 2) {
-          tongTienGoc = giaPhong.gia2GioDau;
+    let serverCalculatedBasePrice = 0;
+
+    switch (bookingType) {
+      case "hourly":
+        if (duration <= 2) {
+          serverCalculatedBasePrice = giaPhong.gia2GioDau;
         } else {
-          tongTienGoc =
-            giaPhong.gia2GioDau + (soGio - 2) * giaPhong.gia1GioThem;
+          serverCalculatedBasePrice =
+            giaPhong.gia2GioDau + (duration - 2) * giaPhong.gia1GioThem;
+        }
+        break;
+      case "overnight":
+        serverCalculatedBasePrice = giaPhong.giaQuaDem;
+        break;
+      case "daily":
+        serverCalculatedBasePrice = giaPhong.giaTheoNgay;
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          message: "Loại đặt phòng không hợp lệ",
+        });
+    }
+
+    // 6. Xử lý khuyến mãi nếu có
+    let finalPrice = serverCalculatedBasePrice;
+    let appliedPromotion = null;
+
+    if (promotionId) {
+      const promotion = await db.KhuyenMai.findByPk(promotionId);
+
+      if (promotion) {
+        // Kiểm tra khuyến mãi có còn hiệu lực không
+        const now = new Date();
+        const startDate = new Date(promotion.ngayBatDau);
+        const endDate = new Date(promotion.ngayKetThuc);
+
+        if (now >= startDate && now <= endDate) {
+          let discountAmount = 0;
+
+          if (promotion.phanTramGiam > 0) {
+            discountAmount = Math.round(
+              (serverCalculatedBasePrice * promotion.phanTramGiam) / 100
+            );
+            finalPrice = serverCalculatedBasePrice - discountAmount;
+            console.log("Backend percentage discount:", {
+              serverCalculatedBasePrice,
+              phanTramGiam: promotion.phanTramGiam,
+              discountAmount,
+              finalPrice,
+            });
+          } else if (promotion.giaTriGiam > 0) {
+            discountAmount = promotion.giaTriGiam;
+            finalPrice = serverCalculatedBasePrice - discountAmount;
+            console.log("Backend fixed amount discount:", {
+              serverCalculatedBasePrice,
+              giaTriGiam: promotion.giaTriGiam,
+              discountAmount,
+              finalPrice,
+            });
+          } else if (promotion.thongTinKM) {
+            // Parse từ text như "giảm 30K" -> 30000
+            const discountMatch = promotion.thongTinKM.match(/giảm\s*(\d+)k/i);
+            if (discountMatch) {
+              discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
+              finalPrice = serverCalculatedBasePrice - discountAmount;
+              console.log("Backend text-based discount:", {
+                serverCalculatedBasePrice,
+                thongTinKM: promotion.thongTinKM,
+                discountAmount,
+                finalPrice,
+              });
+            }
+          }
+
+          finalPrice = Math.max(Math.round(finalPrice), 0); // Làm tròn và không cho phép giá âm
+          appliedPromotion = promotion;
         }
       }
-    } else if (loaiDat === "Qua đêm") {
-      tongTienGoc = giaPhong.giaQuaDem;
-    } else if (loaiDat === "Theo ngày") {
-      if (soNgay) {
-        tongTienGoc = giaPhong.giaTheoNgay * soNgay;
-      }
     }
 
-    // Áp dụng khuyến mãi nếu có
-    if (khuyenMai) {
-      if (khuyenMai.phanTramGiam > 0) {
-        tongTienSauGiam =
-          tongTienGoc - (tongTienGoc * khuyenMai.phanTramGiam) / 100;
-      } else if (khuyenMai.giaTriGiam > 0) {
-        tongTienSauGiam = tongTienGoc - khuyenMai.giaTriGiam;
-      } else {
-        tongTienSauGiam = tongTienGoc;
-      }
-      tongTienSauGiam = Math.max(tongTienSauGiam, 0); // Không cho phép giá âm
-    } else {
-      tongTienSauGiam = tongTienGoc;
-    }
-
-    // Xác định trạng thái ban đầu dựa trên phương thức thanh toán
-    let trangThaiDatPhong = "Chưa thanh toán";
-    if (phuongThucThanhToan) {
-      // Nếu có phương thức thanh toán được cung cấp, có thể xử lý thanh toán ngay
-      trangThaiDatPhong = "Chờ xác nhận thanh toán";
-    }
-
-    // Tạo đơn đặt phòng
-    console.log("Creating DatPhong with maND:", maND);
-    const newBooking = await DatPhong.create(
-      {
-        maND,
-        maPhong,
-        maGiaPhong,
-        maKM,
-        loaiDat,
-        ngayNhan,
-        ngayTra,
-        soNguoiLon: soNguoiLon || 1,
-        soTreEm: soTreEm || 0,
-        soGio,
-        soNgay,
-        tongTienGoc,
-        tongTienSauGiam,
-        trangThai: trangThaiDatPhong, // Trạng thái dựa trên phương thức thanh toán
-        ghiChu,
-        maKS: maKS || phong.maKS, // Lấy mã khách sạn từ phòng nếu không có
-      },
-      { transaction }
+    // 7. So sánh giá base price với client (SECURITY CHECK)
+    const priceDifference = Math.abs(
+      serverCalculatedBasePrice - clientCalculatedTotalAmount
     );
+    const tolerance = 1000; // Cho phép sai lệch 1K cho giá base price
 
-    // Nếu có phương thức thanh toán, tạo bản ghi thanh toán
-    if (phuongThucThanhToan) {
-      await db.ThanhToan.create(
+    console.log("Price comparison:", {
+      serverCalculatedBasePrice,
+      finalPrice,
+      clientCalculatedTotalAmount,
+      priceDifference,
+      tolerance,
+      promotionId,
+      appliedPromotion,
+    });
+
+    if (priceDifference > tolerance) {
+      return res.status(400).json({
+        success: false,
+        message: `Giá base không khớp. Giá server: ${serverCalculatedBasePrice.toLocaleString(
+          "vi-VN"
+        )}₫, Giá client: ${clientCalculatedTotalAmount.toLocaleString(
+          "vi-VN"
+        )}₫, Chênh lệch: ${priceDifference.toLocaleString("vi-VN")}₫`,
+      });
+    }
+
+    // 8. Tạo đơn đặt phòng
+    const transaction = await db.DatPhong.sequelize.transaction();
+
+    try {
+      // Lấy thông tin user từ JWT token hoặc sử dụng user đầu tiên có sẵn
+      let userId = "temp_user_id";
+
+      // TODO: Lấy userId từ JWT token khi có authentication
+      // const userId = req.user?.maNguoiDung || "temp_user_id";
+
+      // Tìm user đầu tiên có sẵn trong database để test
+      const existingUser = await db.NguoiDung.findOne({ transaction });
+      if (existingUser) {
+        userId = existingUser.maNguoiDung;
+      } else {
+        // Tạo user tạm thời nếu không có user nào
+        const newUser = await db.NguoiDung.create(
+          {
+            hoTen: bookerInfo.name || "Khách hàng",
+            sdt: bookerInfo.phoneNumber || "0123456789",
+            email: "temp@example.com",
+            matKhau: "temp_password",
+            vaiTro: "Khách hàng",
+          },
+          { transaction }
+        );
+        userId = newUser.maNguoiDung;
+      }
+
+      const newBooking = await db.DatPhong.create(
         {
-          maDatPhong: newBooking.maDatPhong,
-          phuongThuc: phuongThucThanhToan,
-          soTien: tongTienSauGiam,
-          trangThai: "Chưa thanh toán", // Trạng thái thanh toán ban đầu
+          maND: userId,
+          maPhong: roomId,
+          maGiaPhong: giaPhong.maGiaPhong,
+          maKM: promotionId || null,
+          loaiDat:
+            bookingType === "hourly"
+              ? "Theo giờ"
+              : bookingType === "overnight"
+              ? "Qua đêm"
+              : "Theo ngày",
+          ngayNhan: checkInDate,
+          ngayTra: checkOutDate,
+          soNguoiLon: 1,
+          soTreEm: 0,
+          soGio: bookingType === "hourly" ? duration : null,
+          soNgay: bookingType === "daily" ? 1 : null,
+          tongTienGoc: serverCalculatedBasePrice,
+          tongTienSauGiam: finalPrice,
+          trangThai: "Chờ xác nhận thanh toán",
+          ghiChu: `Thông tin người đặt: ${bookerInfo.name} - ${bookerInfo.phoneNumber}`,
+          maKS: hotelId,
         },
         { transaction }
       );
+
+      // 9. Xử lý thanh toán
+      const paymentData = {
+        maDatPhong: newBooking.maDatPhong,
+        phuongThuc: paymentMethod,
+        soTien: finalPrice,
+        trangThai: "Chưa thanh toán",
+        maGiaoDich: `TXN_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`,
+      };
+
+      const payment = await db.ThanhToan.create(paymentData, { transaction });
+
+      // Xử lý thanh toán dựa trên phương thức
+      let paymentResult = { success: false, message: "Chưa xử lý thanh toán" };
+
+      switch (paymentMethod) {
+        case "momo":
+          paymentResult = await processMoMoPayment(
+            finalPrice,
+            newBooking.maDatPhong
+          );
+          break;
+        case "zalopay":
+          paymentResult = await processZaloPayPayment(
+            finalPrice,
+            newBooking.maDatPhong
+          );
+          break;
+        case "shopeepay":
+          paymentResult = await processShopeePayPayment(
+            finalPrice,
+            newBooking.maDatPhong
+          );
+          break;
+        case "credit":
+          paymentResult = await processCreditCardPayment(
+            finalPrice,
+            newBooking.maDatPhong
+          );
+          break;
+        case "atm":
+          paymentResult = await processATMPayment(
+            finalPrice,
+            newBooking.maDatPhong
+          );
+          break;
+        case "hotel":
+          paymentResult = {
+            success: true,
+            message: "Thanh toán tại khách sạn",
+          };
+          break;
+        default:
+          paymentResult = {
+            success: false,
+            message: "Phương thức thanh toán không hỗ trợ",
+          };
+      }
+
+      // Cập nhật trạng thái dựa trên kết quả thanh toán
+      if (paymentResult.success) {
+        await db.DatPhong.update(
+          { trangThai: "Đã xác nhận" },
+          { where: { maDatPhong: newBooking.maDatPhong }, transaction }
+        );
+        await db.ThanhToan.update(
+          { trangThai: "Đã thanh toán" },
+          { where: { maDatPhong: newBooking.maDatPhong }, transaction }
+        );
+      }
+
+      await transaction.commit();
+
+      res.status(201).json({
+        success: true,
+        data: {
+          bookingId: newBooking.maDatPhong,
+          finalAmount: finalPrice,
+          paymentResult,
+          appliedPromotion,
+        },
+        message: "Đặt phòng thành công",
+      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
-
-    await transaction.commit();
-
-    res.status(201).json({
-      success: true,
-      data: newBooking,
-      message: "Đặt phòng thành công",
-    });
   } catch (error) {
     console.error("Lỗi khi đặt phòng:", error);
     res.status(500).json({
       success: false,
+      message: "Lỗi hệ thống khi xử lý đặt phòng",
       error: error.message,
     });
   }
@@ -389,7 +519,7 @@ exports.insert = async (req, res) => {
 // Cập nhật đơn đặt phòng
 exports.update = async (req, res) => {
   try {
-    const booking = await DatPhong.findByPk(req.params.id);
+    const booking = await db.DatPhong.findByPk(req.params.id);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -400,7 +530,7 @@ exports.update = async (req, res) => {
     // Kiểm tra nếu cập nhật ngày nhận/trả thì kiểm tra trùng lặp
     const { ngayNhan, ngayTra, maPhong, trangThai } = req.body;
     if (ngayNhan && ngayTra) {
-      const existingBooking = await DatPhong.findOne({
+      const existingBooking = await db.DatPhong.findOne({
         where: {
           maPhong: maPhong || booking.maPhong,
           maDatPhong: { [Op.ne]: req.params.id }, // Không kiểm tra chính bản ghi đang cập nhật
@@ -571,7 +701,7 @@ exports.updateStatus = async (req, res) => {
     const { id } = req.params;
     const { trangThai } = req.body;
 
-    const booking = await DatPhong.findByPk(id);
+    const booking = await db.DatPhong.findByPk(id);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -630,7 +760,7 @@ exports.confirmBooking = async (req, res) => {
     }
 
     // 2. Kiểm tra phòng có tồn tại không
-    const room = await Phong.findByPk(roomId, {
+    const room = await db.Phong.findByPk(roomId, {
       include: [{ model: db.GiaPhong }],
     });
 
@@ -642,7 +772,7 @@ exports.confirmBooking = async (req, res) => {
     }
 
     // 3. Kiểm tra khách sạn có tồn tại không
-    const hotel = await KhachSan.findByPk(hotelId);
+    const hotel = await db.KhachSan.findByPk(hotelId);
     if (!hotel) {
       return res.status(400).json({
         success: false,
@@ -662,7 +792,7 @@ exports.confirmBooking = async (req, res) => {
       });
     }
 
-    const existingBooking = await DatPhong.findOne({
+    const existingBooking = await db.DatPhong.findOne({
       where: {
         maPhong: roomId,
         trangThai: {
@@ -728,7 +858,60 @@ exports.confirmBooking = async (req, res) => {
     let appliedPromotion = null;
 
     if (promotionId) {
-      const promotion = await KhuyenMai.findByPk(promotionId);
+      const promotion = await db.KhuyenMai.findByPk(promotionId);
+
+      if (promotion) {
+        // Kiểm tra khuyến mãi có còn hiệu lực không
+        const now = new Date();
+        const startDate = new Date(promotion.ngayBatDau);
+        const endDate = new Date(promotion.ngayKetThuc);
+
+        if (now >= startDate && now <= endDate) {
+          let discountAmount = 0;
+
+          if (promotion.phanTramGiam > 0) {
+            discountAmount = Math.round(
+              (serverCalculatedBasePrice * promotion.phanTramGiam) / 100
+            );
+            finalPrice = serverCalculatedBasePrice - discountAmount;
+            console.log("Backend percentage discount:", {
+              serverCalculatedBasePrice,
+              phanTramGiam: promotion.phanTramGiam,
+              discountAmount,
+              finalPrice,
+            });
+          } else if (promotion.giaTriGiam > 0) {
+            discountAmount = promotion.giaTriGiam;
+            finalPrice = serverCalculatedBasePrice - discountAmount;
+            console.log("Backend fixed amount discount:", {
+              serverCalculatedBasePrice,
+              giaTriGiam: promotion.giaTriGiam,
+              discountAmount,
+              finalPrice,
+            });
+          } else if (promotion.thongTinKM) {
+            // Parse từ text như "giảm 30K" -> 30000
+            const discountMatch = promotion.thongTinKM.match(/giảm\s*(\d+)k/i);
+            if (discountMatch) {
+              discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
+              finalPrice = serverCalculatedBasePrice - discountAmount;
+              console.log("Backend text-based discount:", {
+                serverCalculatedBasePrice,
+                thongTinKM: promotion.thongTinKM,
+                discountAmount,
+                finalPrice,
+              });
+            }
+          }
+
+          finalPrice = Math.max(Math.round(finalPrice), 0); // Làm tròn và không cho phép giá âm
+          appliedPromotion = promotion;
+        }
+      }
+    }
+
+    if (promotionId) {
+      const promotion = await db.KhuyenMai.findByPk(promotionId);
 
       if (promotion) {
         // Kiểm tra khuyến mãi có còn hiệu lực không
@@ -743,8 +926,15 @@ exports.confirmBooking = async (req, res) => {
               (serverCalculatedBasePrice * promotion.phanTramGiam) / 100;
           } else if (promotion.giaTriGiam > 0) {
             finalPrice = serverCalculatedBasePrice - promotion.giaTriGiam;
+          } else if (promotion.thongTinKM) {
+            // Parse từ text như "giảm 30K" -> 30000
+            const discountMatch = promotion.thongTinKM.match(/giảm\s*(\d+)k/i);
+            if (discountMatch) {
+              const discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
+              finalPrice = serverCalculatedBasePrice - discountAmount;
+            }
           }
-          finalPrice = Math.max(finalPrice, 0); // Không cho phép giá âm
+          finalPrice = Math.max(Math.round(finalPrice), 0); // Làm tròn và không cho phép giá âm
           appliedPromotion = promotion;
         }
       }
@@ -838,7 +1028,7 @@ async function handlePaymentProcessing(
 
     console.log("Creating payment with data:", paymentData); // Debug log
 
-    const payment = await ThanhToan.create(paymentData);
+    const payment = await db.ThanhToan.create(paymentData);
 
     // Xử lý thanh toán dựa trên phương thức
     let paymentResult = { success: false, message: "Chưa xử lý thanh toán" };
@@ -886,13 +1076,13 @@ async function handlePaymentProcessing(
 
     // Cập nhật trạng thái dựa trên kết quả thanh toán
     if (paymentResult.success) {
-      await DatPhong.update(
+      await db.DatPhong.update(
         { trangThai: "Đã xác nhận" },
         { where: { maDatPhong: bookingData.maDatPhong } }
       );
       await payment.update({ trangThai: "Đã thanh toán" });
     } else {
-      await DatPhong.update(
+      await db.DatPhong.update(
         { trangThai: "Thanh toán thất bại" },
         { where: { maDatPhong: bookingData.maDatPhong } }
       );
@@ -910,7 +1100,13 @@ async function handlePaymentProcessing(
         discountAmount: bookingData.tongTienGoc - finalPrice,
         paymentStatus: paymentResult.success ? "success" : "failed",
         paymentMessage: paymentResult.message,
-        promotion: null, // Có thể thêm logic promotion sau
+        promotion: appliedPromotion
+          ? {
+              name: appliedPromotion.tenKM,
+              discount:
+                appliedPromotion.phanTramGiam || appliedPromotion.giaTriGiam,
+            }
+          : null,
       },
       message: paymentResult.success
         ? "Đặt phòng và thanh toán thành công"
@@ -938,7 +1134,7 @@ exports.calculatePrice = async (req, res) => {
       });
     }
 
-    const room = await Phong.findByPk(roomId, {
+    const room = await db.Phong.findByPk(roomId, {
       include: [{ model: db.GiaPhong }],
     });
 
@@ -980,7 +1176,7 @@ exports.calculatePrice = async (req, res) => {
     let appliedPromotion = null;
 
     if (promotionId) {
-      const promotion = await KhuyenMai.findByPk(promotionId);
+      const promotion = await db.KhuyenMai.findByPk(promotionId);
 
       if (promotion) {
         const now = new Date();
@@ -992,8 +1188,15 @@ exports.calculatePrice = async (req, res) => {
             finalPrice = basePrice - (basePrice * promotion.phanTramGiam) / 100;
           } else if (promotion.giaTriGiam > 0) {
             finalPrice = basePrice - promotion.giaTriGiam;
+          } else if (promotion.thongTinKM) {
+            // Parse từ text như "giảm 30K" -> 30000
+            const discountMatch = promotion.thongTinKM.match(/giảm\s*(\d+)k/i);
+            if (discountMatch) {
+              const discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
+              finalPrice = basePrice - discountAmount;
+            }
           }
-          finalPrice = Math.max(finalPrice, 0);
+          finalPrice = Math.max(Math.round(finalPrice), 0);
           appliedPromotion = promotion;
         }
       }
@@ -1039,7 +1242,7 @@ exports.checkAvailability = async (req, res) => {
     const checkInDate = new Date(checkInDateTime);
     const checkOutDate = new Date(checkOutDateTime);
 
-    const existingBooking = await DatPhong.findOne({
+    const existingBooking = await db.DatPhong.findOne({
       where: {
         maPhong: roomId,
         trangThai: {

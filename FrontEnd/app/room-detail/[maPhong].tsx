@@ -573,9 +573,9 @@ export default function RoomDetailScreen() {
 
   const pricing = getRoomPricing();
   const currentPrice = getCurrentPrice();
-  const discountPercent = 1;
-  const discountedPrice =
-    currentPrice > 0 ? currentPrice - Math.floor(currentPrice * 0.01) : 0;
+  const discountedPrice = selectedPromotion
+    ? calculatePriceWithPromotion(currentPrice)
+    : currentPrice;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -1125,30 +1125,23 @@ export default function RoomDetailScreen() {
               }}
             >
               {currentPrice > 0
-                ? (() => {
-                    if (selectedPromotion) {
-                      return (
-                        calculatePriceWithPromotion(
-                          currentPrice
-                        ).toLocaleString("vi-VN") + "₫"
-                      );
-                    }
-                    return currentPrice.toLocaleString("vi-VN") + "₫";
-                  })()
+                ? discountedPrice.toLocaleString("vi-VN") + "₫"
                 : "Chưa có giá"}
             </Text>
-            {currentPrice > 0 && selectedPromotion && (
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: "#9CA3AF",
-                  textDecorationLine: "line-through",
-                  marginTop: 2,
-                }}
-              >
-                {currentPrice.toLocaleString("vi-VN")}₫
-              </Text>
-            )}
+            {currentPrice > 0 &&
+              selectedPromotion &&
+              currentPrice !== discountedPrice && (
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: "#9CA3AF",
+                    textDecorationLine: "line-through",
+                    marginTop: 2,
+                  }}
+                >
+                  {currentPrice.toLocaleString("vi-VN")}₫
+                </Text>
+              )}
             {selectedPromotion && currentPrice > 0 && (
               <Text
                 style={{

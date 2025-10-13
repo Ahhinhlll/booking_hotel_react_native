@@ -22,9 +22,11 @@ const HotelManagement = () => {
     setLoading(true);
     try {
       const data = await khachSanService.getAll();
-      setHotels(data);
+      setHotels(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error loading hotels:', error);
       message.error('Lỗi khi tải danh sách khách sạn!');
+      setHotels([]);
     } finally {
       setLoading(false);
     }
@@ -39,9 +41,11 @@ const HotelManagement = () => {
     setLoading(true);
     try {
       const data = await khachSanService.search(searchText);
-      setHotels(data);
+      setHotels(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error searching hotels:', error);
       message.error('Lỗi khi tìm kiếm!');
+      setHotels([]);
     } finally {
       setLoading(false);
     }
@@ -55,7 +59,9 @@ const HotelManagement = () => {
 
   const handleEdit = (hotel: KhachSan) => {
     setEditingHotel(hotel);
-    form.setFieldsValue(hotel);
+    // Exclude hangSao, diemDanhGia, and giaThapNhat from form values as they are calculated automatically
+    const { hangSao, diemDanhGia, giaThapNhat, ...formValues } = hotel;
+    form.setFieldsValue(formValues);
     setModalVisible(true);
   };
 
@@ -71,11 +77,14 @@ const HotelManagement = () => {
 
   const handleSubmit = async (values: any) => {
     try {
+      // Remove hangSao, diemDanhGia, and giaThapNhat as they are calculated automatically
+      const { hangSao, diemDanhGia, giaThapNhat, ...submitData } = values;
+      
       if (editingHotel) {
-        await khachSanService.update({ ...values, maKS: editingHotel.maKS });
+        await khachSanService.update({ ...submitData, maKS: editingHotel.maKS });
         message.success('Cập nhật khách sạn thành công!');
       } else {
-        await khachSanService.create(values);
+        await khachSanService.create(submitData);
         message.success('Thêm khách sạn thành công!');
       }
       setModalVisible(false);
@@ -114,22 +123,22 @@ const HotelManagement = () => {
       key: 'dienThoai',
     },
     {
-      title: 'Hạng sao',
+      title: 'Hạng sao (TB)',
       dataIndex: 'hangSao',
       key: 'hangSao',
-      render: (stars: number) => '⭐'.repeat(stars),
+      render: (stars: number) => stars ? '⭐'.repeat(Math.round(stars)) : 'Chưa có đánh giá',
     },
     {
-      title: 'Giá thấp nhất',
+      title: 'Giá thấp nhất (TB)',
       dataIndex: 'giaThapNhat',
       key: 'giaThapNhat',
-      render: (price: number) => price ? `${price.toLocaleString()} VNĐ` : 'N/A',
+      render: (price: number) => price ? `${price.toLocaleString()} VNĐ` : 'Chưa có phòng',
     },
     {
-      title: 'Điểm đánh giá',
+      title: 'Số đánh giá',
       dataIndex: 'diemDanhGia',
       key: 'diemDanhGia',
-      render: (score: number) => <Tag color="blue">{score}/10</Tag>,
+      render: (count: number) => <Tag color="blue">{count} đánh giá</Tag>,
     },
     {
       title: 'Nổi bật',
@@ -252,37 +261,6 @@ const HotelManagement = () => {
             <Input />
           </Form.Item>
 
-          <Form.Item
-            label="Hạng sao"
-            name="hangSao"
-            rules={[{ required: true, message: 'Vui lòng chọn hạng sao!' }]}
-          >
-            <Select>
-              <Select.Option value={1}>1 sao</Select.Option>
-              <Select.Option value={2}>2 sao</Select.Option>
-              <Select.Option value={3}>3 sao</Select.Option>
-              <Select.Option value={4}>4 sao</Select.Option>
-              <Select.Option value={5}>5 sao</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Giá thấp nhất"
-            name="giaThapNhat"
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Điểm đánh giá"
-            name="diemDanhGia"
-          >
-            <InputNumber min={0} max={10} style={{ width: '100%' }} />
-          </Form.Item>
 
           <Form.Item
             label="Nổi bật"

@@ -21,6 +21,8 @@ const BookingManagement = () => {
   const [editingBooking, setEditingBooking] = useState<DatPhong | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<DatPhong | null>(null);
   const [form] = Form.useForm();
+  const [availabilityModalVisible, setAvailabilityModalVisible] = useState(false);
+  const [availabilityResult, setAvailabilityResult] = useState<{ available: boolean; message: string } | null>(null);
 
   useEffect(() => {
     loadBookings();
@@ -33,9 +35,12 @@ const BookingManagement = () => {
     setLoading(true);
     try {
       const data = await datPhongService.getAll();
-      setBookings(data);
+      // Ensure data is always an array
+      setBookings(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error loading bookings:', error);
       message.error('Lỗi khi tải danh sách đặt phòng!');
+      setBookings([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -44,27 +49,31 @@ const BookingManagement = () => {
   const loadUsers = async () => {
     try {
       const data = await nguoiDungService.getAll();
-      setUsers(data.filter(u => u.maVaiTro === 'VT03')); // Chỉ lấy khách hàng
+      const usersData = Array.isArray(data) ? data : [];
+      setUsers(usersData.filter(u => u.maVaiTro === 'VT03')); // Chỉ lấy khách hàng
     } catch (error) {
       console.error('Error loading users:', error);
+      setUsers([]);
     }
   };
 
   const loadHotels = async () => {
     try {
       const data = await khachSanService.getAll();
-      setHotels(data);
+      setHotels(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading hotels:', error);
+      setHotels([]);
     }
   };
 
   const loadRooms = async () => {
     try {
       const data = await phongService.getAll();
-      setRooms(data);
+      setRooms(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading rooms:', error);
+      setRooms([]);
     }
   };
 
@@ -78,7 +87,7 @@ const BookingManagement = () => {
     setEditingBooking(booking);
     form.setFieldsValue({
       ...booking,
-      dateRange: [dayjs(booking.ngayNhanPhong), dayjs(booking.ngayTraPhong)],
+      dateRange: [dayjs(booking.ngayNhan), dayjs(booking.ngayTra)],
     });
     setModalVisible(true);
   };
@@ -98,12 +107,36 @@ const BookingManagement = () => {
     }
   };
 
+  const handleStatusUpdate = async (id: string, newStatus: string) => {
+    try {
+      await datPhongService.updateStatus(id, newStatus);
+      message.success('Cập nhật trạng thái thành công!');
+      loadBookings();
+    } catch (error) {
+      message.error('Lỗi khi cập nhật trạng thái!');
+    }
+  };
+
+  const handleCheckAvailability = async (values: any) => {
+    try {
+      const result = await datPhongService.checkAvailability({
+        roomId: values.maPhong,
+        checkInDateTime: values.dateRange[0].format('YYYY-MM-DD'),
+        checkOutDateTime: values.dateRange[1].format('YYYY-MM-DD'),
+      });
+      setAvailabilityResult(result);
+      setAvailabilityModalVisible(true);
+    } catch (error) {
+      message.error('Lỗi khi kiểm tra tính khả dụng!');
+    }
+  };
+
   const handleSubmit = async (values: any) => {
     try {
       const submitData = {
         ...values,
-        ngayNhanPhong: values.dateRange[0].format('YYYY-MM-DD'),
-        ngayTraPhong: values.dateRange[1].format('YYYY-MM-DD'),
+        ngayNhan: values.dateRange[0].format('YYYY-MM-DD'),
+        ngayTra: values.dateRange[1].format('YYYY-MM-DD'),
         dateRange: undefined,
       };
       delete submitData.dateRange;
@@ -148,33 +181,49 @@ const BookingManagement = () => {
       render: (phong: any) => phong?.tenPhong || 'N/A',
     },
     {
+      title: 'Loại đặt',
+      dataIndex: 'loaiDat',
+      key: 'loaiDat',
+      render: (type: string) => {
+        const color = type === 'Theo giờ' ? 'blue' : type === 'Qua đêm' ? 'green' : 'orange';
+        return <Tag color={color}>{type}</Tag>;
+      },
+    },
+    {
       title: 'Ngày nhận',
-      dataIndex: 'ngayNhanPhong',
-      key: 'ngayNhanPhong',
+      dataIndex: 'ngayNhan',
+      key: 'ngayNhan',
       render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'Ngày trả',
-      dataIndex: 'ngayTraPhong',
-      key: 'ngayTraPhong',
+      dataIndex: 'ngayTra',
+      key: 'ngayTra',
       render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'Tổng tiền',
-      dataIndex: 'tongTien',
-      key: 'tongTien',
-      render: (amount: number) => `${amount.toLocaleString()} VNĐ`,
+      dataIndex: 'tongTienSauGiam',
+      key: 'tongTienSauGiam',
+      render: (amount: number) => `${amount?.toLocaleString() || 0} VNĐ`,
     },
     {
       title: 'Trạng thái',
       dataIndex: 'trangThai',
       key: 'trangThai',
-      render: (status: string) => {
-        const color = 
-          status === 'Đã xác nhận' ? 'green' :
-          status === 'Chờ xác nhận' ? 'orange' :
-          status === 'Đã hủy' ? 'red' : 'blue';
-        return <Tag color={color}>{status}</Tag>;
+      render: (status: string, record: DatPhong) => {
+        return (
+          <Select
+            value={status}
+            style={{ width: 150 }}
+            onChange={(newStatus) => handleStatusUpdate(record.maDatPhong, newStatus)}
+          >
+            <Select.Option value="Chờ xác nhận thanh toán">Chờ xác nhận thanh toán</Select.Option>
+            <Select.Option value="Đã xác nhận">Đã xác nhận</Select.Option>
+            <Select.Option value="Đã hủy">Đã hủy</Select.Option>
+            <Select.Option value="Hoàn thành">Hoàn thành</Select.Option>
+          </Select>
+        );
       },
     },
     {
@@ -235,11 +284,22 @@ const BookingManagement = () => {
         onCancel={() => setModalVisible(false)}
         onOk={() => form.submit()}
         width={700}
+        footer={[
+          <Button key="check" onClick={() => form.validateFields().then(handleCheckAvailability)}>
+            Kiểm tra khả dụng
+          </Button>,
+          <Button key="cancel" onClick={() => setModalVisible(false)}>
+            Hủy
+          </Button>,
+          <Button key="submit" type="primary" onClick={() => form.submit()}>
+            {editingBooking ? 'Cập nhật' : 'Thêm mới'}
+          </Button>,
+        ]}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
             label="Khách hàng"
-            name="maNguoiDung"
+            name="maND"
             rules={[{ required: true, message: 'Vui lòng chọn khách hàng!' }]}
           >
             <Select showSearch optionFilterProp="children">
@@ -280,6 +340,18 @@ const BookingManagement = () => {
           </Form.Item>
 
           <Form.Item
+            label="Loại đặt phòng"
+            name="loaiDat"
+            rules={[{ required: true, message: 'Vui lòng chọn loại đặt phòng!' }]}
+          >
+            <Select>
+              <Select.Option value="Theo giờ">Theo giờ</Select.Option>
+              <Select.Option value="Qua đêm">Qua đêm</Select.Option>
+              <Select.Option value="Theo ngày">Theo ngày</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
             label="Ngày nhận - Ngày trả"
             name="dateRange"
             rules={[{ required: true, message: 'Vui lòng chọn ngày!' }]}
@@ -304,15 +376,42 @@ const BookingManagement = () => {
           </Form.Item>
 
           <Form.Item
-            label="Tổng tiền"
-            name="tongTien"
-            rules={[{ required: true, message: 'Vui lòng nhập tổng tiền!' }]}
+            label="Số giờ (nếu đặt theo giờ)"
+            name="soGio"
+          >
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            label="Số ngày (nếu đặt theo ngày)"
+            name="soNgay"
+          >
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            label="Tổng tiền gốc"
+            name="tongTienGoc"
+            rules={[{ required: true, message: 'Vui lòng nhập tổng tiền gốc!' }]}
           >
             <InputNumber
               min={0}
               style={{ width: '100%' }}
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+              parser={(value) => parseFloat(value!.replace(/\$\s?|(,*)/g, '')) || 0 as any}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Tổng tiền sau giảm"
+            name="tongTienSauGiam"
+            rules={[{ required: true, message: 'Vui lòng nhập tổng tiền sau giảm!' }]}
+          >
+            <InputNumber
+              min={0}
+              style={{ width: '100%' }}
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value) => parseFloat(value!.replace(/\$\s?|(,*)/g, '')) || 0 as any}
             />
           </Form.Item>
 
@@ -326,7 +425,7 @@ const BookingManagement = () => {
             rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
           >
             <Select>
-              <Select.Option value="Chờ xác nhận">Chờ xác nhận</Select.Option>
+              <Select.Option value="Chờ xác nhận thanh toán">Chờ xác nhận thanh toán</Select.Option>
               <Select.Option value="Đã xác nhận">Đã xác nhận</Select.Option>
               <Select.Option value="Đã hủy">Đã hủy</Select.Option>
               <Select.Option value="Hoàn thành">Hoàn thành</Select.Option>
@@ -354,13 +453,40 @@ const BookingManagement = () => {
             <p><strong>SĐT:</strong> {selectedBooking.NguoiDung?.sdt}</p>
             <p><strong>Khách sạn:</strong> {selectedBooking.KhachSan?.tenKS}</p>
             <p><strong>Phòng:</strong> {selectedBooking.Phong?.tenPhong}</p>
-            <p><strong>Ngày nhận phòng:</strong> {dayjs(selectedBooking.ngayNhanPhong).format('DD/MM/YYYY')}</p>
-            <p><strong>Ngày trả phòng:</strong> {dayjs(selectedBooking.ngayTraPhong).format('DD/MM/YYYY')}</p>
+            <p><strong>Loại đặt phòng:</strong> <Tag color={selectedBooking.loaiDat === 'Theo giờ' ? 'blue' : selectedBooking.loaiDat === 'Qua đêm' ? 'green' : 'orange'}>{selectedBooking.loaiDat}</Tag></p>
+            <p><strong>Ngày đặt:</strong> {dayjs(selectedBooking.ngayDat).format('DD/MM/YYYY HH:mm')}</p>
+            <p><strong>Ngày nhận phòng:</strong> {dayjs(selectedBooking.ngayNhan).format('DD/MM/YYYY')}</p>
+            <p><strong>Ngày trả phòng:</strong> {dayjs(selectedBooking.ngayTra).format('DD/MM/YYYY')}</p>
             <p><strong>Số người lớn:</strong> {selectedBooking.soNguoiLon}</p>
             <p><strong>Số trẻ em:</strong> {selectedBooking.soTreEm}</p>
-            <p><strong>Tổng tiền:</strong> {selectedBooking.tongTien.toLocaleString()} VNĐ</p>
+            {selectedBooking.soGio && <p><strong>Số giờ:</strong> {selectedBooking.soGio}</p>}
+            {selectedBooking.soNgay && <p><strong>Số ngày:</strong> {selectedBooking.soNgay}</p>}
+            <p><strong>Tổng tiền gốc:</strong> {selectedBooking.tongTienGoc?.toLocaleString() || 0} VNĐ</p>
+            <p><strong>Tổng tiền sau giảm:</strong> {selectedBooking.tongTienSauGiam?.toLocaleString() || 0} VNĐ</p>
             <p><strong>Trạng thái:</strong> <Tag color={selectedBooking.trangThai === 'Đã xác nhận' ? 'green' : 'orange'}>{selectedBooking.trangThai}</Tag></p>
             {selectedBooking.ghiChu && <p><strong>Ghi chú:</strong> {selectedBooking.ghiChu}</p>}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title="Kết quả kiểm tra khả dụng"
+        open={availabilityModalVisible}
+        onCancel={() => setAvailabilityModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setAvailabilityModalVisible(false)}>
+            Đóng
+          </Button>,
+        ]}
+      >
+        {availabilityResult && (
+          <div>
+            <p><strong>Trạng thái:</strong> 
+              <Tag color={availabilityResult.available ? 'green' : 'red'}>
+                {availabilityResult.available ? 'Có sẵn' : 'Không có sẵn'}
+              </Tag>
+            </p>
+            <p><strong>Thông báo:</strong> {availabilityResult.message}</p>
           </div>
         )}
       </Modal>

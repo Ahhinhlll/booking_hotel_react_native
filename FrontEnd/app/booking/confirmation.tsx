@@ -47,6 +47,7 @@ export default function BookingConfirmationScreen() {
   const [promotions, setPromotions] = useState<KhuyenMaiData[]>([]);
   const [selectedPromotion, setSelectedPromotion] =
     useState<KhuyenMaiData | null>(null);
+  const [finalPrice, setFinalPrice] = useState<number>(0);
 
   useEffect(() => {
     if (params.bookingData) {
@@ -64,10 +65,21 @@ export default function BookingConfirmationScreen() {
     }
   }, [params.bookingData]);
 
+  // Tính lại giá khi có thay đổi bookingData hoặc selectedPromotion
+  useEffect(() => {
+    if (bookingData) {
+      const calculatedPrice = calculatePriceWithPromotion(bookingData.totalAmount);
+      setFinalPrice(calculatedPrice);
+    }
+  }, [bookingData, selectedPromotion]);
+
   const loadRoomAndHotelInfo = async (roomId: string, hotelId: string) => {
     try {
       // Load room data first
       const room = await PhongServices.getById(roomId);
+      console.log("Room data loaded:", room);
+      console.log("Room image path:", room?.anh);
+      console.log("Generated image URL:", getImageUrl(room?.anh));
       setRoomInfo(room);
 
       // Try to load hotel data
@@ -127,6 +139,15 @@ export default function BookingConfirmationScreen() {
 
   const handleSelectPromotion = (promotion: KhuyenMaiData) => {
     console.log("Selecting promotion:", promotion);
+    console.log("Promotion details:", {
+      maKM: promotion.maKM,
+      tenKM: promotion.tenKM,
+      thongTinKM: promotion.thongTinKM,
+      phanTramGiam: promotion.phanTramGiam,
+      giaTriGiam: promotion.giaTriGiam,
+      ngayBatDau: promotion.ngayBatDau,
+      ngayKetThuc: promotion.ngayKetThuc
+    });
 
     // Nếu đã chọn khuyến mãi này rồi thì bỏ chọn
     if (selectedPromotion?.maKM === promotion.maKM) {
@@ -146,21 +167,58 @@ export default function BookingConfirmationScreen() {
 
     console.log("Calculating price with promotion:", {
       basePrice,
-      promotion: selectedPromotion.thongTinKM,
-      selectedPromotion,
+      promotion: selectedPromotion,
+      phanTramGiam: selectedPromotion.phanTramGiam,
+      giaTriGiam: selectedPromotion.giaTriGiam,
+      thongTinKM: selectedPromotion.thongTinKM,
     });
 
-    // Parse discount from thongTinKM (e.g., "giảm 40K" -> 40000)
-    const discountMatch = selectedPromotion.thongTinKM?.match(/giảm\s*(\d+)k/i);
-    if (discountMatch) {
-      const discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
-      const finalPrice = Math.max(0, basePrice - discountAmount);
-      console.log("Discount applied:", { discountAmount, finalPrice });
-      return finalPrice;
+    let finalPrice = basePrice;
+    let discountAmount = 0;
+
+    // Sử dụng cùng logic với backend
+    if (selectedPromotion.phanTramGiam && selectedPromotion.phanTramGiam > 0) {
+      discountAmount = Math.round((basePrice * selectedPromotion.phanTramGiam) / 100);
+      finalPrice = basePrice - discountAmount;
+      console.log("Percentage discount:", {
+        basePrice,
+        phanTramGiam: selectedPromotion.phanTramGiam,
+        discountAmount,
+        finalPrice
+      });
+    } else if (selectedPromotion.giaTriGiam && selectedPromotion.giaTriGiam > 0) {
+      discountAmount = selectedPromotion.giaTriGiam;
+      finalPrice = basePrice - discountAmount;
+      console.log("Fixed amount discount:", {
+        basePrice,
+        giaTriGiam: selectedPromotion.giaTriGiam,
+        discountAmount,
+        finalPrice
+      });
+    } else if (selectedPromotion.thongTinKM) {
+      // Parse từ text như "giảm 30K" -> 30000
+      const discountMatch = selectedPromotion.thongTinKM.match(/giảm\s*(\d+)k/i);
+      if (discountMatch) {
+        discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
+        finalPrice = basePrice - discountAmount;
+        console.log("Text-based discount:", {
+          basePrice,
+          thongTinKM: selectedPromotion.thongTinKM,
+          discountAmount,
+          finalPrice
+        });
+      }
     }
 
-    console.log("No discount match found, returning base price:", basePrice);
-    return basePrice;
+    finalPrice = Math.max(Math.round(finalPrice), 0); // Làm tròn và không cho phép giá âm
+    
+    console.log("Final discount calculation:", { 
+      basePrice, 
+      finalPrice, 
+      discountAmount: basePrice - finalPrice 
+    });
+    
+    return finalPrice;
   };
 
   const getPromotionText = () => {
@@ -300,10 +358,11 @@ export default function BookingConfirmationScreen() {
     setLoading(true);
 
     try {
+      // Gửi giá base price (chưa áp dụng khuyến mãi) để backend tự tính
       const result = await DatPhongServices.confirmBooking(
         {
           ...bookingData,
-          totalAmount: calculatePriceWithPromotion(bookingData.totalAmount),
+          totalAmount: bookingData.totalAmount, // Gửi giá base price
           promotionId: selectedPromotion?.maKM || undefined,
         },
         selectedPaymentMethod
@@ -358,8 +417,15 @@ export default function BookingConfirmationScreen() {
 
           <View style={styles.roomCard}>
             <Image
-              source={{ uri: getImageUrl(roomInfo?.anh) }}
+              source={{ 
+                uri: getImageUrl(roomInfo?.anh) || "https://via.placeholder.com/100x100?text=Room"
+              }}
               style={styles.roomImage}
+              onError={(error) => {
+                console.log("Image load error:", error.nativeEvent.error);
+                console.log("Attempted URL:", getImageUrl(roomInfo?.anh));
+              }}
+              onLoad={() => console.log("Image loaded successfully")}
             />
             <View style={styles.roomInfo}>
               <Text style={styles.hotelName}>{hotelInfo?.tenKS}</Text>
@@ -466,20 +532,14 @@ export default function BookingConfirmationScreen() {
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Giảm giá</Text>
                 <Text style={styles.infoValue}>
-                  -
-                  {formatCurrency(
-                    bookingData.totalAmount -
-                      calculatePriceWithPromotion(bookingData.totalAmount)
-                  )}
+                  -{formatCurrency(bookingData.totalAmount - finalPrice)}
                 </Text>
               </View>
             )}
             <View style={styles.infoRow}>
               <Text style={styles.totalLabel}>Tổng thanh toán</Text>
               <Text style={styles.totalValue}>
-                {formatCurrency(
-                  calculatePriceWithPromotion(bookingData.totalAmount)
-                )}
+                {formatCurrency(finalPrice)}
               </Text>
             </View>
           </View>
@@ -532,9 +592,7 @@ export default function BookingConfirmationScreen() {
         <View style={styles.totalSection}>
           <Text style={styles.bottomTotalLabel}>Tổng thanh toán</Text>
           <Text style={styles.bottomTotalAmount}>
-            {formatCurrency(
-              calculatePriceWithPromotion(bookingData.totalAmount)
-            )}
+            {formatCurrency(finalPrice)}
           </Text>
         </View>
 

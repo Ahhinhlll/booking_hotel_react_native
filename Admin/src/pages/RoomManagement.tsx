@@ -3,13 +3,15 @@ import { Table, Button, Space, Modal, Form, Input, Select, message, Tag, Popconf
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import { phongService } from '../services/phongService';
 import { khachSanService } from '../services/khachSanService';
-import { Phong, KhachSan } from '../types';
+import { loaiPhongService } from '../services/loaiPhongService';
+import { Phong, KhachSan, LoaiPhong } from '../types';
 import ImageUpload from '../components/ImageUpload';
 import ImageDisplay from '../components/ImageDisplay';
 
 const RoomManagement = () => {
   const [rooms, setRooms] = useState<Phong[]>([]);
   const [hotels, setHotels] = useState<KhachSan[]>([]);
+  const [roomTypes, setRoomTypes] = useState<LoaiPhong[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Phong | null>(null);
@@ -19,15 +21,18 @@ const RoomManagement = () => {
   useEffect(() => {
     loadRooms();
     loadHotels();
+    loadRoomTypes();
   }, []);
 
   const loadRooms = async () => {
     setLoading(true);
     try {
       const data = await phongService.getAll();
-      setRooms(data);
+      setRooms(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error loading rooms:', error);
       message.error('Lỗi khi tải danh sách phòng!');
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -36,9 +41,49 @@ const RoomManagement = () => {
   const loadHotels = async () => {
     try {
       const data = await khachSanService.getAll();
-      setHotels(data);
+      setHotels(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading hotels:', error);
+      setHotels([]);
+    }
+  };
+
+  const loadRoomTypes = async () => {
+    try {
+      const data = await loaiPhongService.getAll();
+      const roomTypesData = Array.isArray(data) ? data : [];
+      
+      // If no room types exist, create default ones
+      if (roomTypesData.length === 0) {
+        await createDefaultRoomTypes();
+        // Reload room types after creating defaults
+        const newData = await loaiPhongService.getAll();
+        setRoomTypes(Array.isArray(newData) ? newData : []);
+      } else {
+        setRoomTypes(roomTypesData);
+      }
+    } catch (error) {
+      console.error('Error loading room types:', error);
+      setRoomTypes([]);
+    }
+  };
+
+  const createDefaultRoomTypes = async () => {
+    const defaultRoomTypes = [
+      { tenLoaiPhong: 'Phòng đơn', moTa: 'Phòng dành cho 1 người' },
+      { tenLoaiPhong: 'Phòng đôi', moTa: 'Phòng dành cho 2 người' },
+      { tenLoaiPhong: 'Phòng gia đình', moTa: 'Phòng dành cho gia đình' },
+      { tenLoaiPhong: 'Phòng VIP', moTa: 'Phòng cao cấp với đầy đủ tiện nghi' },
+    ];
+
+    try {
+      for (const roomType of defaultRoomTypes) {
+        await loaiPhongService.create(roomType);
+      }
+      message.success('Đã tạo các loại phòng mặc định!');
+    } catch (error) {
+      console.error('Error creating default room types:', error);
+      message.error('Lỗi khi tạo loại phòng mặc định!');
     }
   };
 
@@ -51,9 +96,11 @@ const RoomManagement = () => {
     setLoading(true);
     try {
       const data = await phongService.search(searchText);
-      setRooms(data);
+      setRooms(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error searching rooms:', error);
       message.error('Lỗi khi tìm kiếm!');
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -67,7 +114,9 @@ const RoomManagement = () => {
 
   const handleEdit = (room: Phong) => {
     setEditingRoom(room);
-    form.setFieldsValue(room);
+    // Exclude gia from form values as it's calculated automatically from GiaPhong
+    const { gia, ...formValues } = room as any;
+    form.setFieldsValue(formValues);
     setModalVisible(true);
   };
 
@@ -83,11 +132,14 @@ const RoomManagement = () => {
 
   const handleSubmit = async (values: any) => {
     try {
+      // Remove gia as it's calculated automatically from GiaPhong
+      const { gia, ...submitData } = values;
+      
       if (editingRoom) {
-        await phongService.update({ ...values, maPhong: editingRoom.maPhong });
+        await phongService.update({ ...submitData, maPhong: editingRoom.maPhong });
         message.success('Cập nhật phòng thành công!');
       } else {
-        await phongService.create(values);
+        await phongService.create(submitData);
         message.success('Thêm phòng thành công!');
       }
       setModalVisible(false);
@@ -140,16 +192,19 @@ const RoomManagement = () => {
       render: (capacity: number) => `${capacity} người`,
     },
     {
-      title: 'Số lượng phòng',
-      dataIndex: 'soLuongPhong',
-      key: 'soLuongPhong',
+      title: 'Giá phòng (TB)',
+      dataIndex: 'gia',
+      key: 'gia',
+      render: (price: number) => price ? `${price.toLocaleString()} VNĐ` : 'Chưa có giá',
     },
     {
       title: 'Trạng thái',
       dataIndex: 'trangThai',
       key: 'trangThai',
       render: (status: string) => (
-        <Tag color={status === 'Còn phòng' ? 'green' : 'red'}>{status}</Tag>
+        <Tag color={status === 'Trống' ? 'green' : status === 'Đã đặt' ? 'red' : 'orange'}>
+          {status}
+        </Tag>
       ),
     },
     {
@@ -251,11 +306,12 @@ const RoomManagement = () => {
             name="maLoaiPhong"
             rules={[{ required: true, message: 'Vui lòng chọn loại phòng!' }]}
           >
-            <Select>
-              <Select.Option value="LP01">Phòng đơn</Select.Option>
-              <Select.Option value="LP02">Phòng đôi</Select.Option>
-              <Select.Option value="LP03">Phòng gia đình</Select.Option>
-              <Select.Option value="LP04">Phòng VIP</Select.Option>
+            <Select showSearch optionFilterProp="children">
+              {roomTypes.map((roomType) => (
+                <Select.Option key={roomType.maLoaiPhong} value={roomType.maLoaiPhong}>
+                  {roomType.tenLoaiPhong}
+                </Select.Option>
+              ))}
             </Select>
           </Form.Item>
 
@@ -283,14 +339,6 @@ const RoomManagement = () => {
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
 
-          <Form.Item
-            label="Số lượng phòng"
-            name="soLuongPhong"
-            rules={[{ required: true, message: 'Vui lòng nhập số lượng phòng!' }]}
-          >
-            <InputNumber min={1} style={{ width: '100%' }} />
-          </Form.Item>
-
           <Form.Item label="Mô tả" name="moTa">
             <Input.TextArea rows={4} />
           </Form.Item>
@@ -301,8 +349,9 @@ const RoomManagement = () => {
             rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
           >
             <Select>
-              <Select.Option value="Còn phòng">Còn phòng</Select.Option>
-              <Select.Option value="Hết phòng">Hết phòng</Select.Option>
+              <Select.Option value="Trống">Trống</Select.Option>
+              <Select.Option value="Đã đặt">Đã đặt</Select.Option>
+              <Select.Option value="Bảo trì">Bảo trì</Select.Option>
             </Select>
           </Form.Item>
         </Form>

@@ -12,6 +12,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
+  const [formValues, setFormValues] = useState<any>({});
 
   useEffect(() => {
     loadUserProfile();
@@ -23,9 +24,17 @@ const Profile = () => {
 
     try {
       const userData = await nguoiDungService.getById(currentUser.maNguoiDung);
-      setUser(userData);
-      form.setFieldsValue(userData);
+      // Ensure anhNguoiDung is always an array
+      const normalizedUserData = {
+        ...userData,
+        anhNguoiDung: Array.isArray(userData.anhNguoiDung) ? userData.anhNguoiDung : [],
+      };
+      
+      setUser(normalizedUserData);
+      setFormValues(normalizedUserData);
+      form.setFieldsValue(normalizedUserData);
     } catch (error) {
+      console.error('Error loading user profile:', error);
       message.error('Lỗi khi tải thông tin người dùng!');
     }
   };
@@ -35,15 +44,23 @@ const Profile = () => {
 
     setLoading(true);
     try {
-      await nguoiDungService.update({
+      // Handle image upload - if anhNguoiDung is an array, use it directly
+      const updateData = {
         ...values,
         maNguoiDung: user.maNguoiDung,
-      });
+        anhNguoiDung: Array.isArray(values.anhNguoiDung) ? values.anhNguoiDung : [values.anhNguoiDung].filter(Boolean),
+      };
+
+      await nguoiDungService.update(updateData);
 
       // Cập nhật localStorage
-      const updatedUser = { ...user, ...values };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      const updatedUser = { ...user, ...updateData };
+      authService.updateCurrentUser(updatedUser);
       setUser(updatedUser);
+      setFormValues(updateData);
+
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('userUpdated'));
 
       message.success('Cập nhật thông tin thành công!');
     } catch (error: any) {
@@ -96,14 +113,30 @@ const Profile = () => {
           form={form}
           layout="vertical"
           onFinish={handleUpdateProfile}
+          onValuesChange={(_, allValues) => setFormValues(allValues)}
           initialValues={user}
         >
           <Row gutter={24}>
             <Col span={24} style={{ textAlign: 'center', marginBottom: 24 }}>
               <Avatar
                 size={120}
-                src={user.anhNguoiDung?.[0] ? uploadService.getImageUrl(user.anhNguoiDung[0]) : undefined}
-                icon={!user.anhNguoiDung?.[0] ? <UserOutlined /> : undefined}
+                src={(() => {
+                  const imagePath = formValues.anhNguoiDung?.[0] || user.anhNguoiDung?.[0];
+                  if (!imagePath) return undefined;
+                  
+                  // Construct full HTTP URL for local API
+                  let fullUrl;
+                  if (imagePath.startsWith('http')) {
+                    fullUrl = imagePath;
+                  } else if (imagePath.startsWith('/uploads/')) {
+                    fullUrl = `http://localhost:3333${imagePath}`;
+                  } else {
+                    fullUrl = `http://localhost:3333/uploads/${imagePath}`;
+                  }
+                  
+                  return fullUrl;
+                })()}
+                icon={!(formValues.anhNguoiDung?.[0] || user.anhNguoiDung?.[0]) ? <UserOutlined /> : undefined}
                 style={{ marginBottom: 16 }}
               />
               <Form.Item name="anhNguoiDung" style={{ marginTop: 16 }}>

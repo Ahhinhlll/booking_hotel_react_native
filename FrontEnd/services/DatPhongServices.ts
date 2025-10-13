@@ -154,7 +154,7 @@ export class DatPhongServices {
   }
 
   static async confirmBooking(bookingData: BookingData, paymentMethod: string) {
-    return request.post("/datphong/confirm", {
+    return request.post("/datphong/insert", {
       ...bookingData,
       paymentMethod,
       clientCalculatedTotalAmount: bookingData.totalAmount,

@@ -23,9 +23,11 @@ const UserManagement = () => {
     setLoading(true);
     try {
       const data = await nguoiDungService.getAll();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error loading users:', error);
       message.error('Lỗi khi tải danh sách người dùng!');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -40,9 +42,11 @@ const UserManagement = () => {
     setLoading(true);
     try {
       const data = await nguoiDungService.search(searchText);
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error('Error searching users:', error);
       message.error('Lỗi khi tìm kiếm!');
+      setUsers([]);
     } finally {
       setLoading(false);
     }

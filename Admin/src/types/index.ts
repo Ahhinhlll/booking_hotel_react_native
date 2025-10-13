@@ -61,6 +61,7 @@ export interface Phong {
   anh?: string[];
   trangThai: string;
   moTa?: string;
+  gia?: number;
   KhachSan?: KhachSan;
   LoaiPhong?: LoaiPhong;
 }
@@ -73,28 +74,50 @@ export interface LoaiPhong {
 
 export interface DatPhong {
   maDatPhong: string;
-  maNguoiDung: string;
+  maND: string;
   maPhong: string;
   maKS: string;
-  ngayNhanPhong: string;
-  ngayTraPhong: string;
+  maGiaPhong?: string;
+  maKM?: string;
+  loaiDat: string;
+  ngayDat: string;
+  ngayNhan: string;
+  ngayTra: string;
   soNguoiLon: number;
   soTreEm: number;
-  tongTien: number;
+  soGio?: number;
+  soNgay?: number;
+  tongTienGoc?: number;
+  tongTienSauGiam?: number;
   trangThai: string;
-  ngayDat: string;
   ghiChu?: string;
   NguoiDung?: NguoiDung;
   Phong?: Phong;
   KhachSan?: KhachSan;
+  KhuyenMai?: KhuyenMai;
+  GiaPhong?: GiaPhong;
+  ThanhToan?: ThanhToan[];
+}
+
+export interface GiaPhong {
+  maGiaPhong: string;
+  maPhong: string;
+  loaiDat: string;
+  gia2GioDau: number;
+  gia1GioThem: number;
+  giaTheoNgay: number;
+  giaQuaDem: number;
+  trangThai: string;
+  Phong?: Phong;
 }
 
 export interface KhuyenMai {
-  maKhuyenMai: string;
-  tenKhuyenMai: string;
+  maKM: string;
+  tenKM: string;
   maKS: string;
   moTa?: string;
-  phanTramGiam: number;
+  giaTriGiam?: number;
+  phanTramGiam?: number;
   ngayBatDau: string;
   ngayKetThuc: string;
   trangThai: string;
@@ -102,14 +125,16 @@ export interface KhuyenMai {
 }
 
 export interface DanhGia {
-  maDanhGia: string;
-  maNguoiDung: string;
+  maDG: string;
+  maND: string;
   maKS: string;
-  diemDanhGia: number;
-  noiDung?: string;
-  ngayDanhGia: string;
+  maDatPhong?: string;
+  soSao: number;
+  binhLuan?: string;
+  ngayDG: string;
   NguoiDung?: NguoiDung;
   KhachSan?: KhachSan;
+  DatPhong?: DatPhong;
 }
 
 export interface TienNghi {

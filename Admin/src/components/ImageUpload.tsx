@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Upload, message, Image } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
+import { Upload, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd';
 import { uploadService } from '../services/uploadService';
 
@@ -12,14 +12,25 @@ interface ImageUploadProps {
 
 const ImageUpload = ({ value = [], onChange, maxCount = 5 }: ImageUploadProps) => {
   const [fileList, setFileList] = useState<UploadFile[]>(
-    value.map((url, index) => ({
+    (Array.isArray(value) ? value : []).map((url, index) => ({
       uid: `${index}`,
       name: `image-${index}`,
       status: 'done',
-      url: uploadService.getImageUrl(url),
+      url: url.startsWith('/uploads/') ? uploadService.getImageUrl(url) : uploadService.getImageUrl(`/uploads/${url}`),
     }))
   );
-  const [uploading, setUploading] = useState(false);
+  const [, setUploading] = useState(false);
+
+  // Update fileList when value prop changes
+  useEffect(() => {
+    const newFileList = (Array.isArray(value) ? value : []).map((url, index) => ({
+      uid: `${index}`,
+      name: `image-${index}`,
+      status: 'done' as const,
+      url: url.startsWith('/uploads/') ? uploadService.getImageUrl(url) : uploadService.getImageUrl(`/uploads/${url}`),
+    }));
+    setFileList(newFileList);
+  }, [value]);
 
   const handleUpload: UploadProps['customRequest'] = async (options) => {
     const { file, onSuccess, onError } = options;
@@ -39,9 +50,14 @@ const ImageUpload = ({ value = [], onChange, maxCount = 5 }: ImageUploadProps) =
 
       setFileList(newFileList);
       const urls = newFileList.map((f) => {
-        // Extract path from URL
+        // Extract path from URL - handle both full URLs and relative paths
         if (f.url?.includes('/uploads/')) {
-          return f.url.split('/uploads/')[1];
+          // If it's a full URL, extract the path part
+          if (f.url.startsWith('http')) {
+            return f.url.split('/uploads/')[1];
+          }
+          // If it's already a relative path starting with /uploads/, keep it as is
+          return f.url;
         }
         return f.url || '';
       });
@@ -61,8 +77,14 @@ const ImageUpload = ({ value = [], onChange, maxCount = 5 }: ImageUploadProps) =
     const newFileList = fileList.filter((f) => f.uid !== file.uid);
     setFileList(newFileList);
     const urls = newFileList.map((f) => {
+      // Extract path from URL - handle both full URLs and relative paths
       if (f.url?.includes('/uploads/')) {
-        return f.url.split('/uploads/')[1];
+        // If it's a full URL, extract the path part
+        if (f.url.startsWith('http')) {
+          return f.url.split('/uploads/')[1];
+        }
+        // If it's already a relative path starting with /uploads/, keep it as is
+        return f.url;
       }
       return f.url || '';
     });

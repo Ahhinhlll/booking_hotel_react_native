@@ -1,10 +1,10 @@
 import request from '../utils/request';
-import { NguoiDung, ApiResponse } from '../types';
+import { NguoiDung } from '../types';
 
 export const nguoiDungService = {
   getAll: async (): Promise<NguoiDung[]> => {
     const response = await request.get('/nguoidung/getall');
-    return response.data;
+    return response.data || [];
   },
 
   getById: async (id: string): Promise<NguoiDung> => {
@@ -30,7 +30,7 @@ export const nguoiDungService = {
     const response = await request.get('/nguoidung/search', {
       params: { keyword },
     });
-    return response.data;
+    return response.data || [];
   },
 
   updatePassword: async (data: { maNguoiDung: string; matKhauCu: string; matKhauMoi: string }): Promise<void> => {

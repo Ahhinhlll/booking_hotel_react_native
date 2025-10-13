@@ -35,22 +35,35 @@ const Dashboard = () => {
         datPhongService.getAll(),
       ]);
 
-      const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.tongTien || 0), 0);
+      // Ensure all data is arrays
+      const usersData = Array.isArray(users) ? users : [];
+      const hotelsData = Array.isArray(hotels) ? hotels : [];
+      const bookingsData = Array.isArray(bookings) ? bookings : [];
+
+      const totalRevenue = bookingsData.reduce((sum, booking) => sum + (booking.tongTienSauGiam || 0), 0);
 
       setStats({
-        totalUsers: users.length,
-        totalHotels: hotels.length,
-        totalBookings: bookings.length,
+        totalUsers: usersData.length,
+        totalHotels: hotelsData.length,
+        totalBookings: bookingsData.length,
         totalRevenue,
       });
 
       // Lấy 10 booking gần nhất
-      const sorted = [...bookings].sort((a, b) => 
+      const sorted = [...bookingsData].sort((a, b) => 
         new Date(b.ngayDat).getTime() - new Date(a.ngayDat).getTime()
       );
       setRecentBookings(sorted.slice(0, 10));
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      // Set empty arrays on error
+      setStats({
+        totalUsers: 0,
+        totalHotels: 0,
+        totalBookings: 0,
+        totalRevenue: 0,
+      });
+      setRecentBookings([]);
     } finally {
       setLoading(false);
     }
@@ -83,9 +96,9 @@ const Dashboard = () => {
     },
     {
       title: 'Tổng tiền',
-      dataIndex: 'tongTien',
-      key: 'tongTien',
-      render: (amount: number) => `${amount.toLocaleString()} VNĐ`,
+      dataIndex: 'tongTienSauGiam',
+      key: 'tongTienSauGiam',
+      render: (amount: number) => `${(amount || 0).toLocaleString()} VNĐ`,
     },
     {
       title: 'Trạng thái',

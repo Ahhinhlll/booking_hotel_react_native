@@ -146,14 +146,14 @@ export default function RoomListScreen() {
       const hourlyPrice = room.GiaPhongs[0].gia2GioDau;
       return {
         original: hourlyPrice || 300000,
-        discounted: hourlyPrice && hourlyPrice - Math.floor(hourlyPrice * 0.01),
-        discountPercent: 1,
+        discounted: hourlyPrice || 300000,
+        discountPercent: 0,
       };
     }
     return {
       original: 300000,
-      discounted: 299000,
-      discountPercent: 1,
+      discounted: 300000,
+      discountPercent: 0,
     };
   };
 

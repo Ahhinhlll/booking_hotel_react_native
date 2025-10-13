@@ -1,9 +1,11 @@
 const KhuyenMai = require("../models/khuyenMaiModel");
 const { Op } = require("sequelize");
+const db = require("../models");
+
 exports.getAll = async (req, res) => {
   try {
     const items = await KhuyenMai.findAll({
-      // include: [ { model: ... } ]
+      include: [{ model: db.KhachSan, attributes: ["tenKS"] }],
     });
     res.status(200).json(items);
   } catch (error) {
@@ -14,7 +16,7 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   try {
     const item = await KhuyenMai.findByPk(req.params.id, {
-      // include: [ { model: ... } ]
+      include: [{ model: db.KhachSan, attributes: ["tenKS"] }],
     });
     if (item) res.status(200).json(item);
     else res.status(404).json({ message: "Không tìm thấy khuyến mãi" });
@@ -43,7 +45,8 @@ exports.insert = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const item = await KhuyenMai.findByPk(req.params.id);
+    const maKM = req.params.id || req.body.maKM;
+    const item = await KhuyenMai.findByPk(maKM);
     if (item) {
       await item.update(req.body);
       res.status(200).json(item);
@@ -70,7 +73,7 @@ exports.search = async (req, res) => {
       where: {
         tenKM: { [Op.like]: `%${q}%` },
       },
-      // include: [ { model: ... } ]
+      include: [{ model: db.KhachSan, attributes: ["tenKS"] }],
     });
     res.status(200).json(items);
   } catch (error) {

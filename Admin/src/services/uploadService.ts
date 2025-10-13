@@ -3,7 +3,7 @@ import request from '../utils/request';
 export const uploadService = {
   uploadImage: async (file: File): Promise<string> => {
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('images', file);
 
     const response = await request.post('/upload', formData, {
       headers: {
@@ -11,8 +11,8 @@ export const uploadService = {
       },
     });
 
-    // Response format: { imageUrl: string, imageUrls: string[] }
-    return response.data.imageUrl || response.data.imageUrls?.[0] || response.data;
+    // Response format: { imageUrls: string[] }
+    return response.data.imageUrls?.[0] || response.data;
   },
 
   getAllImages: async (): Promise<string[]> => {
@@ -23,7 +23,8 @@ export const uploadService = {
   getImageUrl: (imagePath: string): string => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http')) return imagePath;
-    return `http://localhost:3333${imagePath}`;
+    if (imagePath.startsWith('/uploads/')) return `http://localhost:3333${imagePath}`;
+    return `http://localhost:3333/uploads/${imagePath}`;
   },
 };
 
