@@ -1,6 +1,7 @@
 import axios from "axios";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { validateTokenBeforeRequest, clearTokenAndRedirect } from "./tokenUtils";
 
 /**
  * Dynamically gets the development machine's IP address from the Expo manifest.
@@ -46,8 +47,22 @@ apiClient.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.warn("⚠️ No token found in AsyncStorage");
   }
   return config;
 });
+
+// Response interceptor để xử lý lỗi 401
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      console.error("❌ Unauthorized - Token may be invalid or expired");
+      // Không tự động redirect, để component xử lý
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default apiClient;

@@ -116,11 +116,13 @@ export interface KhuyenMai {
   tenKM: string;
   maKS: string;
   moTa?: string;
+  thongTinKM?: string;
   giaTriGiam?: number;
   phanTramGiam?: number;
   ngayBatDau: string;
   ngayKetThuc: string;
   trangThai: string;
+  anh?: string[];
   KhachSan?: KhachSan;
 }
 

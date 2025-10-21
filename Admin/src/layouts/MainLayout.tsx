@@ -12,6 +12,7 @@ import {
   BankOutlined,
   DollarOutlined,
   StarOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../services/authService";
@@ -44,9 +45,13 @@ const MainLayout = () => {
     try {
       await authService.logout();
       message.success("Đăng xuất thành công!");
-      navigate("/login");
+      // Force redirect to login page
+      window.location.href = "/login";
     } catch (error) {
+      console.error("Logout error:", error);
       message.error("Đăng xuất thất bại!");
+      // Even if logout fails, redirect to login
+      window.location.href = "/login";
     }
   };
 
@@ -72,6 +77,11 @@ const MainLayout = () => {
       label: "Quản lý Phòng",
     },
     {
+      key: "/room-types",
+      icon: <BankOutlined />,
+      label: "Quản lý Loại Phòng",
+    },
+    {
       key: "/room-prices",
       icon: <DollarOutlined />,
       label: "Quản lý Giá Phòng",
@@ -90,6 +100,11 @@ const MainLayout = () => {
       key: "/reviews",
       icon: <StarOutlined />,
       label: "Quản lý Đánh giá",
+    },
+    {
+      key: "/utilities",
+      icon: <SettingOutlined />,
+      label: "Quản lý Tiện ích",
     },
   ];
 
@@ -164,9 +179,12 @@ const MainLayout = () => {
                 cursor: "pointer",
               }}
             >
+              {/* Ảnh lớn hình tròn */}
               <Avatar
                 src={(() => {
-                  const imagePath = user?.anhNguoiDung?.[0];
+                  const imagePath =
+                    user?.anhNguoiDung?.[1] || user?.anhNguoiDung?.[0];
+
                   if (!imagePath) return undefined;
 
                   // Construct full HTTP URL for local API
@@ -182,7 +200,12 @@ const MainLayout = () => {
                   return fullUrl;
                 })()}
                 icon={!user?.anhNguoiDung?.[0] ? <UserOutlined /> : undefined}
+                onError={() => {
+                  return false;
+                }}
+                style={{ width: "40px", height: "40px" }}
               />
+
               <span style={{ marginLeft: "8px" }}>
                 {user?.hoTen || "Admin"}
               </span>

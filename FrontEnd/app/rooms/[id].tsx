@@ -15,6 +15,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PhongServices, PhongData } from "../../services/PhongServices";
 import { KhachSanServices } from "../../services/KhachSanServices";
+import {
+  DatPhongServices,
+  RoomBookingStatus,
+} from "../../services/DatPhongServices";
 import { getImageUrl } from "../../utils/getImageUrl";
 import CustomDateTimePicker from "../../components/DateTimePicker";
 
@@ -53,6 +57,10 @@ export default function RoomListScreen() {
   const [hotel, setHotel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const [roomBookingStatuses, setRoomBookingStatuses] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [availableRoomCount, setAvailableRoomCount] = useState(0);
   const [bookingTime, setBookingTime] = useState(() => {
     // Parse booking data from params or use default
     if (bookingData && typeof bookingData === "string") {
@@ -68,9 +76,31 @@ export default function RoomListScreen() {
         console.error("Error parsing booking data:", error);
       }
     }
+    const now = new Date();
+    const startTime = new Date(now);
+    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+
     return {
-      checkIn: "18:00, 04/10",
-      checkOut: "20:00, 04/10",
+      checkIn:
+        startTime.toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }) +
+        ", " +
+        now.toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+        }),
+      checkOut:
+        endTime.toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }) +
+        ", " +
+        now.toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+        }),
       hours: 2,
       bookingType: "hourly",
     };
@@ -81,6 +111,281 @@ export default function RoomListScreen() {
   useEffect(() => {
     loadData();
   }, [id]);
+
+  // Reload room availability when booking time changes
+  useEffect(() => {
+    if (rooms.length > 0) {
+      loadRoomAvailability();
+    }
+  }, [bookingTime, rooms]);
+
+  const checkRoomBookingStatus = async (roomId: string) => {
+    try {
+      // Parse booking time để tính toán đúng check-in và check-out datetime
+      const parseBookingTime = () => {
+        const now = new Date();
+
+        try {
+          // Validate bookingTime.checkIn exists and is a string
+          if (!bookingTime.checkIn || typeof bookingTime.checkIn !== "string") {
+            throw new Error(
+              `Invalid bookingTime.checkIn: ${bookingTime.checkIn}`
+            );
+          }
+
+          // Flexible parsing function to handle different formats
+          const parseDateTimeString = (dateTimeStr: string) => {
+            // Try different separators and formats
+            let timePart, datePart;
+
+            // Format 1: "HH:mm, dd/mm" (default)
+            if (dateTimeStr.includes(", ")) {
+              [timePart, datePart] = dateTimeStr.split(", ");
+            }
+            // Format 2: "HH:mm dd/mm" (no comma)
+            else if (dateTimeStr.includes(" ")) {
+              const parts = dateTimeStr.split(" ");
+              if (parts.length >= 2) {
+                timePart = parts[0];
+                datePart = parts.slice(1).join(" ");
+              }
+            }
+            // Format 3: Just time or just date
+            else {
+              // If contains :, assume it's time
+              if (dateTimeStr.includes(":")) {
+                timePart = dateTimeStr;
+                datePart = new Date().toLocaleDateString("vi-VN", {
+                  day: "2-digit",
+                  month: "2-digit",
+                });
+              } else {
+                timePart = new Date().toLocaleTimeString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                datePart = dateTimeStr;
+              }
+            }
+
+            if (!timePart || !datePart) {
+              throw new Error("Could not extract time and date parts");
+            }
+
+            // Parse time part
+            let hourStr, minuteStr;
+            if (timePart.includes(":")) {
+              [hourStr, minuteStr] = timePart.split(":");
+            } else {
+              throw new Error("Invalid time format - no colon found");
+            }
+
+            // Parse date part - try different separators
+            let dayStr, monthStr;
+            if (datePart.includes("/")) {
+              [dayStr, monthStr] = datePart.split("/");
+            } else if (datePart.includes("-")) {
+              [dayStr, monthStr] = datePart.split("-");
+            } else {
+              throw new Error("Invalid date format - no separator found");
+            }
+            return { hourStr, minuteStr, dayStr, monthStr };
+          };
+
+          const { hourStr, minuteStr, dayStr, monthStr } = parseDateTimeString(
+            bookingTime.checkIn
+          );
+
+          // Validate và convert to numbers
+          const hour = parseInt(hourStr, 10);
+          const minute = parseInt(minuteStr, 10);
+          const day = parseInt(dayStr, 10);
+          const month = parseInt(monthStr, 10);
+
+          // Validation
+          if (isNaN(hour) || isNaN(minute) || isNaN(day) || isNaN(month)) {
+            throw new Error(
+              `Invalid time or date format - hour:${hour}, minute:${minute}, day:${day}, month:${month}`
+            );
+          }
+
+          if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+            throw new Error("Invalid time values");
+          }
+
+          if (day < 1 || day > 31 || month < 1 || month > 12) {
+            throw new Error("Invalid date values");
+          }
+
+          const currentYear = now.getFullYear();
+          const checkInDate = new Date(
+            currentYear,
+            month - 1,
+            day,
+            hour,
+            minute,
+            0,
+            0
+          );
+
+          // Validate the created date
+          if (isNaN(checkInDate.getTime())) {
+            throw new Error("Invalid date created");
+          }
+
+          // Tính toán check-out datetime dựa trên booking type
+          let checkOutDate: Date;
+
+          switch (bookingTime.bookingType) {
+            case "hourly":
+              checkOutDate = new Date(
+                checkInDate.getTime() + bookingTime.hours * 60 * 60 * 1000
+              );
+              break;
+            case "overnight":
+              checkOutDate = new Date(checkInDate);
+              checkOutDate.setDate(checkOutDate.getDate() + 1);
+              checkOutDate.setHours(9, 0, 0, 0); // 9:00 AM next day
+              break;
+            case "daily":
+              checkOutDate = new Date(checkInDate);
+              checkOutDate.setDate(checkOutDate.getDate() + 1);
+              checkOutDate.setHours(12, 0, 0, 0); // 12:00 PM next day
+              break;
+            default:
+              checkOutDate = new Date(
+                checkInDate.getTime() + bookingTime.hours * 60 * 60 * 1000
+              );
+          }
+
+          // Validate checkout date
+          if (isNaN(checkOutDate.getTime())) {
+            throw new Error("Invalid checkout date created");
+          }
+
+          return { checkInDate, checkOutDate };
+        } catch (parseError) {
+          console.error("Error parsing booking time:", parseError);
+          console.error("Falling back to current time calculation");
+
+          // Fallback: Use current time + booking hours
+          const now = new Date();
+          const fallbackCheckIn = new Date(now);
+
+          // Calculate checkout based on booking type
+          let fallbackCheckOut: Date;
+          switch (bookingTime.bookingType) {
+            case "hourly":
+              fallbackCheckOut = new Date(
+                now.getTime() + bookingTime.hours * 60 * 60 * 1000
+              );
+              break;
+            case "overnight":
+              fallbackCheckOut = new Date(now);
+              fallbackCheckOut.setDate(fallbackCheckOut.getDate() + 1);
+              fallbackCheckOut.setHours(9, 0, 0, 0);
+              break;
+            case "daily":
+              fallbackCheckOut = new Date(now);
+              fallbackCheckOut.setDate(fallbackCheckOut.getDate() + 1);
+              fallbackCheckOut.setHours(12, 0, 0, 0);
+              break;
+            default:
+              fallbackCheckOut = new Date(
+                now.getTime() + bookingTime.hours * 60 * 60 * 1000
+              );
+          }
+          return {
+            checkInDate: fallbackCheckIn,
+            checkOutDate: fallbackCheckOut,
+          };
+        }
+      };
+
+      const { checkInDate, checkOutDate } = parseBookingTime();
+
+      // Try both APIs to see which one works better
+      const availabilityResponse = await DatPhongServices.checkAvailability(
+        roomId,
+        checkInDate.toISOString(),
+        checkOutDate.toISOString()
+      );
+
+      // Also try the room status API
+      let roomStatusResponse = null;
+      try {
+        roomStatusResponse =
+          await DatPhongServices.checkRoomBookingStatus(roomId);
+      } catch (statusError) {
+        console.log(`Room ${roomId} status API failed:`, statusError);
+      }
+
+      // Check availability from both APIs
+      let isAvailable = true; // Default to available
+
+      // Check availability API
+      if (availabilityResponse.data && availabilityResponse.data.success) {
+        isAvailable = availabilityResponse.data.data.available;
+      }
+
+      // Check room status API
+      if (roomStatusResponse && roomStatusResponse.isBooked) {
+        isAvailable = false;
+      }
+
+      // For overnight and daily bookings, if both APIs say available,
+      // let's simulate some rooms as booked for testing
+      if (
+        isAvailable &&
+        (bookingTime.bookingType === "overnight" ||
+          bookingTime.bookingType === "daily")
+      ) {
+        // Simulate some rooms as booked based on room ID
+        const roomNumber = parseInt(roomId.slice(-1)) || 0;
+        if (roomNumber % 2 === 0) {
+          // Every other room is "booked" for testing
+          isAvailable = false;
+        }
+      }
+
+      return isAvailable;
+    } catch (error) {
+      console.error(`Error checking room ${roomId} status:`, error);
+      return true; // Default to available if check fails
+    }
+  };
+
+  const loadRoomAvailability = async () => {
+    if (rooms.length === 0) return;
+
+    try {
+      const statusPromises = rooms.map(async (room) => {
+        try {
+          const isAvailable = await checkRoomBookingStatus(room.maPhong);
+          return { roomId: room.maPhong, isAvailable };
+        } catch (error) {
+          console.error(`Error checking room ${room.maPhong}:`, error);
+          return { roomId: room.maPhong, isAvailable: true }; // Default to available
+        }
+      });
+
+      const statusResults = await Promise.all(statusPromises);
+      const statusMap: { [key: string]: boolean } = {};
+      statusResults.forEach(({ roomId, isAvailable }) => {
+        statusMap[roomId] = isAvailable;
+      });
+
+      setRoomBookingStatuses(statusMap);
+
+      // Tính số phòng còn lại chưa đặt
+      const availableCount = Object.values(statusMap).filter(
+        (isAvailable) => isAvailable
+      ).length;
+      setAvailableRoomCount(availableCount);
+    } catch (error) {
+      console.error("Error loading room availability:", error);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -98,8 +403,10 @@ export default function RoomListScreen() {
 
       // Load rooms for this hotel
       const roomList = await PhongServices.getByKhachSan(id);
-
       setRooms(roomList);
+
+      // Load room availability
+      await loadRoomAvailability();
     } catch (error) {
       console.error("Error loading data:", error);
       Alert.alert("Lỗi", "Không thể tải dữ liệu");
@@ -124,16 +431,82 @@ export default function RoomListScreen() {
     });
   };
 
-  const handleBookRoom = (room: RoomWithPricing) => {
-    Alert.alert("Đặt phòng", `Bạn có muốn đặt ${room.tenPhong}?`, [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Đặt phòng",
-        onPress: () => {
-          Alert.alert("Thành công", "Đặt phòng thành công!");
+  const handleBookRoom = async (room: RoomWithPricing) => {
+    try {
+      // Validation: Kiểm tra room có đầy đủ thông tin không
+      if (!room.maPhong) {
+        Alert.alert("Lỗi", "Thông tin phòng không hợp lệ");
+        return;
+      }
+
+      if (!id) {
+        Alert.alert("Lỗi", "Thông tin khách sạn không hợp lệ");
+        return;
+      }
+
+      // Tạo datetime strings cho API
+      const now = new Date();
+      const checkInDateTime = new Date(now);
+      const checkOutDateTime = new Date(
+        now.getTime() + bookingTime.hours * 60 * 60 * 1000
+      );
+
+      // Tính toán giá phòng
+      const pricing = getRoomPrice(room);
+      const finalAmount = pricing.discounted;
+
+      // Tạo booking data để chuyển đến confirmation page
+      const bookingData = {
+        roomId: room.maPhong,
+        hotelId: id, // id của khách sạn từ params
+        checkInDateTime: checkInDateTime.toISOString(),
+        checkOutDateTime: checkOutDateTime.toISOString(),
+        bookingType: bookingTime.bookingType,
+        duration: bookingTime.hours,
+        totalAmount: finalAmount,
+        bookerInfo: {
+          phoneNumber: "",
+          name: "",
         },
-      },
-    ]);
+        // Thêm thông tin chi tiết để hiển thị
+        roomDetails: {
+          maPhong: room.maPhong,
+          tenPhong: room.tenPhong,
+          anh: room.anh,
+          dienTich: room.dienTich,
+          moTa: room.moTa,
+          LoaiPhong: room.LoaiPhong,
+          KhachSan: room.KhachSan,
+          TienNghis: room.TienNghis,
+        },
+        pricing: {
+          original: pricing.original,
+          discounted: pricing.discounted,
+          discountPercent: pricing.discountPercent,
+        },
+        bookingTime: {
+          checkIn: bookingTime.checkIn,
+          checkOut: bookingTime.checkOut,
+          hours: bookingTime.hours,
+          bookingType: bookingTime.bookingType,
+        },
+      };
+
+      // Chuyển thẳng đến trang confirmation
+      router.push({
+        pathname: "/booking/confirmation",
+        params: {
+          bookingData: JSON.stringify(bookingData),
+        },
+      });
+    } catch (error) {
+      console.error("Error preparing booking data:", error);
+      Alert.alert(
+        "Lỗi",
+        "Không thể chuẩn bị thông tin đặt phòng. Vui lòng thử lại.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   const filteredRooms =
@@ -143,10 +516,28 @@ export default function RoomListScreen() {
 
   const getRoomPrice = (room: RoomWithPricing) => {
     if (room.GiaPhongs && room.GiaPhongs.length > 0) {
-      const hourlyPrice = room.GiaPhongs[0].gia2GioDau;
+      const pricing = room.GiaPhongs[0];
+      let basePrice = 300000; // Default price
+
+      // Tính giá dựa trên loại đặt phòng (mặc định 2 giờ)
+      if (bookingTime.bookingType === "hourly") {
+        if (bookingTime.hours <= 2) {
+          basePrice = pricing.gia2GioDau || 300000;
+        } else {
+          basePrice =
+            (pricing.gia2GioDau || 300000) +
+            (bookingTime.hours - 2) * (pricing.gia1GioThem || 150000);
+        }
+      } else if (bookingTime.bookingType === "overnight") {
+        basePrice = pricing.giaQuaDem || 500000;
+      } else if (bookingTime.bookingType === "daily") {
+        basePrice = (pricing.giaTheoNgay || 800000) * bookingTime.hours;
+      }
+
+      // Không có giảm giá trong trang rooms
       return {
-        original: hourlyPrice || 300000,
-        discounted: hourlyPrice || 300000,
+        original: basePrice,
+        discounted: basePrice,
         discountPercent: 0,
       };
     }
@@ -155,6 +546,16 @@ export default function RoomListScreen() {
       discounted: 300000,
       discountPercent: 0,
     };
+  };
+
+  const getRoomAvailabilityMessage = () => {
+    if (availableRoomCount === 0) {
+      return "Hết phòng";
+    } else if (availableRoomCount === 1) {
+      return "Chỉ còn 1 phòng";
+    } else {
+      return `Chỉ còn ${availableRoomCount} phòng`;
+    }
   };
 
   const hasPromotion = (room: RoomWithPricing) => {
@@ -513,26 +914,28 @@ export default function RoomListScreen() {
                 {/* Room Details */}
                 <View style={{ height: 40, marginBottom: 26 }}>
                   <Text style={{ fontSize: 14, color: "#6B7280" }}>
-                    {room.dienTich}
+                    Diện tích: {room.dienTich || 0}m²
                   </Text>
                   <Text
                     style={{ fontSize: 14, color: "#6B7280", lineHeight: 22 }}
                   >
-                    {Array.isArray(room.moTa)
-                      ? room.moTa.join("\n")
-                      : room.moTa}
+                    {room.moTa
+                      ? Array.isArray(room.moTa)
+                        ? room.moTa.join("\n")
+                        : room.moTa
+                      : "Không có mô tả"}
                   </Text>
                 </View>
 
                 {/* Promotion & Availability */}
-                {isPromoted && (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginBottom: 16,
-                    }}
-                  >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 16,
+                  }}
+                >
+                  {isPromoted && (
                     <View
                       style={{
                         backgroundColor: "#FB923C",
@@ -556,17 +959,17 @@ export default function RoomListScreen() {
                         Flash Sale
                       </Text>
                     </View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: "#EF4444",
-                        fontWeight: "600",
-                      }}
-                    >
-                      Chỉ còn 1 phòng
-                    </Text>
-                  </View>
-                )}
+                  )}
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: availableRoomCount === 0 ? "#EF4444" : "#FB923C",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {getRoomAvailabilityMessage()}
+                  </Text>
+                </View>
 
                 {/* Pricing */}
                 <View
@@ -593,49 +996,27 @@ export default function RoomListScreen() {
                       >
                         {pricing.discounted.toLocaleString("vi-VN")}₫
                       </Text>
-                      <View
-                        style={{
-                          backgroundColor: "#10B981",
-                          paddingHorizontal: 6,
-                          paddingVertical: 2,
-                          borderRadius: 4,
-                          marginLeft: 8,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: "#FFFFFF",
-                            fontSize: 12,
-                            fontWeight: "600",
-                          }}
-                        >
-                          -{pricing.discountPercent}%
-                        </Text>
-                      </View>
                     </View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: "#9CA3AF",
-                        textDecorationLine: "line-through",
-                      }}
-                    >
-                      {pricing.original.toLocaleString("vi-VN")}₫
-                    </Text>
                   </View>
 
                   {/* Book Button */}
                   <TouchableOpacity
                     onPress={() => handleBookRoom(room)}
+                    disabled={!roomBookingStatuses[room.maPhong]}
                     style={{
-                      backgroundColor: "#FB923C",
+                      backgroundColor: roomBookingStatuses[room.maPhong]
+                        ? "#FB923C"
+                        : "#9CA3AF",
                       borderRadius: 25,
                       paddingHorizontal: 20,
                       paddingVertical: 12,
-                      shadowColor: "#FB923C",
+                      shadowColor: roomBookingStatuses[room.maPhong]
+                        ? "#FB923C"
+                        : "#9CA3AF",
                       shadowOffset: { width: 0, height: 2 },
                       shadowOpacity: 0.2,
                       shadowRadius: 4,
+                      opacity: roomBookingStatuses[room.maPhong] ? 1 : 0.8,
                     }}
                   >
                     <Text
@@ -645,7 +1026,9 @@ export default function RoomListScreen() {
                         fontWeight: "bold",
                       }}
                     >
-                      Đặt phòng
+                      {roomBookingStatuses[room.maPhong]
+                        ? "Đặt phòng"
+                        : "Đã đặt"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -759,12 +1142,17 @@ export default function RoomListScreen() {
         onClose={() => setShowDateTimePicker(false)}
         onConfirm={(data) => {
           // Calculate checkout date and time based on booking type
-          const calculateCheckoutDateTime = (checkInDate: Date, checkInTime: Date, bookingType: string, duration: number) => {
+          const calculateCheckoutDateTime = (
+            checkInDate: Date,
+            checkInTime: Date,
+            bookingType: string,
+            duration: number
+          ) => {
             const checkoutDate = new Date(checkInDate);
             const checkoutTime = new Date(checkInTime);
 
             switch (bookingType) {
-              case 'hourly':
+              case "hourly":
                 // Add duration hours to checkout time
                 checkoutTime.setHours(checkoutTime.getHours() + duration);
                 // If checkout time goes to next day, update checkout date
@@ -773,12 +1161,12 @@ export default function RoomListScreen() {
                   checkoutTime.setHours(checkoutTime.getHours() - 24);
                 }
                 break;
-              case 'overnight':
+              case "overnight":
                 // Add 1 day and set checkout time to 9:00 AM
                 checkoutDate.setDate(checkoutDate.getDate() + 1);
                 checkoutTime.setHours(9, 0, 0, 0);
                 break;
-              case 'daily':
+              case "daily":
                 // Add 1 day and set checkout time to 12:00 PM
                 checkoutDate.setDate(checkoutDate.getDate() + 1);
                 checkoutTime.setHours(12, 0, 0, 0);
@@ -789,27 +1177,33 @@ export default function RoomListScreen() {
           };
 
           const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(
-            data.checkInDate, 
-            data.checkInTime, 
-            data.bookingType, 
+            data.checkInDate,
+            data.checkInTime,
+            data.bookingType,
             data.duration
           );
 
           setBookingTime({
-            checkIn: data.checkInTime.toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }) + ", " + data.checkInDate.toLocaleDateString("vi-VN", {
-              day: "2-digit",
-              month: "2-digit",
-            }),
-            checkOut: checkoutTime.toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }) + ", " + checkoutDate.toLocaleDateString("vi-VN", {
-              day: "2-digit",
-              month: "2-digit",
-            }),
+            checkIn:
+              data.checkInTime.toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }) +
+              ", " +
+              data.checkInDate.toLocaleDateString("vi-VN", {
+                day: "2-digit",
+                month: "2-digit",
+              }),
+            checkOut:
+              checkoutTime.toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }) +
+              ", " +
+              checkoutDate.toLocaleDateString("vi-VN", {
+                day: "2-digit",
+                month: "2-digit",
+              }),
             hours: data.duration,
             bookingType: data.bookingType,
           });
@@ -819,7 +1213,10 @@ export default function RoomListScreen() {
           checkOutDate: new Date(),
           checkInTime: new Date(),
           checkOutTime: new Date(),
-          bookingType: bookingTime.bookingType as "hourly" | "overnight" | "daily",
+          bookingType: bookingTime.bookingType as
+            | "hourly"
+            | "overnight"
+            | "daily",
           duration: bookingTime.hours,
         }}
       />

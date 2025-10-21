@@ -9,16 +9,32 @@ import {
 } from "react-native";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { FilterOptions, DEFAULT_FILTER_OPTIONS } from "../types/filterTypes";
+
+interface FilterModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onApply: (filterOptions: FilterOptions) => void;
+  currentFilter: FilterOptions;
+}
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-export default function FilterModal({ visible, onClose }: any) {
-  const [priceRange, setPriceRange] = useState([20000, 10000000]);
-  const [selectedRatings, setSelectedRatings] = useState<string[]>([]);
-  const [selectedClean, setSelectedClean] = useState<string[]>([]);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
+export default function FilterModal({ visible, onClose, onApply, currentFilter }: FilterModalProps) {
+  const [priceRange, setPriceRange] = useState<[number, number]>(currentFilter.priceRange);
+  const [selectedRatings, setSelectedRatings] = useState<string[]>(currentFilter.selectedRatings);
+  const [selectedClean, setSelectedClean] = useState<string[]>(currentFilter.selectedClean);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(currentFilter.selectedTypes);
+  const [selectedFacilities, setSelectedFacilities] = useState<string[]>(currentFilter.selectedFacilities);
+
+  useEffect(() => {
+    setPriceRange(currentFilter.priceRange);
+    setSelectedRatings(currentFilter.selectedRatings);
+    setSelectedClean(currentFilter.selectedClean);
+    setSelectedTypes(currentFilter.selectedTypes);
+    setSelectedFacilities(currentFilter.selectedFacilities);
+  }, [currentFilter]);
 
   const toggleSelect = (list: string[], setList: any, value: string) => {
     if (list.includes(value)) {
@@ -29,11 +45,22 @@ export default function FilterModal({ visible, onClose }: any) {
   };
 
   const resetFilters = () => {
-    setPriceRange([20000, 10000000]);
-    setSelectedRatings([]);
-    setSelectedClean([]);
-    setSelectedTypes([]);
-    setSelectedFacilities([]);
+    setPriceRange(DEFAULT_FILTER_OPTIONS.priceRange);
+    setSelectedRatings(DEFAULT_FILTER_OPTIONS.selectedRatings);
+    setSelectedClean(DEFAULT_FILTER_OPTIONS.selectedClean);
+    setSelectedTypes(DEFAULT_FILTER_OPTIONS.selectedTypes);
+    setSelectedFacilities(DEFAULT_FILTER_OPTIONS.selectedFacilities);
+  };
+
+  const handleApply = () => {
+    const newFilterOptions: FilterOptions = {
+      priceRange,
+      selectedRatings,
+      selectedClean,
+      selectedTypes,
+      selectedFacilities,
+    };
+    onApply(newFilterOptions);
   };
   const tienNghi = [
     "Dịch vụ lưu trữ/bảo quản hành lý",
@@ -364,7 +391,7 @@ export default function FilterModal({ visible, onClose }: any) {
 
           {/* Nút áp dụng */}
           <TouchableOpacity
-            onPress={onClose}
+            onPress={handleApply}
             className="m-4 py-4 bg-orange-500 rounded-full"
           >
             <Text className="text-white text-center font-semibold text-base">

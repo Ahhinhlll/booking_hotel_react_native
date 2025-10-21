@@ -24,6 +24,14 @@ import {
   KhuyenMaiData,
 } from "../../services/KhuyenMaiServices";
 import { KhachSanServices } from "../../services/KhachSanServices";
+import {
+  TienNghiServices,
+  TienNghiData,
+} from "../../services/TienNghiServices";
+import {
+  DatPhongServices,
+  RoomBookingStatus,
+} from "../../services/DatPhongServices";
 import { getImageUrl } from "../../utils/getImageUrl";
 import CustomDateTimePicker from "../../components/DateTimePicker";
 
@@ -70,9 +78,12 @@ export default function RoomDetailScreen() {
   const [showPromotionsModal, setShowPromotionsModal] = useState(false);
   const [promotions, setPromotions] = useState<KhuyenMaiData[]>([]);
   const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
+  const [amenities, setAmenities] = useState<TienNghiData[]>([]);
   const [selectedPromotion, setSelectedPromotion] =
     useState<KhuyenMaiData | null>(null);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [roomBookingStatus, setRoomBookingStatus] =
+    useState<RoomBookingStatus | null>(null);
   const [selectedDateTime, setSelectedDateTime] = useState(() => {
     const now = new Date();
     const startTime = new Date(now);
@@ -88,6 +99,14 @@ export default function RoomDetailScreen() {
         hour: "2-digit",
         minute: "2-digit",
       }),
+      checkInDate: now.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+      }),
+      checkOutDate: now.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+      }),
       date: now.toLocaleDateString("vi-VN", {
         day: "2-digit",
         month: "2-digit",
@@ -100,6 +119,8 @@ export default function RoomDetailScreen() {
     if (maPhong) {
       loadRoomDetail();
       loadPromotions();
+      loadAmenities();
+      checkRoomBookingStatus();
     }
   }, [maPhong]);
 
@@ -152,6 +173,37 @@ export default function RoomDetailScreen() {
     }
   };
 
+  const loadAmenities = async () => {
+    if (!maPhong) return;
+
+    try {
+      const data = await TienNghiServices.getByRoomId(maPhong as string);
+      setAmenities(data || []);
+    } catch (error) {
+      console.error("Error loading amenities:", error);
+      setAmenities([]);
+    }
+  };
+
+  const checkRoomBookingStatus = async () => {
+    try {
+      if (maPhong) {
+        const status = await DatPhongServices.checkRoomBookingStatus(
+          maPhong as string
+        );
+        setRoomBookingStatus(status);
+      }
+    } catch (error) {
+      console.error("Error checking room booking status:", error);
+      // Set default status if error occurs
+      setRoomBookingStatus({
+        isBooked: false,
+        bookingInfo: null,
+        message: "Không thể kiểm tra trạng thái phòng",
+      });
+    }
+  };
+
   const handleViewPromotions = () => {
     setShowPromotionsModal(true);
   };
@@ -167,22 +219,13 @@ export default function RoomDetailScreen() {
       return basePrice;
     }
 
-    console.log("Calculating price with promotion:", {
-      basePrice,
-      promotion: selectedPromotion.thongTinKM,
-      selectedPromotion,
-    });
-
     // Parse discount from thongTinKM (e.g., "giảm 40K" -> 40000)
     const discountMatch = selectedPromotion.thongTinKM?.match(/giảm\s*(\d+)k/i);
     if (discountMatch) {
       const discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
       const finalPrice = Math.max(0, basePrice - discountAmount);
-      console.log("Discount applied:", { discountAmount, finalPrice });
       return finalPrice;
     }
-
-    console.log("No discount match found, returning base price:", basePrice);
     return basePrice;
   };
 
@@ -225,34 +268,136 @@ export default function RoomDetailScreen() {
 
     // Format dates properly for backend
     const now = new Date();
-    const checkInDate = new Date(now);
+    let checkInDate: Date;
     let checkOutDate: Date;
+
+    // Parse check-in date từ selectedDateTime
+    try {
+      const [startHour, startMinute] = selectedDateTime.startTime.split(":");
+
+      // Xử lý cả format "dd/mm" và "dd-mm"
+      let day, month;
+      if (selectedDateTime.checkInDate.includes("/")) {
+        [day, month] = selectedDateTime.checkInDate.split("/");
+      } else if (selectedDateTime.checkInDate.includes("-")) {
+        [day, month] = selectedDateTime.checkInDate.split("-");
+      } else {
+        throw new Error("Invalid date format");
+      }
+
+      // Validation
+      if (!startHour || !startMinute || !day || !month) {
+        throw new Error("Missing time or date components");
+      }
+
+      const hour = parseInt(startHour);
+      const minute = parseInt(startMinute);
+      const dayNum = parseInt(day);
+      const monthNum = parseInt(month);
+
+      // Validation values
+      if (isNaN(hour) || isNaN(minute) || isNaN(dayNum) || isNaN(monthNum)) {
+        throw new Error("Invalid numeric values");
+      }
+
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        throw new Error("Invalid time values");
+      }
+
+      if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12) {
+        throw new Error("Invalid date values");
+      }
+
+      // Tạo ngày với năm hiện tại để tránh lỗi "Date value out of bounds"
+      const currentYear = new Date().getFullYear();
+      checkInDate = new Date(currentYear, monthNum - 1, dayNum);
+      checkInDate.setHours(hour, minute, 0, 0);
+
+      // Kiểm tra nếu ngày không hợp lệ
+      if (isNaN(checkInDate.getTime())) {
+        throw new Error("Invalid check-in date");
+      }
+    } catch (error) {
+      console.error("Error parsing check-in date:", error);
+      // Fallback nếu parse lỗi
+      checkInDate = new Date(now);
+    }
 
     // Tính check-out date dựa trên loại đặt phòng
     if (selectedDateTime.bookingType === "hourly") {
       checkOutDate = new Date(
-        now.getTime() + selectedDateTime.duration * 60 * 60 * 1000
+        checkInDate.getTime() + selectedDateTime.duration * 60 * 60 * 1000
       );
     } else if (selectedDateTime.bookingType === "overnight") {
-      checkOutDate = new Date(now);
-      checkOutDate.setDate(checkOutDate.getDate() + 1);
-      checkOutDate.setHours(9, 0, 0, 0); // 09:00
+      // Sử dụng thời gian do người dùng chọn từ DateTimePicker
+      try {
+        const [endHour, endMinute] = selectedDateTime.endTime.split(":");
+
+        // Xử lý cả format "dd/mm" và "dd-mm"
+        let day, month;
+        if (selectedDateTime.checkOutDate.includes("/")) {
+          [day, month] = selectedDateTime.checkOutDate.split("/");
+        } else if (selectedDateTime.checkOutDate.includes("-")) {
+          [day, month] = selectedDateTime.checkOutDate.split("-");
+        } else {
+          throw new Error("Invalid date format");
+        }
+
+        // Validation
+        if (!endHour || !endMinute || !day || !month) {
+          throw new Error("Missing time or date components");
+        }
+
+        const hour = parseInt(endHour);
+        const minute = parseInt(endMinute);
+        const dayNum = parseInt(day);
+        const monthNum = parseInt(month);
+
+        // Validation values
+        if (isNaN(hour) || isNaN(minute) || isNaN(dayNum) || isNaN(monthNum)) {
+          throw new Error("Invalid numeric values");
+        }
+
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+          throw new Error("Invalid time values");
+        }
+
+        if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12) {
+          throw new Error("Invalid date values");
+        }
+
+        // Tạo ngày với năm hiện tại để tránh lỗi "Date value out of bounds"
+        const currentYear = new Date().getFullYear();
+        checkOutDate = new Date(currentYear, monthNum - 1, dayNum);
+        checkOutDate.setHours(hour, minute, 0, 0);
+
+        // Kiểm tra nếu ngày không hợp lệ
+        if (isNaN(checkOutDate.getTime())) {
+          throw new Error("Invalid date");
+        }
+      } catch (error) {
+        console.error("Error parsing overnight checkout date:", error);
+        // Fallback nếu parse lỗi
+        checkOutDate = new Date(checkInDate);
+        checkOutDate.setDate(checkOutDate.getDate() + 1);
+        checkOutDate.setHours(9, 0, 0, 0); // 09:00
+      }
     } else if (selectedDateTime.bookingType === "daily") {
       // Cho "theo ngày", sử dụng thời gian do người dùng chọn
       try {
         console.log("Parsing daily checkout:", {
           endTime: selectedDateTime.endTime,
-          date: selectedDateTime.date,
+          checkOutDate: selectedDateTime.checkOutDate,
         });
 
         const [endHour, endMinute] = selectedDateTime.endTime.split(":");
 
         // Xử lý cả format "dd/mm" và "dd-mm"
         let day, month;
-        if (selectedDateTime.date.includes("/")) {
-          [day, month] = selectedDateTime.date.split("/");
-        } else if (selectedDateTime.date.includes("-")) {
-          [day, month] = selectedDateTime.date.split("-");
+        if (selectedDateTime.checkOutDate.includes("/")) {
+          [day, month] = selectedDateTime.checkOutDate.split("/");
+        } else if (selectedDateTime.checkOutDate.includes("-")) {
+          [day, month] = selectedDateTime.checkOutDate.split("-");
         } else {
           throw new Error("Invalid date format");
         }
@@ -292,12 +437,12 @@ export default function RoomDetailScreen() {
       } catch (error) {
         console.error("Error parsing checkout date:", error);
         // Fallback nếu parse lỗi
-        checkOutDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 ngày
+        checkOutDate = new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000); // +1 ngày
         checkOutDate.setHours(12, 0, 0, 0); // 12:00
       }
     } else {
       checkOutDate = new Date(
-        now.getTime() + selectedDateTime.duration * 60 * 60 * 1000
+        checkInDate.getTime() + selectedDateTime.duration * 60 * 60 * 1000
       );
     }
 
@@ -349,21 +494,15 @@ export default function RoomDetailScreen() {
   const getTimeDisplayText = () => {
     switch (selectedDateTime.bookingType) {
       case "hourly":
-        return `${selectedDateTime.duration} giờ | ${selectedDateTime.startTime} → ${selectedDateTime.endTime}, ${selectedDateTime.date}`;
+        return `${selectedDateTime.duration} giờ | ${selectedDateTime.startTime} → ${selectedDateTime.endTime}, ${selectedDateTime.checkOutDate}`;
       case "overnight":
-        // Tính ngày check-out cho qua đêm từ ngày hiện tại
-        const overnightDate = new Date();
-        overnightDate.setDate(overnightDate.getDate() + 1); // +1 ngày cho check-out
-        const overnightDateStr = overnightDate.toLocaleDateString("vi-VN", {
-          day: "2-digit",
-          month: "2-digit",
-        });
-        return `Qua đêm | ${selectedDateTime.startTime} → 09:00, ${overnightDateStr}`;
+        // Sử dụng ngày checkout từ selectedDateTime thay vì tự động tính
+        return `Qua đêm | ${selectedDateTime.startTime} → ${selectedDateTime.endTime}, ${selectedDateTime.checkOutDate}`;
       case "daily":
         // Hiển thị thời gian theo ngày với số ngày và ngày check-out do người dùng chọn
-        return `Theo ngày (${selectedDateTime.duration} ngày) | ${selectedDateTime.startTime} → ${selectedDateTime.endTime}, ${selectedDateTime.date}`;
+        return `Theo ngày (${selectedDateTime.duration} ngày) | ${selectedDateTime.startTime} → ${selectedDateTime.endTime}, ${selectedDateTime.checkOutDate}`;
       default:
-        return `${selectedDateTime.duration} giờ | ${selectedDateTime.startTime} → ${selectedDateTime.endTime}, ${selectedDateTime.date}`;
+        return `${selectedDateTime.duration} giờ | ${selectedDateTime.startTime} → ${selectedDateTime.endTime}, ${selectedDateTime.checkOutDate}`;
     }
   };
 
@@ -638,52 +777,108 @@ export default function RoomDetailScreen() {
           {/* Room Details */}
           <View style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 8 }}>
-              Diện tích: {room?.dienTich}
+              Diện tích: {room?.dienTich}m²
             </Text>
             <Text style={{ fontSize: 14, color: "#6B7280", lineHeight: 22 }}>
               {Array.isArray(room.moTa) ? room.moTa.join(" - ") : room.moTa}
             </Text>
           </View>
 
-          {/* Promotion Banner */}
-          {promotions && promotions.length > 0 && (
-            <TouchableOpacity
-              onPress={handleViewPromotions}
+          {/* Room Booking Status Banner */}
+          {roomBookingStatus?.isBooked && (
+            <View
               style={{
-                backgroundColor: "#FEF3E7",
+                backgroundColor: "#FEF2F2",
                 padding: 16,
                 borderRadius: 12,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
                 marginBottom: 24,
                 borderWidth: 1,
-                borderColor: "#FB923C",
+                borderColor: "#F87171",
               }}
             >
               <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  flex: 1,
+                  marginBottom: 8,
                 }}
               >
-                <Ionicons name="pricetag" size={20} color="#FB923C" />
+                <Ionicons name="warning" size={20} color="#F87171" />
                 <Text
                   style={{
                     marginLeft: 8,
-                    color: "#FB923C",
+                    color: "#F87171",
                     fontWeight: "600",
-                    fontSize: 14,
+                    fontSize: 16,
+                  }}
+                >
+                  Phòng đã được đặt
+                </Text>
+              </View>
+              {roomBookingStatus.bookingInfo && (
+                <View style={{ marginLeft: 28 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginBottom: 4 }}
+                  >
+                    Loại đặt: {roomBookingStatus.bookingInfo.loaiDat}
+                  </Text>
+
+                  <Text style={{ fontSize: 14, color: "#6B7280" }}>
+                    Thời gian:
+                    {new Date(
+                      roomBookingStatus.bookingInfo.ngayNhan
+                    ).toLocaleDateString("vi-VN")}
+                    -
+                    {new Date(
+                      roomBookingStatus.bookingInfo.ngayTra
+                    ).toLocaleDateString("vi-VN")}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Promotion Banner */}
+          {promotions &&
+            promotions.length > 0 &&
+            !roomBookingStatus?.isBooked && (
+              <TouchableOpacity
+                onPress={handleViewPromotions}
+                style={{
+                  backgroundColor: "#FEF3E7",
+                  padding: 16,
+                  borderRadius: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 24,
+                  borderWidth: 1,
+                  borderColor: "#FB923C",
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
                     flex: 1,
                   }}
                 >
-                  {selectedPromotion ? getPromotionText() : "Ưu đãi có sẵn"}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#FB923C" />
-            </TouchableOpacity>
-          )}
+                  <Ionicons name="pricetag" size={20} color="#FB923C" />
+                  <Text
+                    style={{
+                      marginLeft: 8,
+                      color: "#FB923C",
+                      fontWeight: "600",
+                      fontSize: 14,
+                      flex: 1,
+                    }}
+                  >
+                    {selectedPromotion ? getPromotionText() : "Ưu đãi có sẵn"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FB923C" />
+              </TouchableOpacity>
+            )}
 
           {/* Booking Benefits */}
           <View style={{ marginBottom: 24 }}>
@@ -801,10 +996,7 @@ export default function RoomDetailScreen() {
             </View>
 
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              {(() => {
-                const amenities = (room as any)?.TienNghis?.slice(0, 4) || [];
-                return amenities;
-              })().map((amenity: any, index: number) => (
+              {amenities.slice(0, 4).map((amenity: any, index: number) => (
                 <View
                   key={amenity.maTienNghi || index}
                   style={{
@@ -840,136 +1032,158 @@ export default function RoomDetailScreen() {
           </View>
 
           {/* Room Pricing */}
-          <View style={{ marginBottom: 24 }}>
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: "bold",
-                color: "#1F2937",
-                marginBottom: 16,
-              }}
-            >
-              Giá phòng
-            </Text>
+          {!roomBookingStatus?.isBooked && (
+            <View style={{ marginBottom: 24 }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  color: "#1F2937",
+                  marginBottom: 16,
+                }}
+              >
+                Giá phòng
+              </Text>
 
-            <View style={{ gap: 12 }}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: "#FEF3E7",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginRight: 12,
-                  }}
-                >
-                  <Ionicons
-                    name="hourglass-outline"
-                    size={20}
-                    color="#FB923C"
-                  />
-                </View>
-                <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
-                  02 giờ đầu
-                </Text>
-                <Text
-                  style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
-                >
-                  {pricing.hourly2Hours > 0
-                    ? pricing.hourly2Hours.toLocaleString("vi-VN") + "₫"
-                    : "Chưa có giá"}
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: "#F3F4F6",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginRight: 12,
-                  }}
-                >
+              <View style={{ gap: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: "#FEF3E7",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Ionicons
+                      name="hourglass-outline"
+                      size={20}
+                      color="#FB923C"
+                    />
+                  </View>
+                  <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
+                    02 giờ đầu
+                  </Text>
                   <Text
                     style={{
                       fontSize: 16,
                       fontWeight: "600",
-                      color: "#6B7280",
+                      color: "#1F2937",
                     }}
                   >
-                    +
+                    {pricing.hourly2Hours > 0
+                      ? pricing.hourly2Hours.toLocaleString("vi-VN") + "₫"
+                      : "Chưa có giá"}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
-                  01 giờ thêm
-                </Text>
-                <Text
-                  style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
-                >
-                  {pricing.hourlyAdditional > 0
-                    ? pricing.hourlyAdditional.toLocaleString("vi-VN") + "₫"
-                    : "Chưa có giá"}
-                </Text>
-              </View>
 
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: "#FEF3E7",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginRight: 12,
-                  }}
-                >
-                  <Ionicons name="moon-outline" size={20} color="#FB923C" />
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: "#F3F4F6",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "600",
+                        color: "#6B7280",
+                      }}
+                    >
+                      +
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
+                    01 giờ thêm
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "600",
+                      color: "#1F2937",
+                    }}
+                  >
+                    {pricing.hourlyAdditional > 0
+                      ? pricing.hourlyAdditional.toLocaleString("vi-VN") + "₫"
+                      : "Chưa có giá"}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
-                  01 đêm
-                </Text>
-                <Text
-                  style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
-                >
-                  {pricing.overnight > 0
-                    ? pricing.overnight.toLocaleString("vi-VN") + "₫"
-                    : "Chưa có giá"}
-                </Text>
-              </View>
 
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: "#FEF3E7",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginRight: 12,
-                  }}
-                >
-                  <Ionicons name="business-outline" size={20} color="#FB923C" />
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: "#FEF3E7",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Ionicons name="moon-outline" size={20} color="#FB923C" />
+                  </View>
+                  <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
+                    01 đêm
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "600",
+                      color: "#1F2937",
+                    }}
+                  >
+                    {pricing.overnight > 0
+                      ? pricing.overnight.toLocaleString("vi-VN") + "₫"
+                      : "Chưa có giá"}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
-                  01 ngày
-                </Text>
-                <Text
-                  style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}
-                >
-                  {pricing.daily > 0
-                    ? pricing.daily.toLocaleString("vi-VN") + "₫"
-                    : "Chưa có giá"}
-                </Text>
+
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: "#FEF3E7",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Ionicons
+                      name="business-outline"
+                      size={20}
+                      color="#FB923C"
+                    />
+                  </View>
+                  <Text style={{ fontSize: 16, color: "#1F2937", flex: 1 }}>
+                    01 ngày
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "600",
+                      color: "#1F2937",
+                    }}
+                  >
+                    {pricing.daily > 0
+                      ? pricing.daily.toLocaleString("vi-VN") + "₫"
+                      : "Chưa có giá"}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+          )}
 
           {/* Check-in/Check-out Times */}
           <View style={{ marginBottom: 24 }}>
@@ -1075,35 +1289,37 @@ export default function RoomDetailScreen() {
         }}
       >
         {/* Booking Time Section */}
-        <TouchableOpacity
-          onPress={() => setShowDateTimePicker(true)}
-          style={{
-            backgroundColor: "#FEF3E7",
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderRadius: 12,
-            marginBottom: 12,
-            alignItems: "center",
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Ionicons
-              name={getBookingTypeIcon() as any}
-              size={16}
-              color="#FB923C"
-            />
-            <Text
-              style={{
-                marginLeft: 8,
-                fontSize: 14,
-                color: "#FB923C",
-                fontWeight: "600",
-              }}
-            >
-              {getTimeDisplayText()}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        {!roomBookingStatus?.isBooked && (
+          <TouchableOpacity
+            onPress={() => setShowDateTimePicker(true)}
+            style={{
+              backgroundColor: "#FEF3E7",
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderRadius: 12,
+              marginBottom: 12,
+              alignItems: "center",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons
+                name={getBookingTypeIcon() as any}
+                size={16}
+                color="#FB923C"
+              />
+              <Text
+                style={{
+                  marginLeft: 8,
+                  fontSize: 14,
+                  color: "#FB923C",
+                  fontWeight: "600",
+                }}
+              >
+                {getTimeDisplayText()}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Price and Button Section */}
         <View
@@ -1113,66 +1329,87 @@ export default function RoomDetailScreen() {
             justifyContent: "space-between",
           }}
         >
-          <View>
-            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
-              Giá phòng
-            </Text>
-            <Text
-              style={{
-                fontSize: 24,
-                fontWeight: "bold",
-                color: "#1F2937",
-              }}
-            >
-              {currentPrice > 0
-                ? discountedPrice.toLocaleString("vi-VN") + "₫"
-                : "Chưa có giá"}
-            </Text>
-            {currentPrice > 0 &&
-              selectedPromotion &&
-              currentPrice !== discountedPrice && (
+          {!roomBookingStatus?.isBooked ? (
+            <View>
+              <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
+                Giá phòng
+              </Text>
+              <Text
+                style={{
+                  fontSize: 24,
+                  fontWeight: "bold",
+                  color: "#1F2937",
+                }}
+              >
+                {currentPrice > 0
+                  ? discountedPrice.toLocaleString("vi-VN") + "₫"
+                  : "Chưa có giá"}
+              </Text>
+              {currentPrice > 0 &&
+                selectedPromotion &&
+                currentPrice !== discountedPrice && (
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: "#9CA3AF",
+                      textDecorationLine: "line-through",
+                      marginTop: 2,
+                    }}
+                  >
+                    {currentPrice.toLocaleString("vi-VN")}₫
+                  </Text>
+                )}
+              {selectedPromotion && currentPrice > 0 && (
                 <Text
                   style={{
                     fontSize: 12,
-                    color: "#9CA3AF",
-                    textDecorationLine: "line-through",
+                    color: "#FB923C",
+                    fontWeight: "600",
                     marginTop: 2,
                   }}
                 >
-                  {currentPrice.toLocaleString("vi-VN")}₫
+                  {getPromotionText()}
                 </Text>
               )}
-            {selectedPromotion && currentPrice > 0 && (
+            </View>
+          ) : (
+            <View>
+              <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
+                Trạng thái phòng
+              </Text>
               <Text
                 style={{
-                  fontSize: 12,
-                  color: "#FB923C",
-                  fontWeight: "600",
-                  marginTop: 2,
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  color: "#F87171",
                 }}
               >
-                {getPromotionText()}
+                Đã được đặt
               </Text>
-            )}
-          </View>
+            </View>
+          )}
 
           <TouchableOpacity
-            onPress={handleBookRoom}
+            onPress={roomBookingStatus?.isBooked ? undefined : handleBookRoom}
             style={{
-              backgroundColor: "#FB923C",
+              backgroundColor: roomBookingStatus?.isBooked
+                ? "#9CA3AF"
+                : "#FB923C",
               borderRadius: 25,
               paddingHorizontal: 20,
               paddingVertical: 12,
-              shadowColor: "#FB923C",
+              shadowColor: roomBookingStatus?.isBooked ? "#9CA3AF" : "#FB923C",
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.2,
               shadowRadius: 4,
+              opacity: roomBookingStatus?.isBooked ? 0.6 : 1,
             }}
+            disabled={roomBookingStatus?.isBooked}
           >
             <Text
               style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "bold" }}
             >
-              Đặt phòng
+              {roomBookingStatus?.isBooked ? "Đã đặt" : "Đặt phòng"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1211,20 +1448,7 @@ export default function RoomDetailScreen() {
           {/* Amenities Grid */}
           <View style={{ padding: 16 }}>
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              {(
-                (room as any)?.TienNghis || [
-                  { tenTienNghi: "TV", maTienNghi: "1" },
-                  { tenTienNghi: "Wifi", maTienNghi: "2" },
-                  { tenTienNghi: "Điều hòa", maTienNghi: "3" },
-                  { tenTienNghi: "Bồn tắm", maTienNghi: "4" },
-                  { tenTienNghi: "Sân vườn", maTienNghi: "5" },
-                  { tenTienNghi: "Cà phê", maTienNghi: "6" },
-                  { tenTienNghi: "Nước suối", maTienNghi: "7" },
-                  { tenTienNghi: "Móc treo", maTienNghi: "8" },
-                  { tenTienNghi: "Netflix", maTienNghi: "9" },
-                  { tenTienNghi: "Miễn phí", maTienNghi: "10" },
-                ]
-              ).map((amenity: any, index: number) => (
+              {amenities.map((amenity: any, index: number) => (
                 <View
                   key={amenity.maTienNghi || index}
                   style={{
@@ -1387,7 +1611,7 @@ export default function RoomDetailScreen() {
                         Tất cả loại đặt phòng
                       </Text>
                       <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                        Hạn sử dụng:{" "}
+                        Hạn sử dụng:
                         {item.ngayKetThuc
                           ? new Date(item.ngayKetThuc).toLocaleDateString(
                               "vi-VN"
@@ -1430,9 +1654,9 @@ export default function RoomDetailScreen() {
                 }
                 break;
               case "overnight":
-                // Add 1 day and set checkout time to 9:00 AM
-                checkoutDate.setDate(checkoutDate.getDate() + 1);
-                checkoutTime.setHours(9, 0, 0, 0);
+                // Sử dụng thời gian do người dùng chọn từ DateTimePicker
+                checkoutDate.setTime(data.checkOutDate.getTime());
+                checkoutTime.setTime(data.checkOutTime.getTime());
                 break;
               case "daily":
                 // Cho "theo ngày", sử dụng thời gian do người dùng chọn từ DateTimePicker
@@ -1456,15 +1680,30 @@ export default function RoomDetailScreen() {
             checkInDate: Date,
             checkOutDate: Date
           ) => {
-            const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
-            const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-            return Math.max(1, daysDiff); // Ít nhất 1 ngày
+            // Sử dụng logic tính ngày chính xác hơn
+            const startDate = new Date(
+              checkInDate.getFullYear(),
+              checkInDate.getMonth(),
+              checkInDate.getDate()
+            );
+            const endDate = new Date(
+              checkOutDate.getFullYear(),
+              checkOutDate.getMonth(),
+              checkOutDate.getDate()
+            );
+            const timeDiff = endDate.getTime() - startDate.getTime();
+            const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+            const calculatedDays = Math.max(1, daysDiff);
+
+            return calculatedDays;
           };
 
           const calculatedDuration =
             data.bookingType === "daily"
               ? calculateDaysForDaily(data.checkInDate, data.checkOutDate)
-              : data.duration;
+              : data.bookingType === "overnight"
+                ? 1 // Overnight is always 1 night
+                : data.duration;
 
           // Debug log để kiểm tra dữ liệu
           console.log("DateTimePicker data:", {
@@ -1477,39 +1716,28 @@ export default function RoomDetailScreen() {
             calculatedDuration,
           });
 
-          console.log("Date strings:", {
-            checkInDateStr: data.checkInDate.toLocaleDateString("vi-VN"),
-            checkOutDateStr: data.checkOutDate.toLocaleDateString("vi-VN"),
-            checkInTimeStr: data.checkInTime.toLocaleTimeString("vi-VN"),
-            checkOutTimeStr: data.checkOutTime.toLocaleTimeString("vi-VN"),
-          });
-
           setSelectedDateTime({
             duration: calculatedDuration,
             startTime: data.checkInTime.toLocaleTimeString("vi-VN", {
               hour: "2-digit",
               minute: "2-digit",
             }),
-            endTime:
-              data.bookingType === "daily"
-                ? data.checkOutTime.toLocaleTimeString("vi-VN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : checkoutTime.toLocaleTimeString("vi-VN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-            date:
-              data.bookingType === "daily"
-                ? data.checkOutDate.toLocaleDateString("vi-VN", {
-                    day: "2-digit",
-                    month: "2-digit",
-                  })
-                : data.checkInDate.toLocaleDateString("vi-VN", {
-                    day: "2-digit",
-                    month: "2-digit",
-                  }),
+            endTime: checkoutTime.toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            checkInDate: data.checkInDate.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
+            checkOutDate: checkoutDate.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
+            date: checkoutDate.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
             bookingType: data.bookingType,
           });
         }}

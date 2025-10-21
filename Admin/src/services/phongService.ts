@@ -28,7 +28,7 @@ export const phongService = {
 
   search: async (keyword: string): Promise<Phong[]> => {
     const response = await request.get('/phong/search', {
-      params: { keyword },
+      params: { q: keyword },
     });
     return response.data || [];
   },

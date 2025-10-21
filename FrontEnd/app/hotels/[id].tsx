@@ -23,6 +23,11 @@ import {
   KhuyenMaiServices,
   KhuyenMaiData,
 } from "../../services/KhuyenMaiServices";
+import { DanhGiaServices, ReviewData } from "../../services/DanhGiaServices";
+import {
+  TienNghiServices,
+  TienNghiData,
+} from "../../services/TienNghiServices";
 import { getImageUrl } from "../../utils/getImageUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
@@ -54,11 +59,14 @@ export default function HotelDetailScreen() {
   const [bookingType, setBookingType] = useState("Theo giờ");
   const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
+  const [amenities, setAmenities] = useState<TienNghiData[]>([]);
   const [showPromotionsModal, setShowPromotionsModal] = useState(false);
   const [showHotelDetailsModal, setShowHotelDetailsModal] = useState(false);
   const [promotions, setPromotions] = useState<KhuyenMaiData[]>([]);
   const [selectedPromotion, setSelectedPromotion] =
     useState<KhuyenMaiData | null>(null);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
   const [selectedDateTime, setSelectedDateTime] = useState(() => {
     const now = new Date();
@@ -87,6 +95,8 @@ export default function HotelDetailScreen() {
     if (id) {
       loadHotelDetail();
       loadPromotions();
+      loadReviews();
+      loadAmenities();
     }
   }, [id]);
 
@@ -230,6 +240,32 @@ export default function HotelDetailScreen() {
       setPromotions(data || []);
     } catch (error) {
       console.error("Error loading promotions:", error);
+    }
+  };
+
+  const loadReviews = async () => {
+    if (!id) return;
+
+    try {
+      setReviewsLoading(true);
+      const data = await DanhGiaServices.getReviewsByHotelId(id as string);
+      setReviews(data || []);
+    } catch (error) {
+      console.error("Error loading reviews:", error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const loadAmenities = async () => {
+    if (!id) return;
+
+    try {
+      const data = await TienNghiServices.getByHotelId(id as string);
+      setAmenities(data || []);
+    } catch (error) {
+      console.error("Error loading amenities:", error);
+      setAmenities([]);
     }
   };
 
@@ -448,7 +484,7 @@ export default function HotelDetailScreen() {
             >
               {[0, 1].map((i) => (
                 <TouchableOpacity
-                  key={i}
+                  key={`top-image-${i}`}
                   style={{
                     flex: 1,
                     marginHorizontal: i === 0 ? 0 : 1,
@@ -469,7 +505,7 @@ export default function HotelDetailScreen() {
             <View style={{ height: 146, flexDirection: "row" }}>
               {[2, 3, 4].map((i, idx) => (
                 <TouchableOpacity
-                  key={i}
+                  key={`bottom-image-${i}`}
                   style={{
                     flex: 1,
                     marginRight: idx === 0 ? 1 : 0,
@@ -611,7 +647,7 @@ export default function HotelDetailScreen() {
                   marginLeft: 4,
                 }}
               >
-                {hotel.hangSao || 5}.0{" "}
+                {hotel.hangSao || 0}.0
                 <Text style={{ color: "#9CA3AF" }}>
                   ({hotel.diemDanhGia || 0})
                 </Text>
@@ -781,103 +817,142 @@ export default function HotelDetailScreen() {
             {/* Review Preview */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: "row", paddingRight: 16 }}>
-                {((hotel as any).DanhGia?.slice(0, 3) || []).map(
-                  (review: any, index: number) => (
-                    <View
-                      key={review.maDG || index}
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 12,
-                        padding: 16,
-                        marginRight: 12,
-                        width: 280,
-                        borderWidth: 1,
-                        borderColor: "#F3F4F6",
-                      }}
-                    >
-                      {/* User Info */}
+                {reviewsLoading ? (
+                  <View
+                    style={{
+                      width: 280,
+                      height: 120,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <ActivityIndicator size="small" color="#3B82F6" />
+                  </View>
+                ) : reviews.length > 0 ? (
+                  reviews
+                    .slice(0, 3)
+                    .map((review: ReviewData, index: number) => (
                       <View
+                        key={review.maDG || index}
                         style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          marginBottom: 8,
+                          backgroundColor: "#FFFFFF",
+                          borderRadius: 12,
+                          padding: 16,
+                          marginRight: 12,
+                          width: 280,
+                          borderWidth: 1,
+                          borderColor: "#F3F4F6",
                         }}
                       >
-                        <View
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 16,
-                            backgroundColor: "#6366F1",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            marginRight: 8,
-                          }}
-                        >
-                          <Ionicons name="person" size={16} color="#FFFFFF" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={{
-                              fontSize: 14,
-                              color: "#1F2937",
-                              fontWeight: "600",
-                            }}
-                          >
-                            {review.NguoiDung?.hoTen || "Khách hàng"}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              color: "#6B7280",
-                            }}
-                          >
-                            {review.DatPhong?.Phong?.tenPhong ||
-                              "Phòng tiêu chuẩn"}
-                          </Text>
-                        </View>
+                        {/* User Info */}
                         <View
                           style={{
                             flexDirection: "row",
+                            alignItems: "center",
+                            marginBottom: 8,
                           }}
                         >
-                          {[...Array(review.soSao || 5)].map((_, i) => (
-                            <Ionicons
-                              key={`star-${review.maDG || index}-${i}`}
-                              name="star"
-                              size={12}
-                              color="#FCD34D"
-                            />
-                          ))}
+                          <View
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 16,
+                              backgroundColor: "#6366F1",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              marginRight: 8,
+                            }}
+                          >
+                            <Ionicons name="person" size={16} color="#FFFFFF" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                color: "#1F2937",
+                                fontWeight: "600",
+                              }}
+                            >
+                              {review.NguoiDung?.hoTen || "Khách hàng"}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: "#6B7280",
+                              }}
+                            >
+                              {review.DatPhong?.Phong?.tenPhong ||
+                                "Phòng tiêu chuẩn"}
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                            }}
+                          >
+                            {[...Array(review.soSao || 5)].map((_, i) => (
+                              <Ionicons
+                                key={`star-${review.maDG || index}-${i}`}
+                                name="star"
+                                size={12}
+                                color="#FCD34D"
+                              />
+                            ))}
+                          </View>
                         </View>
+
+                        {/* Review Content */}
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            color: "#1F2937",
+                            lineHeight: 20,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {review.binhLuan ||
+                            "Người dùng chưa chia sẻ cảm nhận về khách sạn."}
+                        </Text>
+
+                        {/* Date */}
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: "#9CA3AF",
+                          }}
+                        >
+                          {review.ngayDG
+                            ? formatDate(review.ngayDG)
+                            : "Đánh giá mới"}
+                        </Text>
                       </View>
-
-                      {/* Review Content */}
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          color: "#1F2937",
-                          lineHeight: 20,
-                          marginBottom: 8,
-                        }}
-                      >
-                        {review.binhLuan ||
-                          "Người dùng chưa chia sẻ cảm nhận về khách sạn."}
-                      </Text>
-
-                      {/* Date */}
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: "#9CA3AF",
-                        }}
-                      >
-                        {review.ngayDG
-                          ? formatDate(review.ngayDG)
-                          : "Đánh giá mới"}
-                      </Text>
-                    </View>
-                  )
+                    ))
+                ) : (
+                  <View
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: 12,
+                      padding: 16,
+                      marginRight: 12,
+                      width: 280,
+                      borderWidth: 1,
+                      borderColor: "#F3F4F6",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons name="star-outline" size={32} color="#9CA3AF" />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: "#6B7280",
+                        textAlign: "center",
+                        marginTop: 8,
+                      }}
+                    >
+                      Chưa có đánh giá nào
+                    </Text>
+                  </View>
                 )}
 
                 {/* View All Button */}
@@ -939,40 +1014,38 @@ export default function HotelDetailScreen() {
             </View>
 
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              {((hotel as any).TienNghis?.slice(0, 4) || []).map(
-                (amenity: any, index: number) => (
+              {amenities.slice(0, 4).map((amenity, index) => (
+                <View
+                  key={amenity.maTienNghi?.toString() || `amenity-${index}`}
+                  style={{
+                    width: "50%",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 12,
+                  }}
+                >
                   <View
-                    key={amenity.maTienNghi || index}
                     style={{
-                      width: "50%",
-                      flexDirection: "row",
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      backgroundColor: "#F3F4F6",
+                      justifyContent: "center",
                       alignItems: "center",
-                      marginBottom: 12,
+                      marginRight: 8,
                     }}
                   >
-                    <View
-                      style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 12,
-                        backgroundColor: "#F3F4F6",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        marginRight: 8,
-                      }}
-                    >
-                      <Ionicons
-                        name={getAmenityIcon(amenity.tenTienNghi) as any}
-                        size={16}
-                        color="#10B981"
-                      />
-                    </View>
-                    <Text style={{ fontSize: 14, color: "#6B7280", flex: 1 }}>
-                      {amenity.tenTienNghi}
-                    </Text>
+                    <Ionicons
+                      name={getAmenityIcon(amenity.tenTienNghi) as any}
+                      size={16}
+                      color="#10B981"
+                    />
                   </View>
-                )
-              )}
+                  <Text style={{ fontSize: 14, color: "#6B7280", flex: 1 }}>
+                    {amenity.tenTienNghi}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
 
@@ -1140,7 +1213,7 @@ export default function HotelDetailScreen() {
                 fontWeight: "600",
               }}
             >
-              {selectedDateTime.duration} giờ | {selectedDateTime.startTime} →{" "}
+              {selectedDateTime.duration} giờ | {selectedDateTime.startTime} →
               {selectedDateTime.endTime}, {selectedDateTime.date}
             </Text>
           </View>
@@ -1243,7 +1316,10 @@ export default function HotelDetailScreen() {
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
             <View style={{ padding: 16 }}>
               {displayImageUrls.map((url, index) => (
-                <View key={`gallery-${index}`} style={{ marginBottom: 24 }}>
+                <View
+                  key={`gallery-modal-${index}`}
+                  style={{ marginBottom: 24 }}
+                >
                   <Text
                     style={{
                       fontSize: 18,
@@ -1456,9 +1532,9 @@ export default function HotelDetailScreen() {
               marginBottom: 16,
             }}
           >
-            {["Điểm", "Loại phòng", "Viết bởi"].map((filter) => (
+            {["Điểm", "Loại phòng", "Viết bởi"].map((filter, index) => (
               <TouchableOpacity
-                key={filter}
+                key={`filter-${filter}-${index}`}
                 style={{
                   backgroundColor: "#F3F4F6",
                   paddingHorizontal: 16,
@@ -1482,7 +1558,11 @@ export default function HotelDetailScreen() {
           {/* Reviews List */}
           <FlatList
             data={(hotel as any).DanhGia || []}
-            keyExtractor={(item: any) => item.maDG || item.id?.toString()}
+            keyExtractor={(item: any) =>
+              item.maDG?.toString() ||
+              item.id?.toString() ||
+              `review-${Math.random()}`
+            }
             renderItem={({ item }: { item: any }) => (
               <View
                 style={{
@@ -1529,7 +1609,7 @@ export default function HotelDetailScreen() {
                       <View style={{ flexDirection: "row" }}>
                         {[...Array(item.soSao || 5)].map((_, i) => (
                           <Ionicons
-                            key={`star-modal-${item.maDG || "fallback"}-${i}`}
+                            key={`star-modal-${item.maDG || item.id || "fallback"}-${i}`}
                             name="star"
                             size={14}
                             color="#FCD34D"
@@ -1623,46 +1703,46 @@ export default function HotelDetailScreen() {
           {/* Amenities Grid */}
           <View style={{ padding: 16 }}>
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              {((hotel as any).TienNghis || []).map(
-                (amenity: any, index: number) => (
+              {amenities.map((amenity, index) => (
+                <View
+                  key={
+                    amenity.maTienNghi?.toString() || `amenity-modal-${index}`
+                  }
+                  style={{
+                    width: "33.33%",
+                    alignItems: "center",
+                    marginBottom: 24,
+                  }}
+                >
                   <View
-                    key={amenity.maTienNghi || index}
                     style={{
-                      width: "33.33%",
+                      width: 60,
+                      height: 60,
+                      borderRadius: 30,
+                      backgroundColor: "#F3F4F6",
+                      justifyContent: "center",
                       alignItems: "center",
-                      marginBottom: 24,
+                      marginBottom: 8,
                     }}
                   >
-                    <View
-                      style={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: 30,
-                        backgroundColor: "#F3F4F6",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        marginBottom: 8,
-                      }}
-                    >
-                      <Ionicons
-                        name={getAmenityIcon(amenity.tenTienNghi) as any}
-                        size={24}
-                        color="#6B7280"
-                      />
-                    </View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: "#1F2937",
-                        textAlign: "center",
-                        paddingHorizontal: 8,
-                      }}
-                    >
-                      {amenity.tenTienNghi}
-                    </Text>
+                    <Ionicons
+                      name={getAmenityIcon(amenity.tenTienNghi) as any}
+                      size={24}
+                      color="#6B7280"
+                    />
                   </View>
-                )
-              )}
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#1F2937",
+                      textAlign: "center",
+                      paddingHorizontal: 8,
+                    }}
+                  >
+                    {amenity.tenTienNghi}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -1713,7 +1793,9 @@ export default function HotelDetailScreen() {
 
             <FlatList
               data={promotions.length > 0 ? promotions : []}
-              keyExtractor={(item) => item.maKM || `promo-${Math.random()}`}
+              keyExtractor={(item) =>
+                item.maKM?.toString() || `promo-${Math.random()}`
+              }
               renderItem={({ item }) => (
                 <View
                   style={{
@@ -1788,7 +1870,7 @@ export default function HotelDetailScreen() {
                         Tất cả loại đặt phòng
                       </Text>
                       <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                        Hạn sử dụng:{" "}
+                        Hạn sử dụng:
                         {item.ngayKetThuc
                           ? formatDate(item.ngayKetThuc)
                           : "12/10/2025"}

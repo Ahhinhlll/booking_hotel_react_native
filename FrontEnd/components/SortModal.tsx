@@ -1,17 +1,37 @@
 import { Modal, View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { SortOptions, SORT_OPTIONS } from "../types/filterTypes";
+
+interface SortModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onApply: (sortOptions: SortOptions) => void;
+  currentSort: SortOptions;
+}
 
 const options = [
-  "Phù hợp nhất",
-  "Khoảng cách từ gần đến xa",
-  "Điểm đánh giá từ cao đến thấp",
-  "Giá từ thấp đến cao",
-  "Giá từ cao đến thấp",
+  { key: 'relevance', label: "Phù hợp nhất" },
+  { key: 'distance', label: "Khoảng cách từ gần đến xa" },
+  { key: 'rating', label: "Điểm đánh giá từ cao đến thấp" },
+  { key: 'price_low', label: "Giá từ thấp đến cao" },
+  { key: 'price_high', label: "Giá từ cao đến thấp" },
 ];
 
-export default function SortModal({ visible, onClose }: any) {
-  const [selected, setSelected] = useState<string>("Phù hợp nhất");
+export default function SortModal({ visible, onClose, onApply, currentSort }: SortModalProps) {
+  const [selected, setSelected] = useState<string>(currentSort.sortBy);
+
+  useEffect(() => {
+    setSelected(currentSort.sortBy);
+  }, [currentSort.sortBy]);
+
+  const handleApply = () => {
+    const newSortOptions: SortOptions = {
+      sortBy: selected as any,
+      sortOrder: selected === 'rating' ? 'desc' : 'asc'
+    };
+    onApply(newSortOptions);
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -44,10 +64,10 @@ export default function SortModal({ visible, onClose }: any) {
             <View key={i}>
               <TouchableOpacity
                 className="py-3 flex-row items-center justify-between"
-                onPress={() => setSelected(opt)}
+                onPress={() => setSelected(opt.key)}
               >
                 {/* chữ xám */}
-                <Text className="text-base text-gray-600">{opt}</Text>
+                <Text className="text-base text-gray-600">{opt.label}</Text>
 
                 {/* Radio button */}
                 <View
@@ -56,14 +76,14 @@ export default function SortModal({ visible, onClose }: any) {
                     height: 20,
                     borderRadius: 10,
                     borderWidth: 2,
-                    borderColor: selected === opt ? "#f97316" : "#d1d5db",
+                    borderColor: selected === opt.key ? "#f97316" : "#d1d5db",
                     justifyContent: "center",
                     alignItems: "center",
                     backgroundColor:
-                      selected === opt ? "#f97316" : "transparent",
+                      selected === opt.key ? "#f97316" : "transparent",
                   }}
                 >
-                  {selected === opt && (
+                  {selected === opt.key && (
                     <Ionicons name="checkmark" size={14} color="#fff" />
                   )}
                 </View>
@@ -73,6 +93,16 @@ export default function SortModal({ visible, onClose }: any) {
               {i < options.length - 1 && <View className="h-px bg-gray-200" />}
             </View>
           ))}
+
+          {/* Apply Button */}
+          <TouchableOpacity
+            onPress={handleApply}
+            className="mt-6 py-4 bg-orange-500 rounded-full"
+          >
+            <Text className="text-white text-center font-semibold text-base">
+              Áp dụng
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>

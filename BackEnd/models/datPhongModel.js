@@ -135,11 +135,8 @@ DatPhong.associate = (models) => {
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
-  DatPhong.hasMany(models.DanhGia, {
-    foreignKey: "maDatPhong",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-  });
+  // Bỏ association với DanhGia để tránh foreign key constraint
+  // maDatPhong trong DanhGia chỉ là trường tham chiếu thông thường
   DatPhong.hasMany(models.SuCo, {
     foreignKey: "maDatPhong",
     onDelete: "CASCADE",

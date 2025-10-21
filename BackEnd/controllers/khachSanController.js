@@ -62,16 +62,7 @@ exports.getById = async (req, res) => {
               model: db.NguoiDung,
               attributes: ["hoTen"],
             },
-            {
-              model: db.DatPhong,
-              attributes: ["maPhong"],
-              include: [
-                {
-                  model: db.Phong,
-                  attributes: ["tenPhong"],
-                },
-              ],
-            },
+            // Bỏ include DatPhong vì đã không còn association
           ],
         },
         { model: db.TienNghi, attributes: ["tenTienNghi"] },
@@ -120,6 +111,7 @@ exports.update = async (req, res) => {
       trangThai,
       noiBat,
       hangSao,
+      diemDanhGia,
       loaiHinh,
     } = req.body;
 
@@ -135,6 +127,7 @@ exports.update = async (req, res) => {
         trangThai,
         noiBat,
         hangSao,
+        diemDanhGia,
         loaiHinh,
       });
       res.status(200).json(khachSan);
@@ -171,7 +164,7 @@ exports.search = async (req, res) => {
       include: [
         { model: db.Phong },
         { model: db.KhuyenMai },
-        { model: db.DatPhong },
+        // Bỏ include DatPhong vì đã không còn association
         { model: db.DanhGia },
         { model: db.TienNghi },
       ],
@@ -216,7 +209,7 @@ exports.getRecentHotels = async (req, res) => {
       include: [
         { model: db.Phong },
         { model: db.KhuyenMai },
-        { model: db.DatPhong },
+        // Bỏ include DatPhong vì đã không còn association
         { model: db.DanhGia },
         { model: db.TienNghi },
       ],

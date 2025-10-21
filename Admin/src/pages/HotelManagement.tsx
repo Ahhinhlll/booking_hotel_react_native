@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Table, Button, Space, Modal, Form, Input, Select, message, Tag, Popconfirm, InputNumber } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Button, Space, Modal, Form, Input, Select, message, Tag, Popconfirm } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import useSearch from '../hooks/useSearch';
+import SearchInput from '../components/SearchInput';
 import { khachSanService } from '../services/khachSanService';
 import { KhachSan } from '../types';
 import ImageUpload from '../components/ImageUpload';
@@ -11,8 +13,18 @@ const HotelManagement = () => {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingHotel, setEditingHotel] = useState<KhachSan | null>(null);
-  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
+
+  // Client-side search hook
+  const {
+    searchTerm,
+    setSearchTerm,
+    searchResults,
+    clearSearch
+  } = useSearch(hotels, {
+    keys: ['tenKS', 'diaChi', 'tinhThanh', 'dienThoai'],
+    threshold: 0.3
+  });
 
   useEffect(() => {
     loadHotels();
@@ -32,23 +44,12 @@ const HotelManagement = () => {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchText.trim()) {
-      loadHotels();
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const data = await khachSanService.search(searchText);
-      setHotels(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error searching hotels:', error);
-      message.error('Lỗi khi tìm kiếm!');
-      setHotels([]);
-    } finally {
-      setLoading(false);
-    }
+  const handleSearch = () => {
+    // Search is handled by the useSearch hook automatically
+  };
+
+  const handleClearSearch = () => {
+    clearSearch();
   };
 
   const handleAdd = () => {
@@ -77,8 +78,8 @@ const HotelManagement = () => {
 
   const handleSubmit = async (values: any) => {
     try {
-      // Remove hangSao, diemDanhGia, and giaThapNhat as they are calculated automatically
-      const { hangSao, diemDanhGia, giaThapNhat, ...submitData } = values;
+      // Remove giaThapNhat as it's calculated automatically
+      const { giaThapNhat, ...submitData } = values;
       
       if (editingHotel) {
         await khachSanService.update({ ...submitData, maKS: editingHotel.maKS });
@@ -192,22 +193,18 @@ const HotelManagement = () => {
         </Button>
       </div>
 
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Tìm kiếm khách sạn..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          onPressEnter={handleSearch}
-          style={{ width: 300 }}
-        />
-        <Button icon={<SearchOutlined />} onClick={handleSearch}>
-          Tìm kiếm
-        </Button>
-      </Space>
+      <SearchInput
+        placeholder="Tìm kiếm khách sạn..."
+        value={searchTerm}
+        onChange={setSearchTerm}
+        onSearch={handleSearch}
+        onClear={handleClearSearch}
+        loading={loading}
+      />
 
       <Table
         columns={columns}
-        dataSource={hotels}
+        dataSource={searchResults}
         rowKey="maKS"
         loading={loading}
         pagination={{ pageSize: 10 }}

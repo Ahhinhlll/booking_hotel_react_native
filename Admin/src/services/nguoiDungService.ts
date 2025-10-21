@@ -28,7 +28,7 @@ export const nguoiDungService = {
 
   search: async (keyword: string): Promise<NguoiDung[]> => {
     const response = await request.get('/nguoidung/search', {
-      params: { keyword },
+      params: { q: keyword },
     });
     return response.data || [];
   },

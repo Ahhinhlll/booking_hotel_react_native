@@ -111,7 +111,7 @@ export default function DeleteAccount() {
         </View>
 
         <Text className="text-[15px] font-semibold leading-[22px] mb-6">
-          Xin lưu ý:{" "}
+          Xin lưu ý:
           <Text className="font-normal text-gray-900">
             Nếu 120 ngày chưa trôi qua kể từ ngày đặt phòng hoặc ngày trả phòng
             cuối cùng của bạn, Go2Joy không thể xoá bỏ tài khoản của bạn ngay

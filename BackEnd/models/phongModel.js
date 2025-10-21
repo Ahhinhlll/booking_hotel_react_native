@@ -33,6 +33,16 @@ const Phong = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    soGiuong: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 1,
+    },
+    sucChua: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 2,
+    },
     moTa: {
       type: DataTypes.TEXT,
       allowNull: true,

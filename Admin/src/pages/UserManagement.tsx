@@ -1,19 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Select, message, Tag, Popconfirm, Avatar } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
 import { nguoiDungService } from '../services/nguoiDungService';
 import { NguoiDung } from '../types';
 import dayjs from 'dayjs';
 import ImageUpload from '../components/ImageUpload';
 import { uploadService } from '../services/uploadService';
+import useSearch from '../hooks/useSearch';
+import SearchInput from '../components/SearchInput';
 
 const UserManagement = () => {
   const [users, setUsers] = useState<NguoiDung[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<NguoiDung | null>(null);
-  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
+
+  // Client-side search hook
+  const {
+    searchTerm,
+    setSearchTerm,
+    searchResults,
+    clearSearch
+  } = useSearch(users, {
+    keys: ['hoTen', 'email', 'dienThoai', 'diaChi'],
+    threshold: 0.3
+  });
 
   useEffect(() => {
     loadUsers();
@@ -33,23 +45,12 @@ const UserManagement = () => {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchText.trim()) {
-      loadUsers();
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const data = await nguoiDungService.search(searchText);
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      message.error('Lỗi khi tìm kiếm!');
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
+  const handleSearch = () => {
+    // Search is handled by the useSearch hook automatically
+  };
+
+  const handleClearSearch = () => {
+    clearSearch();
   };
 
   const handleAdd = () => {
@@ -188,22 +189,18 @@ const UserManagement = () => {
         </Button>
       </div>
 
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Tìm kiếm người dùng..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          onPressEnter={handleSearch}
-          style={{ width: 300 }}
-        />
-        <Button icon={<SearchOutlined />} onClick={handleSearch}>
-          Tìm kiếm
-        </Button>
-      </Space>
+      <SearchInput
+        placeholder="Tìm kiếm người dùng..."
+        value={searchTerm}
+        onChange={setSearchTerm}
+        onSearch={handleSearch}
+        onClear={handleClearSearch}
+        loading={loading}
+      />
 
       <Table
         columns={columns}
-        dataSource={users}
+        dataSource={searchResults}
         rowKey="maNguoiDung"
         loading={loading}
         pagination={{ pageSize: 10 }}

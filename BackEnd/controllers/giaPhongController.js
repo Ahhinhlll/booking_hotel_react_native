@@ -4,7 +4,18 @@ const db = require("../models");
 exports.getAll = async (req, res) => {
   try {
     const items = await GiaPhong.findAll({
-      include: [{ model: db.Phong, attributes: ["tenPhong"] }],
+      include: [
+        { 
+          model: db.Phong, 
+          attributes: ["tenPhong", "maKS"],
+          include: [
+            {
+              model: db.KhachSan,
+              attributes: ["tenKS", "diaChi"]
+            }
+          ]
+        }
+      ],
     });
     res.status(200).json(items);
   } catch (error) {
@@ -51,7 +62,7 @@ exports.insert = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const maGiaPhong=req.params.id || req.body.maGiaPhong; 
+    const maGiaPhong = req.params.id || req.body.maGiaPhong;
     const item = await GiaPhong.findByPk(maGiaPhong);
     if (item) {
       await item.update(req.body);

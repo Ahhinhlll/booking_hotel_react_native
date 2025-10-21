@@ -18,7 +18,7 @@ export const danhGiaService = {
   },
 
   update: async (id: string, data: Partial<DanhGia>): Promise<DanhGia> => {
-    const response = await request.put(`/danhgia/update/${id}`, data);
+    const response = await request.put('/danhgia/update', { ...data, maDG: id });
     return response.data;
   },
 

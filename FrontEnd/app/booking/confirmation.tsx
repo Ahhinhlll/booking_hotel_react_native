@@ -18,12 +18,15 @@ import { PhongServices } from "../../services/PhongServices";
 import { KhachSanServices } from "../../services/KhachSanServices";
 import { DatPhongServices, BookingData } from "../../services/DatPhongServices";
 import PaymentMethodModal from "../../components/PaymentMethodModal";
+import QRCodeModalSimple from "../../components/QRCodeModalSimple";
 import { getImageUrl } from "../../utils/getImageUrl";
 import { NguoiDungServices } from "../../services/NguoiDungServices";
 import {
   KhuyenMaiServices,
   KhuyenMaiData,
 } from "../../services/KhuyenMaiServices";
+import { VietQRService, VietQRPaymentData } from "../../services/VietQRService";
+import { validateTokenBeforeRequest } from "../../utils/tokenUtils";
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
@@ -48,6 +51,11 @@ export default function BookingConfirmationScreen() {
   const [selectedPromotion, setSelectedPromotion] =
     useState<KhuyenMaiData | null>(null);
   const [finalPrice, setFinalPrice] = useState<number>(0);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrPaymentData, setQrPaymentData] = useState<VietQRPaymentData | null>(
+    null
+  );
+  const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.bookingData) {
@@ -68,7 +76,9 @@ export default function BookingConfirmationScreen() {
   // Tính lại giá khi có thay đổi bookingData hoặc selectedPromotion
   useEffect(() => {
     if (bookingData) {
-      const calculatedPrice = calculatePriceWithPromotion(bookingData.totalAmount);
+      const calculatedPrice = calculatePriceWithPromotion(
+        bookingData.totalAmount
+      );
       setFinalPrice(calculatedPrice);
     }
   }, [bookingData, selectedPromotion]);
@@ -77,9 +87,6 @@ export default function BookingConfirmationScreen() {
     try {
       // Load room data first
       const room = await PhongServices.getById(roomId);
-      console.log("Room data loaded:", room);
-      console.log("Room image path:", room?.anh);
-      console.log("Generated image URL:", getImageUrl(room?.anh));
       setRoomInfo(room);
 
       // Try to load hotel data
@@ -109,14 +116,33 @@ export default function BookingConfirmationScreen() {
           email: user.email || "",
         });
       } else {
-        // Nếu không có token hoặc token không hợp lệ
-        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
-        router.replace("/auth/login"); // Redirect về trang login
+        // Fallback data khi không có user
+        const fallbackUser = {
+          hoTen: "Khách hàng",
+          sdt: "0123456789",
+          email: "guest@example.com",
+        };
+        setUserInfo(fallbackUser);
+        setEditForm({
+          hoTen: fallbackUser.hoTen,
+          sdt: fallbackUser.sdt,
+          email: fallbackUser.email,
+        });
       }
     } catch (error) {
-      console.error("Error loading user info:", error);
-      Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
-      router.replace("/auth/login"); // Redirect về trang login
+      console.error("❌ Error loading user info:", error);
+      // Fallback data khi có lỗi
+      const fallbackUser = {
+        hoTen: "Khách hàng",
+        sdt: "0123456789",
+        email: "guest@example.com",
+      };
+      setUserInfo(fallbackUser);
+      setEditForm({
+        hoTen: fallbackUser.hoTen,
+        sdt: fallbackUser.sdt,
+        email: fallbackUser.email,
+      });
     }
   };
 
@@ -138,17 +164,6 @@ export default function BookingConfirmationScreen() {
   };
 
   const handleSelectPromotion = (promotion: KhuyenMaiData) => {
-    console.log("Selecting promotion:", promotion);
-    console.log("Promotion details:", {
-      maKM: promotion.maKM,
-      tenKM: promotion.tenKM,
-      thongTinKM: promotion.thongTinKM,
-      phanTramGiam: promotion.phanTramGiam,
-      giaTriGiam: promotion.giaTriGiam,
-      ngayBatDau: promotion.ngayBatDau,
-      ngayKetThuc: promotion.ngayKetThuc
-    });
-
     // Nếu đã chọn khuyến mãi này rồi thì bỏ chọn
     if (selectedPromotion?.maKM === promotion.maKM) {
       setSelectedPromotion(null);
@@ -165,70 +180,43 @@ export default function BookingConfirmationScreen() {
       return basePrice;
     }
 
-    console.log("Calculating price with promotion:", {
-      basePrice,
-      promotion: selectedPromotion,
-      phanTramGiam: selectedPromotion.phanTramGiam,
-      giaTriGiam: selectedPromotion.giaTriGiam,
-      thongTinKM: selectedPromotion.thongTinKM,
-    });
-
     let finalPrice = basePrice;
     let discountAmount = 0;
 
     // Sử dụng cùng logic với backend
     if (selectedPromotion.phanTramGiam && selectedPromotion.phanTramGiam > 0) {
-      discountAmount = Math.round((basePrice * selectedPromotion.phanTramGiam) / 100);
+      discountAmount = Math.round(
+        (basePrice * selectedPromotion.phanTramGiam) / 100
+      );
       finalPrice = basePrice - discountAmount;
-      console.log("Percentage discount:", {
-        basePrice,
-        phanTramGiam: selectedPromotion.phanTramGiam,
-        discountAmount,
-        finalPrice
-      });
-    } else if (selectedPromotion.giaTriGiam && selectedPromotion.giaTriGiam > 0) {
+    } else if (
+      selectedPromotion.giaTriGiam &&
+      selectedPromotion.giaTriGiam > 0
+    ) {
       discountAmount = selectedPromotion.giaTriGiam;
       finalPrice = basePrice - discountAmount;
-      console.log("Fixed amount discount:", {
-        basePrice,
-        giaTriGiam: selectedPromotion.giaTriGiam,
-        discountAmount,
-        finalPrice
-      });
     } else if (selectedPromotion.thongTinKM) {
       // Parse từ text như "giảm 30K" -> 30000
-      const discountMatch = selectedPromotion.thongTinKM.match(/giảm\s*(\d+)k/i);
+      const discountMatch =
+        selectedPromotion.thongTinKM.match(/giảm\s*(\d+)k/i);
       if (discountMatch) {
         discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
         finalPrice = basePrice - discountAmount;
-        console.log("Text-based discount:", {
-          basePrice,
-          thongTinKM: selectedPromotion.thongTinKM,
-          discountAmount,
-          finalPrice
-        });
       }
     }
 
     finalPrice = Math.max(Math.round(finalPrice), 0); // Làm tròn và không cho phép giá âm
-    
-    console.log("Final discount calculation:", { 
-      basePrice, 
-      finalPrice, 
-      discountAmount: basePrice - finalPrice 
-    });
-    
     return finalPrice;
   };
 
   const getPromotionText = () => {
-    if (!selectedPromotion) return null;
+    if (!selectedPromotion) return "Joy Xu";
     return selectedPromotion.thongTinKM || "Đã áp dụng khuyến mãi";
   };
 
   const getDurationText = () => {
     if (!bookingData) return "02 giờ";
-    
+
     switch (bookingData.bookingType) {
       case "hourly":
         return `${bookingData.duration} giờ`;
@@ -243,7 +231,7 @@ export default function BookingConfirmationScreen() {
 
   const getDurationIcon = () => {
     if (!bookingData) return "time";
-    
+
     switch (bookingData.bookingType) {
       case "hourly":
         return "hourglass";
@@ -277,6 +265,22 @@ export default function BookingConfirmationScreen() {
   const handleSelectPaymentMethod = (methodId: string) => {
     setSelectedPaymentMethod(methodId);
     setShowPaymentModal(false);
+
+    // Nếu chọn ATM, chuẩn bị QR data nhưng chưa hiển thị modal
+    if (methodId === "atm" && bookingData) {
+      const paymentData = VietQRService.createBookingPaymentData(
+        {
+          totalAmount: finalPrice,
+          roomId: bookingData.roomId,
+          hotelId: bookingData.hotelId,
+          bookingId: undefined, // Sẽ được cập nhật sau khi booking thành công
+        },
+        userInfo?.hoTen || bookingData.bookerInfo?.name
+      );
+
+      setQrPaymentData(paymentData);
+      // Không hiển thị QR modal ngay lập tức, sẽ hiển thị sau khi booking thành công
+    }
   };
 
   const handleEditUserInfo = () => {
@@ -355,34 +359,266 @@ export default function BookingConfirmationScreen() {
       return;
     }
 
+    // Kiểm tra token trước khi gọi API (không tự động redirect)
+    const isTokenValid = await validateTokenBeforeRequest();
+    if (!isTokenValid) {
+      Alert.alert(
+        "Phiên đăng nhập hết hạn",
+        "Vui lòng đăng nhập lại để tiếp tục đặt phòng",
+        [
+          {
+            text: "Hủy",
+            style: "cancel",
+          },
+          {
+            text: "Đăng nhập lại",
+            onPress: () => {
+              router.push("/auth/login");
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Nếu chọn ATM và chưa có QR data, tạo QR data trước
+    if (selectedPaymentMethod === "atm" && !qrPaymentData) {
+      const paymentData = VietQRService.createBookingPaymentData(
+        {
+          totalAmount: finalPrice,
+          roomId: bookingData.roomId,
+          hotelId: bookingData.hotelId,
+          bookingId: undefined,
+        },
+        userInfo?.hoTen || bookingData.bookerInfo?.name
+      );
+      setQrPaymentData(paymentData);
+    }
+
     setLoading(true);
 
     try {
+      // Đảm bảo userInfo có giá trị fallback nếu chưa load
+      const currentUserInfo = userInfo || {
+        hoTen: "Khách hàng",
+        sdt: "0123456789",
+        email: "guest@example.com",
+      };
+
+      // Đảm bảo bookerInfo có đầy đủ thông tin
+      const finalBookerInfo = {
+        phoneNumber:
+          currentUserInfo.sdt ||
+          bookingData.bookerInfo?.phoneNumber ||
+          "0123456789",
+        name:
+          currentUserInfo.hoTen || bookingData.bookerInfo?.name || "Khách hàng",
+      };
       // Gửi giá base price (chưa áp dụng khuyến mãi) để backend tự tính
       const result = await DatPhongServices.confirmBooking(
         {
           ...bookingData,
+          bookerInfo: finalBookerInfo,
           totalAmount: bookingData.totalAmount, // Gửi giá base price
           promotionId: selectedPromotion?.maKM || undefined,
         },
         selectedPaymentMethod
       );
 
-      Alert.alert(
-        "Thành công",
-        `Đặt phòng thành công!\nMã đặt phòng: ${result.data.bookingId}\nTổng tiền: ${formatCurrency(result.data.finalAmount || 0)}`,
-        [
-          {
-            text: "OK",
-            onPress: () => router.push("/booking/success"),
+      // Cập nhật QR payment data với booking ID nếu có
+      if (selectedPaymentMethod === "atm") {
+        if (result.data?.bookingId) {
+          // Lưu bookingId để sử dụng cho xác nhận thanh toán
+          setCurrentBookingId(result.data.bookingId);
+
+          // Cập nhật QR payment data với booking ID thực tế
+          const updatedPaymentData = VietQRService.createBookingPaymentData(
+            {
+              totalAmount: finalPrice,
+              roomId: bookingData.roomId,
+              hotelId: bookingData.hotelId,
+              bookingId: result.data.bookingId,
+            },
+            userInfo?.hoTen || bookingData.bookerInfo?.name
+          );
+          setQrPaymentData(updatedPaymentData);
+        } else {
+          // Fallback: sử dụng maDatPhong hoặc tạo temp ID
+          const fallbackBookingId =
+            result.data?.maDatPhong || result.data?.id || `temp-${Date.now()}`;
+          setCurrentBookingId(fallbackBookingId);
+
+          // Cập nhật QR payment data với fallback booking ID
+          const updatedPaymentData = VietQRService.createBookingPaymentData(
+            {
+              totalAmount: finalPrice,
+              roomId: bookingData.roomId,
+              hotelId: bookingData.hotelId,
+              bookingId: fallbackBookingId,
+            },
+            userInfo?.hoTen || bookingData.bookerInfo?.name
+          );
+          setQrPaymentData(updatedPaymentData);
+        }
+      }
+
+      // Chuyển đến trang success với thông tin booking
+      const successData = {
+        bookingId: result.data?.bookingId || currentBookingId,
+        maDatPhong: result.data?.bookingId || currentBookingId, // Thêm alias cho mã đặt phòng
+        finalAmount: result.data?.finalAmount || finalPrice,
+        paymentMethod: selectedPaymentMethod,
+        roomId: bookingData.roomId,
+        hotelId: bookingData.hotelId,
+        checkInDateTime: bookingData.checkInDateTime,
+        checkOutDateTime: bookingData.checkOutDateTime,
+        bookingType: bookingData.bookingType,
+        duration: bookingData.duration,
+        // Thêm fallback data
+        totalAmount: bookingData.totalAmount,
+        basePrice:
+          result.data?.basePrice ||
+          result.data?.serverCalculatedBasePrice ||
+          bookingData.totalAmount,
+        discountAmount:
+          result.data?.discountAmount ||
+          (selectedPromotion ? bookingData.totalAmount - finalPrice : 0),
+        finalPrice: result.data?.finalAmount || finalPrice, // Map finalAmount thành finalPrice để tương thích
+        // Thêm thông tin khách hàng với fallback data
+        hoTen: userInfo?.hoTen || bookingData.bookerInfo?.name || "Khách hàng",
+        sdt:
+          userInfo?.sdt || bookingData.bookerInfo?.phoneNumber || "0123456789",
+        bookerInfo: bookingData.bookerInfo || {
+          name: "Khách hàng",
+          phoneNumber: "0123456789",
+        },
+        tenNguoiDat:
+          userInfo?.hoTen || bookingData.bookerInfo?.name || "Khách hàng",
+        sdtNguoiDat:
+          userInfo?.sdt || bookingData.bookerInfo?.phoneNumber || "0123456789",
+        // Thêm thông tin promotion
+        promotionId: selectedPromotion?.maKM,
+        promotionName: selectedPromotion?.tenKM,
+        promotionDiscount: selectedPromotion
+          ? bookingData.totalAmount - finalPrice
+          : 0,
+        // Thêm QR payment data nếu là ATM
+        qrPaymentData:
+          selectedPaymentMethod === "atm" ? qrPaymentData : undefined,
+      };
+
+      // Nếu là ATM, hiển thị QR modal với bookingId đã được cập nhật
+      if (selectedPaymentMethod === "atm") {
+        // Đảm bảo QR modal được hiển thị với bookingId mới
+        setShowQRModal(true);
+      } else {
+        router.push({
+          pathname: "/booking/success",
+          params: {
+            bookingData: JSON.stringify(successData),
           },
-        ]
-      );
+        });
+      }
     } catch (error: any) {
-      Alert.alert("Lỗi", error.message || "Đã có lỗi xảy ra khi đặt phòng");
+      console.error("❌ Booking error:", error);
+
+      // Log chi tiết lỗi từ backend
+      if (error.response) {
+        console.error("❌ Backend error response:", {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          message: error.response.data?.message,
+          debug: error.response.data?.debug,
+        });
+
+        // Hiển thị thông báo lỗi cụ thể từ backend
+        const errorMessage =
+          error.response.data?.message || "Không thể đặt phòng";
+
+        // Xử lý lỗi 401 - Token không hợp lệ
+        if (error.response.status === 401) {
+          Alert.alert(
+            "Phiên đăng nhập hết hạn",
+            "Vui lòng đăng nhập lại để tiếp tục đặt phòng",
+            [
+              {
+                text: "Đăng nhập lại",
+                onPress: () => {
+                  // Có thể thêm logic để redirect về trang login
+                  router.push("/auth/login");
+                },
+              },
+            ]
+          );
+        } else {
+          Alert.alert("Lỗi", errorMessage);
+        }
+      } else if (error.request) {
+        console.error("❌ Network error:", error.request);
+        Alert.alert(
+          "Lỗi",
+          "Không thể kết nối đến server. Vui lòng kiểm tra mạng."
+        );
+      } else {
+        console.error("❌ Unknown error:", error.message);
+        Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseQRModal = () => {
+    setShowQRModal(false);
+    // Chỉ đóng modal, không chuyển trang
+  };
+
+  const handlePaymentConfirmed = (confirmedBookingId: string) => {
+    // Chuyển đến trang success sau khi xác nhận thanh toán
+    const successData = {
+      bookingId: confirmedBookingId,
+      maDatPhong: confirmedBookingId,
+      finalAmount: finalPrice,
+      paymentMethod: selectedPaymentMethod,
+      roomId: bookingData?.roomId,
+      hotelId: bookingData?.hotelId,
+      checkInDateTime: bookingData?.checkInDateTime,
+      checkOutDateTime: bookingData?.checkOutDateTime,
+      bookingType: bookingData?.bookingType,
+      duration: bookingData?.duration,
+      totalAmount: bookingData?.totalAmount,
+      basePrice: bookingData?.totalAmount,
+      discountAmount: selectedPromotion
+        ? (bookingData?.totalAmount || 0) - finalPrice
+        : 0,
+      finalPrice: finalPrice,
+      hoTen: userInfo?.hoTen || bookingData?.bookerInfo?.name || "Khách hàng",
+      sdt:
+        userInfo?.sdt || bookingData?.bookerInfo?.phoneNumber || "0123456789",
+      bookerInfo: bookingData?.bookerInfo || {
+        name: "Khách hàng",
+        phoneNumber: "0123456789",
+      },
+      tenNguoiDat:
+        userInfo?.hoTen || bookingData?.bookerInfo?.name || "Khách hàng",
+      sdtNguoiDat:
+        userInfo?.sdt || bookingData?.bookerInfo?.phoneNumber || "0123456789",
+      promotionId: selectedPromotion?.maKM,
+      promotionName: selectedPromotion?.tenKM,
+      promotionDiscount: selectedPromotion
+        ? (bookingData?.totalAmount || 0) - finalPrice
+        : 0,
+      qrPaymentData: qrPaymentData,
+      paymentConfirmed: true, // Đánh dấu đã xác nhận thanh toán
+    };
+
+    router.push({
+      pathname: "/booking/success",
+      params: {
+        bookingData: JSON.stringify(successData),
+      },
+    });
   };
 
   if (!bookingData) {
@@ -417,15 +653,14 @@ export default function BookingConfirmationScreen() {
 
           <View style={styles.roomCard}>
             <Image
-              source={{ 
-                uri: getImageUrl(roomInfo?.anh) || "https://via.placeholder.com/100x100?text=Room"
+              source={{
+                uri: getImageUrl(roomInfo?.anh),
               }}
               style={styles.roomImage}
               onError={(error) => {
                 console.log("Image load error:", error.nativeEvent.error);
                 console.log("Attempted URL:", getImageUrl(roomInfo?.anh));
               }}
-              onLoad={() => console.log("Image loaded successfully")}
             />
             <View style={styles.roomInfo}>
               <Text style={styles.hotelName}>{hotelInfo?.tenKS}</Text>
@@ -442,7 +677,11 @@ export default function BookingConfirmationScreen() {
                 <Ionicons name="heart" size={12} color="#FFFFFF" />
                 <Ionicons name="heart" size={12} color="#FFFFFF" />
               </View>
-              <Ionicons name={getDurationIcon() as any} size={24} color="#FFFFFF" />
+              <Ionicons
+                name={getDurationIcon() as any}
+                size={24}
+                color="#FFFFFF"
+              />
               <Text style={styles.durationText}>{getDurationText()}</Text>
             </View>
 
@@ -504,9 +743,7 @@ export default function BookingConfirmationScreen() {
               <View style={styles.promoIconContainer}>
                 <Text style={styles.promoIconText}>J</Text>
               </View>
-              <Text style={styles.promoItemText}>
-                {selectedPromotion ? getPromotionText() : "Joy Xu"}
-              </Text>
+              <Text style={styles.promoItemText}>{getPromotionText()}</Text>
               <Ionicons name="chevron-forward" size={16} color="#6B7280" />
             </View>
             <Text style={styles.promoRequirementText}>
@@ -550,7 +787,7 @@ export default function BookingConfirmationScreen() {
           <Text style={styles.sectionTitle}>Chính sách hủy phòng</Text>
 
           <Text style={styles.policyText}>
-            Hủy miễn phí trước 06:00,{" "}
+            Hủy miễn phí trước 06:00,
             {formatDateTime(bookingData.checkInDateTime)} khi thanh toán trả
             trước.
           </Text>
@@ -564,12 +801,12 @@ export default function BookingConfirmationScreen() {
           </View>
 
           <Text style={styles.agreementText}>
-            Tôi đồng ý với <Text style={styles.linkText}>Điều khoản</Text> và{" "}
+            Tôi đồng ý với <Text style={styles.linkText}>Điều khoản</Text> và
             <Text style={styles.linkText}>Chính sách</Text> đặt phòng.
           </Text>
 
           <Text style={styles.supportText}>
-            Dịch vụ hỗ trợ khách hàng -{" "}
+            Dịch vụ hỗ trợ khách hàng -
             <Text style={styles.linkText}>Liên hệ ngay</Text>
           </Text>
         </View>
@@ -849,7 +1086,7 @@ export default function BookingConfirmationScreen() {
                           Tất cả loại đặt phòng
                         </Text>
                         <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                          Hạn sử dụng:{" "}
+                          Hạn sử dụng:
                           {item.ngayKetThuc
                             ? new Date(item.ngayKetThuc).toLocaleDateString(
                                 "vi-VN"
@@ -901,6 +1138,28 @@ export default function BookingConfirmationScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* QR Code Modal for ATM Payment */}
+      {qrPaymentData && (
+        <QRCodeModalSimple
+          visible={showQRModal}
+          onClose={handleCloseQRModal}
+          paymentData={qrPaymentData}
+          bookingInfo={{
+            roomId: bookingData?.roomId || "",
+            hotelId: bookingData?.hotelId || "",
+            bookingId:
+              currentBookingId ||
+              qrPaymentData?.addInfo?.split("Booking ")[1] ||
+              "temp-booking-id",
+            customerName: userInfo?.hoTen || bookingData?.bookerInfo?.name,
+            roomName: roomInfo?.tenPhong || "Phòng",
+            hotelName: hotelInfo?.tenKS || "Khách sạn",
+            totalAmount: finalPrice,
+          }}
+          onPaymentConfirmed={handlePaymentConfirmed}
+        />
+      )}
     </SafeAreaView>
   );
 }

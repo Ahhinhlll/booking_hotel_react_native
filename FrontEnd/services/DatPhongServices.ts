@@ -60,6 +60,61 @@ export interface DatPhongData {
   SuCos?: any[];
 }
 
+export interface CompletedBookingData {
+  maDP: string;
+  maND: string;
+  maPhong: string;
+  maKS: string;
+  loaiDat: string;
+  ngayDat: string;
+  ngayNhan: string;
+  ngayTra: string;
+  soNguoiLon: number;
+  soTreEm: number;
+  soGio: number | null;
+  soNgay: number | null;
+  tongTienGoc: number;
+  tongTienSauGiam: number;
+  maKM: string | null;
+  trangThai: string;
+  ghiChu: string;
+  maGiaPhong: string;
+  tenNguoiDat: string;
+  sdtNguoiDat: string;
+  emailNguoiDat: string;
+  tenKS: string;
+  diaChiKS: string;
+  tinhThanhKS: string;
+  tenPhong: string;
+  anhPhong: string[];
+  dienTichPhong: string;
+  hasReviewed: boolean;
+  completedAt: string;
+  originalId: string;
+  status: string;
+  // Thông tin review nếu có
+  review?: {
+    maDG: string;
+    soSao: number;
+    binhLuan: string;
+    ngayDG: string;
+  };
+}
+
+export interface RoomBookingStatus {
+  isBooked: boolean;
+  bookingInfo: {
+    maDatPhong: string;
+    trangThai: string;
+    ngayNhan: string;
+    ngayTra: string;
+    loaiDat: string;
+    nguoiDat: string;
+    sdt: string;
+  } | null;
+  message: string;
+}
+
 export interface BookingData {
   roomId: string;
   hotelId: string;
@@ -154,11 +209,26 @@ export class DatPhongServices {
   }
 
   static async confirmBooking(bookingData: BookingData, paymentMethod: string) {
-    return request.post("/datphong/insert", {
+    const requestData = {
       ...bookingData,
       paymentMethod,
       clientCalculatedTotalAmount: bookingData.totalAmount,
-    });
+    };
+
+    try {
+      const response = await request.post("/datphong/insert", requestData);
+      return response;
+    } catch (error: any) {
+      console.error("❌ Booking request failed:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.response?.data?.message,
+        debug: error.response?.data?.debug,
+        requestData: requestData,
+      });
+      throw error;
+    }
   }
 
   static async calculatePrice(
@@ -187,5 +257,169 @@ export class DatPhongServices {
         checkOutDateTime,
       },
     });
+  }
+
+  static async checkRoomBookingStatus(
+    roomId: string
+  ): Promise<RoomBookingStatus> {
+    try {
+      const response = await request.get(
+        `/datphong/check-room-status/${roomId}`
+      );
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      } else {
+        console.warn("⚠️ API không trả về dữ liệu đúng format");
+        return {
+          isBooked: false,
+          bookingInfo: null,
+          message: "Không thể kiểm tra trạng thái phòng",
+        };
+      }
+    } catch (error) {
+      console.error(
+        "❌ Lỗi trong DatPhongServices.checkRoomBookingStatus():",
+        error
+      );
+      throw error;
+    }
+  }
+
+  // API để lấy danh sách completed bookings
+  static async getCompletedBookings(): Promise<CompletedBookingData[]> {
+    try {
+      const response = await request.get("/datphong/completed");
+      if (response.data.success && response.data.data) {
+        // Load thông tin review cho từng booking
+        const bookingsWithReviews = await Promise.all(
+          response.data.data.map(async (booking: CompletedBookingData) => {
+            if (booking.hasReviewed) {
+              try {
+                const reviewResponse = await request.get(
+                  `/danhgia/check-status/${booking.maDP}`
+                );
+                if (
+                  reviewResponse.data.success &&
+                  reviewResponse.data.data.review
+                ) {
+                  return {
+                    ...booking,
+                    review: reviewResponse.data.data.review,
+                  };
+                }
+              } catch (error) {
+                console.log("Error loading review for booking:", booking.maDP);
+              }
+            }
+            return booking;
+          })
+        );
+        return bookingsWithReviews;
+      } else {
+        console.warn("⚠️ API không trả về dữ liệu đúng format");
+        return [];
+      }
+    } catch (error) {
+      console.error(
+        "❌ Lỗi trong DatPhongServices.getCompletedBookings():",
+        error
+      );
+      throw error;
+    }
+  }
+
+  // API để lấy completed bookings theo user ID
+  static async getCompletedBookingsByUserId(
+    userId: string
+  ): Promise<CompletedBookingData[]> {
+    try {
+      const response = await request.get(`/datphong/completed/user/${userId}`);
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      } else {
+        console.warn("⚠️ API không trả về dữ liệu đúng format");
+        return [];
+      }
+    } catch (error) {
+      console.error(
+        "❌ Lỗi trong DatPhongServices.getCompletedBookingsByUserId():",
+        error
+      );
+      throw error;
+    }
+  }
+
+  // API để submit review từ completed booking
+  static async submitReview(
+    completedBookingId: string,
+    rating: number,
+    reviewText?: string
+  ) {
+    let reviewData: any = null;
+
+    try {
+      // Đọc completed booking từ JSON để lấy thông tin cần thiết
+      const response = await request.get(`/datphong/completed`);
+      const completedBookings = response.data.data || [];
+
+      const completedBooking = completedBookings.find(
+        (booking: any) => booking.maDP === completedBookingId
+      );
+
+      if (!completedBooking) {
+        throw new Error("Không tìm thấy completed booking");
+      }
+
+      // Sử dụng API insert có sẵn
+      reviewData = {
+        maND: completedBooking.maND,
+        maKS: completedBooking.maKS,
+        maDatPhong: completedBooking.maDP,
+        soSao: rating,
+        binhLuan: reviewText || "",
+        ngayDG: new Date().toISOString(),
+      };
+
+      const insertResponse = await request.post("/danhgia/insert", reviewData);
+      return insertResponse.data;
+    } catch (error: any) {
+      console.error("❌ Lỗi trong DatPhongServices.submitReview():", error);
+      console.error("❌ Review data:", reviewData);
+      console.error("❌ Error response:", error.response?.data);
+      throw error;
+    }
+  }
+
+  // API để xác nhận thanh toán ATM
+  static async confirmATMPayment(
+    bookingId: string,
+    transactionId?: string,
+    amount?: number
+  ) {
+    try {
+      const requestData = {
+        bookingId,
+        transactionId,
+        amount,
+      };
+
+      console.log("🚀 Confirming ATM payment:", requestData);
+
+      const response = await request.post(
+        "/datphong/confirm-atm-payment",
+        requestData
+      );
+      console.log("✅ ATM payment confirmation successful:", response.data);
+      return response;
+    } catch (error: any) {
+      console.error("❌ ATM payment confirmation failed:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.response?.data?.message,
+        requestData: { bookingId, transactionId, amount },
+      });
+      throw error;
+    }
   }
 }

@@ -96,12 +96,23 @@ exports.getById = async (req, res) => {
 
 exports.insert = async (req, res) => {
   try {
-    const { maKS, maLoaiPhong } = req.body;
+    const { maKS, maLoaiPhong, soGiuong, sucChua } = req.body;
     if (!maKS || !maLoaiPhong) {
       return res
         .status(400)
         .json({ message: "Thiếu mã khách sạn hoặc mã loại phòng" });
     }
+    
+    // Validation cho soGiuong
+    if (soGiuong && (soGiuong < 1 || !Number.isInteger(soGiuong))) {
+      return res.status(400).json({ message: "Số giường phải là số nguyên dương" });
+    }
+    
+    // Validation cho sucChua
+    if (sucChua && (sucChua < 1 || !Number.isInteger(sucChua))) {
+      return res.status(400).json({ message: "Sức chứa phải là số nguyên dương" });
+    }
+    
     // Kiểm tra KhachSan tồn tại
     const khachSan = await db.KhachSan.findByPk(maKS);
     if (!khachSan) {
@@ -132,6 +143,18 @@ exports.insert = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const maPhong = req.params.id || req.body.maPhong; // 👈 lấy từ params hoặc body
+    const { soGiuong, sucChua } = req.body;
+    
+    // Validation cho soGiuong
+    if (soGiuong && (soGiuong < 1 || !Number.isInteger(soGiuong))) {
+      return res.status(400).json({ message: "Số giường phải là số nguyên dương" });
+    }
+    
+    // Validation cho sucChua
+    if (sucChua && (sucChua < 1 || !Number.isInteger(sucChua))) {
+      return res.status(400).json({ message: "Sức chứa phải là số nguyên dương" });
+    }
+    
     const item = await Phong.findByPk(maPhong);
 
     if (!item) {

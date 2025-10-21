@@ -84,5 +84,17 @@ export const datPhongService = {
     const response = await request.post('/datphong/confirm-booking', data);
     return response.data.data;
   },
+
+  // API để lấy danh sách completed bookings
+  getCompletedBookings: async (): Promise<any[]> => {
+    const response = await request.get('/datphong/completed');
+    return response.data.data || [];
+  },
+
+  // API để lấy completed bookings theo user ID
+  getCompletedBookingsByUserId: async (userId: string): Promise<any[]> => {
+    const response = await request.get(`/datphong/completed/user/${userId}`);
+    return response.data.data || [];
+  },
 };
 

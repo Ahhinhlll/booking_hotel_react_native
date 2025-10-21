@@ -28,7 +28,7 @@ export const khachSanService = {
 
   search: async (keyword: string): Promise<KhachSan[]> => {
     const response = await request.get('/khachsan/search', {
-      params: { keyword },
+      params: { q: keyword },
     });
     return response.data || [];
   },

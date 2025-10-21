@@ -28,10 +28,8 @@ const DanhGia = sequelize.define(
     maDatPhong: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: "DatPhong",
-        key: "maDatPhong",
-      },
+      // Bỏ references để tránh foreign key constraint
+      // maDatPhong chỉ là trường tham chiếu thông thường
     },
     soSao: {
       type: DataTypes.INTEGER,
@@ -67,11 +65,8 @@ DanhGia.associate = (models) => {
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
-  DanhGia.belongsTo(models.DatPhong, {
-    foreignKey: "maDatPhong",
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-  });
+  // Bỏ association với DatPhong để tránh foreign key constraint
+  // maDatPhong chỉ là trường tham chiếu thông thường
 };
 
 module.exports = DanhGia;

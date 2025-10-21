@@ -20,8 +20,7 @@ export default function TabsLayout() {
         tabBarHideOnKeyboard: true,
       }}
     >
-      {" "}
-      {/* 4 tab chính */}{" "}
+      {/* 4 tab chính */}
       <Tabs.Screen
         name="index"
         options={{
@@ -31,7 +30,7 @@ export default function TabsLayout() {
             <Ionicons name="home" color={color} size={size} />
           ),
         }}
-      />{" "}
+      />
       <Tabs.Screen
         name="suggest"
         options={{
@@ -40,7 +39,7 @@ export default function TabsLayout() {
             <Ionicons name="rocket" color={color} size={size} />
           ),
         }}
-      />{" "}
+      />
       <Tabs.Screen
         name="booked"
         options={{
@@ -49,7 +48,7 @@ export default function TabsLayout() {
             <Ionicons name="calendar" color={color} size={size} />
           ),
         }}
-      />{" "}
+      />
       <Tabs.Screen
         name="promotion"
         options={{
@@ -59,7 +58,7 @@ export default function TabsLayout() {
             <Ionicons name="pricetag" color={color} size={size} />
           ),
         }}
-      />{" "}
+      />
       <Tabs.Screen
         name="profile"
         options={{
@@ -69,7 +68,7 @@ export default function TabsLayout() {
             <Ionicons name="person" color={color} size={size} />
           ),
         }}
-      />{" "}
+      />
     </Tabs>
   );
 }

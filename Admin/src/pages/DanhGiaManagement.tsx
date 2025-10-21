@@ -1,10 +1,33 @@
-import { useEffect, useState } from 'react';
-import { Table, Button, Space, Modal, Form, Input, Select, message, Tag, Popconfirm, Rate, Card, Row, Col, Statistic } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, EyeOutlined, StarOutlined } from '@ant-design/icons';
-import { danhGiaService } from '../services/danhGiaService';
-import { datPhongService } from '../services/datPhongService';
-import { khachSanService } from '../services/khachSanService';
-import { DanhGia, DatPhong, KhachSan } from '../types';
+import { useEffect, useState } from "react";
+import {
+  Table,
+  Button,
+  Space,
+  Modal,
+  Form,
+  Input,
+  Select,
+  message,
+  Tag,
+  Popconfirm,
+  Rate,
+  Card,
+  Row,
+  Col,
+  Statistic,
+} from "antd";
+import {
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  StarOutlined,
+} from "@ant-design/icons";
+import { danhGiaService } from "../services/danhGiaService";
+import { datPhongService } from "../services/datPhongService";
+import { khachSanService } from "../services/khachSanService";
+import { DanhGia, DatPhong, KhachSan } from "../types";
+import useSearch from "../hooks/useSearch";
+import SearchInput from "../components/SearchInput";
 
 const DanhGiaManagement = () => {
   const [danhGias, setDanhGias] = useState<DanhGia[]>([]);
@@ -15,9 +38,17 @@ const DanhGiaManagement = () => {
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [editingDanhGia, setEditingDanhGia] = useState<DanhGia | null>(null);
   const [viewingDanhGia, setViewingDanhGia] = useState<DanhGia | null>(null);
-  const [searchText, setSearchText] = useState('');
   const [selectedBooking, setSelectedBooking] = useState<DatPhong | null>(null);
   const [form] = Form.useForm();
+
+  // Client-side search hook
+  const { searchTerm, setSearchTerm, searchResults, clearSearch } = useSearch(
+    danhGias,
+    {
+      keys: ["binhLuan"],
+      threshold: 0.3,
+    }
+  );
 
   useEffect(() => {
     loadDanhGias();
@@ -31,8 +62,8 @@ const DanhGiaManagement = () => {
       const data = await danhGiaService.getAll();
       setDanhGias(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error loading reviews:', error);
-      message.error('Lỗi khi tải danh sách đánh giá!');
+      console.error("Error loading reviews:", error);
+      message.error("Lỗi khi tải danh sách đánh giá!");
       setDanhGias([]);
     } finally {
       setLoading(false);
@@ -43,12 +74,14 @@ const DanhGiaManagement = () => {
     try {
       const data = await datPhongService.getAll();
       // Lọc các booking đã hoàn thành (trạng thái "Đã trả phòng" hoặc "Hoàn thành")
-      const completed = data.filter((booking: DatPhong) => 
-        booking.trangThai === 'Đã trả phòng' || booking.trangThai === 'Hoàn thành'
+      const completed = data.filter(
+        (booking: DatPhong) =>
+          booking.trangThai === "Đã trả phòng" ||
+          booking.trangThai === "Hoàn thành"
       );
       setCompletedBookings(completed);
     } catch (error) {
-      console.error('Error loading completed bookings:', error);
+      console.error("Error loading completed bookings:", error);
       setCompletedBookings([]);
     }
   };
@@ -58,28 +91,17 @@ const DanhGiaManagement = () => {
       const data = await khachSanService.getAll();
       setHotels(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error loading hotels:', error);
+      console.error("Error loading hotels:", error);
       setHotels([]);
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchText.trim()) {
-      loadDanhGias();
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const data = await danhGiaService.search(searchText);
-      setDanhGias(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error searching reviews:', error);
-      message.error('Lỗi khi tìm kiếm!');
-      setDanhGias([]);
-    } finally {
-      setLoading(false);
-    }
+  const handleSearch = () => {
+    // Search is handled by the useSearch hook automatically
+  };
+
+  const handleClearSearch = () => {
+    clearSearch();
   };
 
   const handleAddFromBooking = (booking: DatPhong) => {
@@ -108,10 +130,10 @@ const DanhGiaManagement = () => {
   const handleDelete = async (id: string) => {
     try {
       await danhGiaService.delete(id);
-      message.success('Xóa đánh giá thành công!');
+      message.success("Xóa đánh giá thành công!");
       loadDanhGias();
     } catch (error) {
-      message.error('Lỗi khi xóa đánh giá!');
+      message.error("Lỗi khi xóa đánh giá!");
     }
   };
 
@@ -119,35 +141,35 @@ const DanhGiaManagement = () => {
     try {
       if (editingDanhGia) {
         await danhGiaService.update(editingDanhGia.maDG, values);
-        message.success('Cập nhật đánh giá thành công!');
+        message.success("Cập nhật đánh giá thành công!");
       } else {
         await danhGiaService.create(values);
-        message.success('Thêm đánh giá thành công!');
+        message.success("Thêm đánh giá thành công!");
       }
       setModalVisible(false);
       loadDanhGias();
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Có lỗi xảy ra!');
+      message.error(error.response?.data?.message || "Có lỗi xảy ra!");
     }
   };
 
   const columns = [
     {
-      title: 'Khách hàng',
-      dataIndex: 'NguoiDung',
-      key: 'nguoiDung',
-      render: (nguoiDung: any) => nguoiDung?.hoTen || 'N/A',
+      title: "Khách hàng",
+      dataIndex: "NguoiDung",
+      key: "nguoiDung",
+      render: (nguoiDung: any) => nguoiDung?.hoTen || "N/A",
     },
     {
-      title: 'Khách sạn',
-      dataIndex: 'KhachSan',
-      key: 'khachSan',
-      render: (khachSan: any) => khachSan?.tenKS || 'N/A',
+      title: "Khách sạn",
+      dataIndex: "KhachSan",
+      key: "khachSan",
+      render: (khachSan: any) => khachSan?.tenKS || "N/A",
     },
     {
-      title: 'Điểm đánh giá',
-      dataIndex: 'soSao',
-      key: 'soSao',
+      title: "Điểm đánh giá",
+      dataIndex: "soSao",
+      key: "soSao",
       render: (rating: number) => (
         <Space>
           <Rate disabled value={rating} />
@@ -156,24 +178,33 @@ const DanhGiaManagement = () => {
       ),
     },
     {
-      title: 'Nội dung',
-      dataIndex: 'binhLuan',
-      key: 'binhLuan',
-      render: (content: string) => content ? (
-        <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {content}
-        </div>
-      ) : 'Không có nội dung',
+      title: "Nội dung",
+      dataIndex: "binhLuan",
+      key: "binhLuan",
+      render: (content: string) =>
+        content ? (
+          <div
+            style={{
+              maxWidth: 200,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {content}
+          </div>
+        ) : (
+          "Không có nội dung"
+        ),
     },
     {
-      title: 'Ngày đánh giá',
-      dataIndex: 'ngayDG',
-      key: 'ngayDG',
-      render: (date: string) => new Date(date).toLocaleDateString('vi-VN'),
+      title: "Ngày đánh giá",
+      dataIndex: "ngayDG",
+      key: "ngayDG",
+      render: (date: string) => new Date(date).toLocaleDateString("vi-VN"),
     },
     {
-      title: 'Thao tác',
-      key: 'action',
+      title: "Thao tác",
+      key: "action",
       render: (_: any, record: DanhGia) => (
         <Space>
           <Button
@@ -205,64 +236,25 @@ const DanhGiaManagement = () => {
     },
   ];
 
-  const bookingColumns = [
-    {
-      title: 'Khách hàng',
-      dataIndex: 'NguoiDung',
-      key: 'nguoiDung',
-      render: (nguoiDung: any) => nguoiDung?.hoTen || 'N/A',
-    },
-    {
-      title: 'Khách sạn',
-      dataIndex: 'KhachSan',
-      key: 'khachSan',
-      render: (khachSan: any) => khachSan?.tenKS || 'N/A',
-    },
-    {
-      title: 'Phòng',
-      dataIndex: 'Phong',
-      key: 'phong',
-      render: (phong: any) => phong?.tenPhong || 'N/A',
-    },
-    {
-      title: 'Ngày trả phòng',
-      dataIndex: 'ngayTra',
-      key: 'ngayTra',
-      render: (date: string) => new Date(date).toLocaleDateString('vi-VN'),
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'trangThai',
-      key: 'trangThai',
-      render: (status: string) => (
-        <Tag color={status === 'Đã trả phòng' ? 'green' : 'blue'}>{status}</Tag>
-      ),
-    },
-    {
-      title: 'Thao tác',
-      key: 'action',
-      render: (_: any, record: DatPhong) => (
-        <Button
-          type="primary"
-          icon={<StarOutlined />}
-          onClick={() => handleAddFromBooking(record)}
-        >
-          Đánh giá
-        </Button>
-      ),
-    },
-  ];
-
   // Tính toán thống kê
   const totalReviews = danhGias.length;
-  const averageRating = totalReviews > 0 
-    ? (danhGias.reduce((sum, review) => sum + review.soSao, 0) / totalReviews).toFixed(1)
-    : 0;
+  const averageRating =
+    totalReviews > 0
+      ? (
+          danhGias.reduce((sum, review) => sum + review.soSao, 0) / totalReviews
+        ).toFixed(1)
+      : 0;
   const pendingReviews = completedBookings.length;
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
         <h1>Quản lý Đánh giá</h1>
       </div>
 
@@ -292,51 +284,37 @@ const DanhGiaManagement = () => {
             <Statistic
               title="Chờ đánh giá"
               value={pendingReviews}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: "#cf1322" }}
             />
           </Card>
         </Col>
       </Row>
 
       {/* Tìm kiếm */}
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Tìm kiếm đánh giá..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          onPressEnter={handleSearch}
-          style={{ width: 300 }}
-        />
-        <Button icon={<SearchOutlined />} onClick={handleSearch}>
-          Tìm kiếm
-        </Button>
-      </Space>
+      <SearchInput
+        placeholder="Tìm kiếm đánh giá..."
+        value={searchTerm}
+        onChange={setSearchTerm}
+        onSearch={handleSearch}
+        onClear={handleClearSearch}
+        loading={loading}
+      />
 
       {/* Tab đánh giá và booking */}
       <div style={{ marginBottom: 16 }}>
         <h2>Danh sách đánh giá</h2>
         <Table
           columns={columns}
-          dataSource={danhGias}
+          dataSource={searchResults}
           rowKey="maDG"
           loading={loading}
           pagination={{ pageSize: 10 }}
         />
       </div>
 
-      <div style={{ marginTop: 32 }}>
-        <h2>Phòng đã trả - Có thể đánh giá</h2>
-        <Table
-          columns={bookingColumns}
-          dataSource={completedBookings}
-          rowKey="maDatPhong"
-          pagination={{ pageSize: 10 }}
-        />
-      </div>
-
       {/* Modal thêm/sửa đánh giá */}
       <Modal
-        title={editingDanhGia ? 'Sửa đánh giá' : 'Thêm đánh giá'}
+        title={editingDanhGia ? "Sửa đánh giá" : "Thêm đánh giá"}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         onOk={() => form.submit()}
@@ -346,11 +324,11 @@ const DanhGiaManagement = () => {
           <Form.Item
             label="Khách sạn"
             name="maKS"
-            rules={[{ required: true, message: 'Vui lòng chọn khách sạn!' }]}
+            rules={[{ required: true, message: "Vui lòng chọn khách sạn!" }]}
           >
-            <Select 
-              showSearch 
-              optionFilterProp="children" 
+            <Select
+              showSearch
+              optionFilterProp="children"
               placeholder="Chọn khách sạn"
               disabled={!!selectedBooking}
             >
@@ -365,15 +343,14 @@ const DanhGiaManagement = () => {
           <Form.Item
             label="Điểm đánh giá"
             name="soSao"
-            rules={[{ required: true, message: 'Vui lòng chọn điểm đánh giá!' }]}
+            rules={[
+              { required: true, message: "Vui lòng chọn điểm đánh giá!" },
+            ]}
           >
             <Rate />
           </Form.Item>
 
-          <Form.Item
-            label="Nội dung đánh giá"
-            name="binhLuan"
-          >
+          <Form.Item label="Nội dung đánh giá" name="binhLuan">
             <Input.TextArea rows={4} placeholder="Nhập nội dung đánh giá..." />
           </Form.Item>
         </Form>
@@ -387,28 +364,44 @@ const DanhGiaManagement = () => {
         footer={[
           <Button key="close" onClick={() => setViewModalVisible(false)}>
             Đóng
-          </Button>
+          </Button>,
         ]}
         width={600}
       >
         {viewingDanhGia && (
           <div>
-            <p><strong>Khách hàng:</strong> {viewingDanhGia.NguoiDung?.hoTen}</p>
-            <p><strong>Khách sạn:</strong> {viewingDanhGia.KhachSan?.tenKS}</p>
-            <p><strong>Điểm đánh giá:</strong> 
-              <Rate disabled value={viewingDanhGia.soSao} style={{ marginLeft: 8 }} />
+            <p>
+              <strong>Khách hàng:</strong> {viewingDanhGia.NguoiDung?.hoTen}
+            </p>
+            <p>
+              <strong>Khách sạn:</strong> {viewingDanhGia.KhachSan?.tenKS}
+            </p>
+            <p>
+              <strong>Điểm đánh giá:</strong>
+              <Rate
+                disabled
+                value={viewingDanhGia.soSao}
+                style={{ marginLeft: 8 }}
+              />
               <span style={{ marginLeft: 8 }}>({viewingDanhGia.soSao}/5)</span>
             </p>
-            <p><strong>Nội dung:</strong></p>
-            <div style={{ 
-              padding: 12, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6,
-              minHeight: 60 
-            }}>
-              {viewingDanhGia.binhLuan || 'Không có nội dung'}
+            <p>
+              <strong>Nội dung:</strong>
+            </p>
+            <div
+              style={{
+                padding: 12,
+                backgroundColor: "#f5f5f5",
+                borderRadius: 6,
+                minHeight: 60,
+              }}
+            >
+              {viewingDanhGia.binhLuan || "Không có nội dung"}
             </div>
-            <p><strong>Ngày đánh giá:</strong> {new Date(viewingDanhGia.ngayDG).toLocaleDateString('vi-VN')}</p>
+            <p>
+              <strong>Ngày đánh giá:</strong>
+              {new Date(viewingDanhGia.ngayDG).toLocaleDateString("vi-VN")}
+            </p>
           </div>
         )}
       </Modal>

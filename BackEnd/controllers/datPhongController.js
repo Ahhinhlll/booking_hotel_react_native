@@ -7,6 +7,40 @@ const KhachSan = require("../models/khachSanModel");
 const { Op } = require("sequelize");
 const db = require("../models");
 const sequelize = require("../config/config");
+const nguoiDungController = require("./nguoiDungController");
+const fs = require("fs");
+const path = require("path");
+
+// Helper function để lấy thông tin user từ JWT token
+const getUserFromToken = async (req, transaction = null) => {
+  try {
+    // Kiểm tra xem có thông tin user từ JWT token không
+    if (req.user && req.user.maNguoiDung) {
+      const userId = req.user.maNguoiDung;
+
+      // Sử dụng nguoiDungController.getById để lấy thông tin user
+      return new Promise((resolve, reject) => {
+        const mockReq = { params: { id: userId } };
+        const mockRes = {
+          status: (code) => ({
+            json: (data) => {
+              if (code === 200) {
+                resolve(data); // Trả về thông tin user
+              } else {
+                reject(new Error(data.message || "Không tìm thấy người dùng"));
+              }
+            },
+          }),
+        };
+
+        nguoiDungController.getById(mockReq, mockRes);
+      });
+    }
+    return null;
+  } catch (error) {
+    throw error;
+  }
+};
 
 // Lấy tất cả đơn đặt phòng
 exports.getAll = async (req, res) => {
@@ -209,11 +243,24 @@ exports.insert = async (req, res) => {
     const checkInDate = new Date(checkInDateTime);
     const checkOutDate = new Date(checkOutDateTime);
 
-    // Validate dates
     if (checkInDate >= checkOutDate) {
+      console.log("❌ Date validation failed:", {
+        checkInDate: checkInDate.toISOString(),
+        checkOutDate: checkOutDate.toISOString(),
+        checkInDateTime: checkInDateTime,
+        checkOutDateTime: checkOutDateTime,
+      });
       return res.status(400).json({
         success: false,
         message: "Ngày nhận phòng phải trước ngày trả phòng",
+        debug: {
+          checkInDate: checkInDate.toISOString(),
+          checkOutDate: checkOutDate.toISOString(),
+          checkInDateTime: checkInDateTime,
+          checkOutDateTime: checkOutDateTime,
+          bookingType: bookingType,
+          duration: duration,
+        },
       });
     }
 
@@ -269,7 +316,7 @@ exports.insert = async (req, res) => {
         serverCalculatedBasePrice = giaPhong.giaQuaDem;
         break;
       case "daily":
-        serverCalculatedBasePrice = giaPhong.giaTheoNgay;
+        serverCalculatedBasePrice = giaPhong.giaTheoNgay * duration;
         break;
       default:
         return res.status(400).json({
@@ -299,33 +346,14 @@ exports.insert = async (req, res) => {
               (serverCalculatedBasePrice * promotion.phanTramGiam) / 100
             );
             finalPrice = serverCalculatedBasePrice - discountAmount;
-            console.log("Backend percentage discount:", {
-              serverCalculatedBasePrice,
-              phanTramGiam: promotion.phanTramGiam,
-              discountAmount,
-              finalPrice,
-            });
           } else if (promotion.giaTriGiam > 0) {
             discountAmount = promotion.giaTriGiam;
             finalPrice = serverCalculatedBasePrice - discountAmount;
-            console.log("Backend fixed amount discount:", {
-              serverCalculatedBasePrice,
-              giaTriGiam: promotion.giaTriGiam,
-              discountAmount,
-              finalPrice,
-            });
           } else if (promotion.thongTinKM) {
-            // Parse từ text như "giảm 30K" -> 30000
             const discountMatch = promotion.thongTinKM.match(/giảm\s*(\d+)k/i);
             if (discountMatch) {
               discountAmount = parseInt(discountMatch[1]) * 1000; // Convert to VND
               finalPrice = serverCalculatedBasePrice - discountAmount;
-              console.log("Backend text-based discount:", {
-                serverCalculatedBasePrice,
-                thongTinKM: promotion.thongTinKM,
-                discountAmount,
-                finalPrice,
-              });
             }
           }
 
@@ -340,16 +368,6 @@ exports.insert = async (req, res) => {
       serverCalculatedBasePrice - clientCalculatedTotalAmount
     );
     const tolerance = 1000; // Cho phép sai lệch 1K cho giá base price
-
-    console.log("Price comparison:", {
-      serverCalculatedBasePrice,
-      finalPrice,
-      clientCalculatedTotalAmount,
-      priceDifference,
-      tolerance,
-      promotionId,
-      appliedPromotion,
-    });
 
     if (priceDifference > tolerance) {
       return res.status(400).json({
@@ -366,31 +384,43 @@ exports.insert = async (req, res) => {
     const transaction = await db.DatPhong.sequelize.transaction();
 
     try {
-      // Lấy thông tin user từ JWT token hoặc sử dụng user đầu tiên có sẵn
-      let userId = "temp_user_id";
+      // Lấy thông tin user từ JWT token hoặc sử dụng thông tin từ bookerInfo
+      let userId = null;
+      let userInfo = null;
+      let userName = "Khách hàng";
+      let userPhone = "0123456789";
 
-      // TODO: Lấy userId từ JWT token khi có authentication
-      // const userId = req.user?.maNguoiDung || "temp_user_id";
+      try {
+        // Thử lấy thông tin user từ JWT token
+        userInfo = await getUserFromToken(req, transaction);
 
-      // Tìm user đầu tiên có sẵn trong database để test
-      const existingUser = await db.NguoiDung.findOne({ transaction });
-      if (existingUser) {
-        userId = existingUser.maNguoiDung;
-      } else {
-        // Tạo user tạm thời nếu không có user nào
-        const newUser = await db.NguoiDung.create(
-          {
-            hoTen: bookerInfo.name || "Khách hàng",
-            sdt: bookerInfo.phoneNumber || "0123456789",
-            email: "temp@example.com",
-            matKhau: "temp_password",
-            vaiTro: "Khách hàng",
-          },
-          { transaction }
-        );
-        userId = newUser.maNguoiDung;
+        if (userInfo) {
+          // Có thông tin user từ JWT token
+          userId = userInfo.maNguoiDung;
+          userName = userInfo.hoTen;
+          userPhone = userInfo.sdt;
+
+          // Kiểm tra trạng thái tài khoản
+          if (userInfo.trangThai !== "Hoạt động") {
+            return res.status(403).json({
+              success: false,
+              message: "Tài khoản đã bị khóa hoặc không hoạt động",
+            });
+          }
+        } else {
+          // Không có JWT token, yêu cầu đăng nhập
+          return res.status(401).json({
+            success: false,
+            message: "Vui lòng đăng nhập để thực hiện đặt phòng",
+          });
+        }
+      } catch (error) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy thông tin người dùng",
+          error: error.message,
+        });
       }
-
       const newBooking = await db.DatPhong.create(
         {
           maND: userId,
@@ -411,8 +441,8 @@ exports.insert = async (req, res) => {
           soNgay: bookingType === "daily" ? 1 : null,
           tongTienGoc: serverCalculatedBasePrice,
           tongTienSauGiam: finalPrice,
-          trangThai: "Chờ xác nhận thanh toán",
-          ghiChu: `Thông tin người đặt: ${bookerInfo.name} - ${bookerInfo.phoneNumber}`,
+          trangThai: "Chờ thanh toán",
+          ghiChu: `Thông tin người đặt: ${userName} - ${userPhone}`,
           maKS: hotelId,
         },
         { transaction }
@@ -480,10 +510,15 @@ exports.insert = async (req, res) => {
 
       // Cập nhật trạng thái dựa trên kết quả thanh toán
       if (paymentResult.success) {
-        await db.DatPhong.update(
-          { trangThai: "Đã xác nhận" },
-          { where: { maDatPhong: newBooking.maDatPhong }, transaction }
-        );
+        // Nếu thanh toán online thành công -> "Đã xác nhận"
+        if (paymentMethod !== "hotel") {
+          await db.DatPhong.update(
+            { trangThai: "Đã xác nhận" },
+            { where: { maDatPhong: newBooking.maDatPhong }, transaction }
+          );
+        }
+        // Nếu thanh toán tại khách sạn -> vẫn giữ "Chờ thanh toán"
+
         await db.ThanhToan.update(
           { trangThai: "Đã thanh toán" },
           { where: { maDatPhong: newBooking.maDatPhong }, transaction }
@@ -701,21 +736,177 @@ exports.updateStatus = async (req, res) => {
     const { id } = req.params;
     const { trangThai } = req.body;
 
-    const booking = await db.DatPhong.findByPk(id);
+    const booking = await db.DatPhong.findByPk(id, {
+      include: [
+        { model: db.NguoiDung, attributes: ["hoTen", "sdt", "email"] },
+        { model: db.KhachSan, attributes: ["tenKS", "diaChi", "tinhThanh"] },
+        { model: db.Phong, attributes: ["tenPhong", "anh", "dienTich"] },
+        {
+          model: db.ThanhToan,
+          attributes: ["phuongThuc", "soTien", "trangThai"],
+        },
+      ],
+    });
+
     if (!booking) {
+      console.log("❌ Booking not found:", id);
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy đặt phòng",
       });
     }
 
-    await booking.update({ trangThai });
+    // Nếu trạng thái là "Hoàn thành", tạo bản sao lưu và xóa đơn hàng
+    if (trangThai === "Hoàn thành") {
+      let transaction;
+      try {
+        console.log("🔄 Creating database transaction...");
+        transaction = await sequelize.transaction();
+        console.log("✅ Transaction created successfully");
+      } catch (transactionError) {
+        console.error("❌ Error creating transaction:", transactionError);
+        throw transactionError;
+      }
 
-    res.status(200).json({
-      success: true,
-      data: booking,
-      message: "Cập nhật trạng thái đặt phòng thành công",
-    });
+      try {
+        console.log("📝 Creating completed booking object...");
+        console.log("📊 Booking data:", {
+          maDatPhong: booking.maDatPhong,
+          maND: booking.maND,
+          maPhong: booking.maPhong,
+          maKS: booking.maKS,
+          NguoiDung: booking.NguoiDung,
+          KhachSan: booking.KhachSan,
+          Phong: booking.Phong,
+        });
+
+        // Tạo bản sao lưu để lưu vào completedBookings.json
+        const completedBooking = {
+          maDP: booking.maDatPhong,
+          maND: booking.maND,
+          maPhong: booking.maPhong,
+          maKS: booking.maKS,
+          loaiDat: booking.loaiDat,
+          ngayDat: booking.ngayDat,
+          ngayNhan: booking.ngayNhan,
+          ngayTra: booking.ngayTra,
+          soNguoiLon: booking.soNguoiLon,
+          soTreEm: booking.soTreEm,
+          soGio: booking.soGio,
+          soNgay: booking.soNgay,
+          tongTienGoc: booking.tongTienGoc,
+          tongTienSauGiam: booking.tongTienSauGiam,
+          maKM: booking.maKM,
+          trangThai: "Hoàn thành",
+          ghiChu: booking.ghiChu,
+          maGiaPhong: booking.maGiaPhong,
+          tenNguoiDat: booking.NguoiDung?.hoTen,
+          sdtNguoiDat: booking.NguoiDung?.sdt,
+          emailNguoiDat: booking.NguoiDung?.email,
+          tenKS: booking.KhachSan?.tenKS,
+          diaChiKS: booking.KhachSan?.diaChi,
+          tinhThanhKS: booking.KhachSan?.tinhThanh,
+          tenPhong: booking.Phong?.tenPhong,
+          anhPhong: booking.Phong?.anh || [],
+          dienTichPhong: booking.Phong?.dienTich,
+          hasReviewed: false,
+          completedAt: new Date().toISOString(),
+          originalId: booking.maDatPhong,
+          status: "completed",
+        };
+
+        console.log(
+          "✅ Completed booking object created:",
+          completedBooking.maDP
+        );
+
+        // Lưu vào file completedBookings.json
+        console.log("💾 Preparing to save to JSON file...");
+        const fs = require("fs");
+        const path = require("path");
+        const dataDir = path.join(__dirname, "../data");
+        const completedBookingsPath = path.join(
+          dataDir,
+          "completedBookings.json"
+        );
+
+        console.log("📁 Data directory:", dataDir);
+        console.log("📄 JSON file path:", completedBookingsPath);
+
+        // Tạo thư mục data nếu chưa tồn tại
+        if (!fs.existsSync(dataDir)) {
+          console.log("📁 Creating data directory...");
+          fs.mkdirSync(dataDir, { recursive: true });
+        }
+
+        let completedBookingsData = {
+          completedBookings: [],
+          lastUpdated: new Date().toISOString(),
+        };
+
+        // Đọc file hiện tại nếu tồn tại
+        if (fs.existsSync(completedBookingsPath)) {
+          console.log("📖 Reading existing JSON file...");
+          try {
+            const existingData = fs.readFileSync(completedBookingsPath, "utf8");
+            completedBookingsData = JSON.parse(existingData);
+            console.log("✅ Successfully read existing file");
+          } catch (error) {
+            console.log(
+              "❌ Error reading completedBookings.json, creating new file:",
+              error.message
+            );
+          }
+        } else {
+          console.log("📄 JSON file does not exist, will create new one");
+        }
+
+        // Thêm booking mới vào đầu mảng
+        completedBookingsData.completedBookings.unshift(completedBooking);
+        completedBookingsData.lastUpdated = new Date().toISOString();
+
+        // Ghi file
+        try {
+          fs.writeFileSync(
+            completedBookingsPath,
+            JSON.stringify(completedBookingsData, null, 2)
+          );
+          console.log(
+            "✅ Completed booking saved to JSON file:",
+            completedBooking.maDP
+          );
+        } catch (writeError) {
+          console.error(
+            "❌ Error writing to completedBookings.json:",
+            writeError
+          );
+          throw new Error(`Không thể lưu vào file JSON: ${writeError.message}`);
+        }
+
+        // Xóa đơn hàng khỏi bảng đặt phòng
+        await booking.destroy({ transaction });
+        await transaction.commit();
+
+        res.status(200).json({
+          success: true,
+          data: completedBooking,
+          message: "Đặt phòng đã hoàn thành và được lưu vào lịch sử",
+        });
+      } catch (error) {
+        await transaction.rollback();
+        console.error("❌ Transaction rolled back due to error:", error);
+        throw error;
+      }
+    } else {
+      // Cập nhật trạng thái bình thường
+      await booking.update({ trangThai });
+
+      res.status(200).json({
+        success: true,
+        data: booking,
+        message: "Cập nhật trạng thái đặt phòng thành công",
+      });
+    }
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -784,11 +975,24 @@ exports.confirmBooking = async (req, res) => {
     const checkInDate = new Date(checkInDateTime);
     const checkOutDate = new Date(checkOutDateTime);
 
-    // Validate dates
     if (checkInDate >= checkOutDate) {
+      console.log("❌ Date validation failed:", {
+        checkInDate: checkInDate.toISOString(),
+        checkOutDate: checkOutDate.toISOString(),
+        checkInDateTime: checkInDateTime,
+        checkOutDateTime: checkOutDateTime,
+      });
       return res.status(400).json({
         success: false,
         message: "Ngày nhận phòng phải trước ngày trả phòng",
+        debug: {
+          checkInDate: checkInDate.toISOString(),
+          checkOutDate: checkOutDate.toISOString(),
+          checkInDateTime: checkInDateTime,
+          checkOutDateTime: checkOutDateTime,
+          bookingType: bookingType,
+          duration: duration,
+        },
       });
     }
 
@@ -844,7 +1048,7 @@ exports.confirmBooking = async (req, res) => {
         serverCalculatedBasePrice = giaPhong.giaQuaDem;
         break;
       case "daily":
-        serverCalculatedBasePrice = giaPhong.giaTheoNgay;
+        serverCalculatedBasePrice = giaPhong.giaTheoNgay * duration;
         break;
       default:
         return res.status(400).json({
@@ -956,8 +1160,46 @@ exports.confirmBooking = async (req, res) => {
     }
 
     // 8. Chuẩn bị dữ liệu cho insert function
+    // Lấy thông tin user từ JWT token hoặc sử dụng thông tin từ bookerInfo
+    let userId = null;
+    let userInfo = null;
+    let userName = "Khách hàng";
+    let userPhone = "0123456789";
+
+    try {
+      // Thử lấy thông tin user từ JWT token
+      userInfo = await getUserFromToken(req);
+
+      if (userInfo) {
+        // Có thông tin user từ JWT token
+        userId = userInfo.maNguoiDung;
+        userName = userInfo.hoTen;
+        userPhone = userInfo.sdt;
+
+        // Kiểm tra trạng thái tài khoản
+        if (userInfo.trangThai !== "Hoạt động") {
+          return res.status(403).json({
+            success: false,
+            message: "Tài khoản đã bị khóa hoặc không hoạt động",
+          });
+        }
+      } else {
+        // Không có JWT token, yêu cầu đăng nhập
+        return res.status(401).json({
+          success: false,
+          message: "Vui lòng đăng nhập để thực hiện đặt phòng",
+        });
+      }
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy thông tin người dùng",
+        error: error.message,
+      });
+    }
+
     const insertData = {
-      maND: "temp_user_id", // Trong thực tế sẽ lấy từ JWT token
+      maND: userId,
       maPhong: roomId,
       maGiaPhong: giaPhong.maGiaPhong,
       maKM: promotionId || null,
@@ -973,7 +1215,7 @@ exports.confirmBooking = async (req, res) => {
       soTreEm: 0,
       soGio: bookingType === "hourly" ? duration : null,
       soNgay: bookingType === "daily" ? 1 : null,
-      ghiChu: `Thông tin người đặt: ${bookerInfo.name} - ${bookerInfo.phoneNumber}`,
+      ghiChu: `Thông tin người đặt: ${userName} - ${userPhone}`,
       maKS: hotelId,
       phuongThucThanhToan: paymentMethod,
     };
@@ -1076,11 +1318,22 @@ async function handlePaymentProcessing(
 
     // Cập nhật trạng thái dựa trên kết quả thanh toán
     if (paymentResult.success) {
-      await db.DatPhong.update(
-        { trangThai: "Đã xác nhận" },
-        { where: { maDatPhong: bookingData.maDatPhong } }
-      );
-      await payment.update({ trangThai: "Đã thanh toán" });
+      // Đối với ATM, chỉ cập nhật trạng thái khi có xác nhận thanh toán
+      if (paymentMethod === "atm" && paymentResult.requiresConfirmation) {
+        // Giữ nguyên trạng thái "Chờ thanh toán" cho ATM
+        console.log(
+          `ATM payment QR generated for booking ${bookingData.maDatPhong}`
+        );
+        await payment.update({ trangThai: "Chờ xác nhận" });
+      } else if (paymentMethod !== "hotel") {
+        // Nếu thanh toán online thành công -> "Đã xác nhận"
+        await db.DatPhong.update(
+          { trangThai: "Đã xác nhận" },
+          { where: { maDatPhong: bookingData.maDatPhong } }
+        );
+        await payment.update({ trangThai: "Đã thanh toán" });
+      }
+      // Nếu thanh toán tại khách sạn -> vẫn giữ "Chờ thanh toán"
     } else {
       await db.DatPhong.update(
         { trangThai: "Thanh toán thất bại" },
@@ -1100,6 +1353,13 @@ async function handlePaymentProcessing(
         discountAmount: bookingData.tongTienGoc - finalPrice,
         paymentStatus: paymentResult.success ? "success" : "failed",
         paymentMessage: paymentResult.message,
+        // Thêm QR data cho ATM
+        qrData:
+          paymentMethod === "atm" && paymentResult.qrData
+            ? paymentResult.qrData
+            : null,
+        requiresConfirmation:
+          paymentMethod === "atm" && paymentResult.requiresConfirmation,
         promotion: appliedPromotion
           ? {
               name: appliedPromotion.tenKM,
@@ -1282,6 +1542,67 @@ exports.checkAvailability = async (req, res) => {
   }
 };
 
+// API để kiểm tra trạng thái đặt phòng của một phòng cụ thể
+exports.checkRoomBookingStatus = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+
+    if (!roomId) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu mã phòng",
+      });
+    }
+
+    // Kiểm tra xem phòng có đang được đặt không (trạng thái không phải "Đã hủy" hoặc "Đã hoàn thành")
+    const activeBooking = await db.DatPhong.findOne({
+      where: {
+        maPhong: roomId,
+        trangThai: {
+          [Op.notIn]: ["Đã hủy", "Đã hoàn thành"],
+        },
+      },
+      include: [
+        {
+          model: db.NguoiDung,
+          attributes: ["hoTen", "sdt"],
+        },
+      ],
+      order: [["ngayDat", "DESC"]], // Lấy booking mới nhất
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        isBooked: !!activeBooking,
+        bookingInfo: activeBooking
+          ? {
+              maDatPhong: activeBooking.maDatPhong,
+              trangThai: activeBooking.trangThai,
+              ngayNhan: activeBooking.ngayNhan,
+              ngayTra: activeBooking.ngayTra,
+              loaiDat: activeBooking.loaiDat,
+              nguoiDat: activeBooking.NguoiDung?.hoTen || "Không xác định",
+              sdt: activeBooking.NguoiDung?.sdt || "Không xác định",
+            }
+          : null,
+        message: activeBooking
+          ? `Phòng đã được đặt bởi ${
+              activeBooking.NguoiDung?.hoTen || "khách hàng"
+            }`
+          : "Phòng có sẵn để đặt",
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi kiểm tra trạng thái đặt phòng:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi kiểm tra trạng thái đặt phòng",
+      error: error.message,
+    });
+  }
+};
+
 // Hàm xử lý thanh toán MoMo (Mock)
 async function processMoMoPayment(amount, bookingId) {
   // Trong thực tế sẽ tích hợp với MoMo API
@@ -1322,12 +1643,193 @@ async function processCreditCardPayment(amount, bookingId) {
   });
 }
 
-// Hàm xử lý thanh toán ATM (Mock)
+// Hàm xử lý thanh toán ATM với VietQR
 async function processATMPayment(amount, bookingId) {
-  // Trong thực tế sẽ tích hợp với ngân hàng
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true, message: "Thanh toán ATM thành công" });
-    }, 1000);
-  });
+  try {
+    // Tạo QR code data cho VietQR
+    const qrData = {
+      templateId: "ayXKCCn",
+      accountNumber: "0387238815",
+      accountName: "LUONG THANH BINH",
+      bankCode: "970422",
+      amount: amount,
+      addInfo: `Thanh toan phong - Booking ${bookingId}`,
+      qrUrl: `https://api.vietqr.io/image/970422-0387238815-ayXKCCn.jpg?accountName=LUONG%20THANH%20BINH&amount=${amount}&addInfo=Thanh%20toan%20phong%20-%20Booking%20${bookingId}`,
+    };
+
+    // Trả về thông tin QR code để frontend hiển thị
+    return {
+      success: true,
+      message: "Tạo QR code thanh toán ATM thành công",
+      qrData: qrData,
+      paymentStatus: "pending", // Trạng thái chờ thanh toán
+      requiresConfirmation: true, // Yêu cầu xác nhận từ frontend
+    };
+  } catch (error) {
+    console.error("Error processing ATM payment:", error);
+    return {
+      success: false,
+      message: "Lỗi khi tạo QR code thanh toán ATM",
+      error: error.message,
+    };
+  }
 }
+
+// API để xác nhận thanh toán ATM
+exports.confirmATMPayment = async (req, res) => {
+  try {
+    const { bookingId, transactionId, amount } = req.body;
+
+    // Validation
+    if (!bookingId) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin booking ID",
+      });
+    }
+
+    // Tìm booking
+    const booking = await db.DatPhong.findByPk(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy đơn đặt phòng",
+      });
+    }
+
+    // Tìm payment record
+    const payment = await db.ThanhToan.findOne({
+      where: { maDatPhong: bookingId },
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy thông tin thanh toán",
+      });
+    }
+
+    // Kiểm tra trạng thái hiện tại
+    if (payment.trangThai === "Đã thanh toán") {
+      return res.status(200).json({
+        success: true,
+        message: "Thanh toán đã được xác nhận trước đó",
+        data: {
+          bookingId: bookingId,
+          paymentStatus: "confirmed",
+          confirmedAt: payment.ngayTT,
+        },
+      });
+    }
+
+    // Cập nhật trạng thái booking và payment
+    await db.DatPhong.update(
+      { trangThai: "Đã xác nhận" },
+      { where: { maDatPhong: bookingId } }
+    );
+
+    await db.ThanhToan.update(
+      {
+        trangThai: "Đã thanh toán",
+        ngayTT: new Date(),
+        maGiaoDich: transactionId || payment.maGiaoDich,
+      },
+      { where: { maDatPhong: bookingId } }
+    );
+
+    console.log(`ATM payment confirmed for booking ${bookingId}`);
+
+    res.status(200).json({
+      success: true,
+      message: "Xác nhận thanh toán ATM thành công",
+      data: {
+        bookingId: bookingId,
+        paymentStatus: "confirmed",
+        confirmedAt: new Date(),
+        amount: payment.soTien,
+      },
+    });
+  } catch (error) {
+    console.error("Error confirming ATM payment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi xác nhận thanh toán ATM",
+      error: error.message,
+    });
+  }
+};
+
+// API để lấy danh sách completed bookings từ JSON file
+exports.getCompletedBookings = async (req, res) => {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const completedBookingsPath = path.join(
+      __dirname,
+      "../data/completedBookings.json"
+    );
+
+    if (!fs.existsSync(completedBookingsPath)) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "Chưa có đơn đặt phòng hoàn thành nào",
+      });
+    }
+
+    const data = fs.readFileSync(completedBookingsPath, "utf8");
+    const completedBookingsData = JSON.parse(data);
+
+    res.status(200).json({
+      success: true,
+      data: completedBookingsData.completedBookings || [],
+      message: "Lấy danh sách đơn đặt phòng hoàn thành thành công",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// API để lấy completed bookings theo user ID
+exports.getCompletedBookingsByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const fs = require("fs");
+    const path = require("path");
+    const completedBookingsPath = path.join(
+      __dirname,
+      "../data/completedBookings.json"
+    );
+
+    if (!fs.existsSync(completedBookingsPath)) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "Chưa có đơn đặt phòng hoàn thành nào",
+      });
+    }
+
+    const data = fs.readFileSync(completedBookingsPath, "utf8");
+    const completedBookingsData = JSON.parse(data);
+
+    // Lọc theo userId
+    const userCompletedBookings = (
+      completedBookingsData.completedBookings || []
+    ).filter((booking) => booking.maND === userId);
+
+    res.status(200).json({
+      success: true,
+      data: userCompletedBookings,
+      message:
+        "Lấy danh sách đơn đặt phòng hoàn thành của người dùng thành công",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};

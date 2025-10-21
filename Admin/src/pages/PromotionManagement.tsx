@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Select, message, Tag, Popconfirm, DatePicker, InputNumber } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import { khuyenMaiService } from '../services/khuyenMaiService';
 import { khachSanService } from '../services/khachSanService';
 import { KhuyenMai, KhachSan } from '../types';
 import dayjs from 'dayjs';
+import useSearch from '../hooks/useSearch';
+import SearchInput from '../components/SearchInput';
+import ImageDisplay from '../components/ImageDisplay';
+import ImageUpload from '../components/ImageUpload';
 
 const { RangePicker } = DatePicker;
 
@@ -14,8 +18,19 @@ const PromotionManagement = () => {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<KhuyenMai | null>(null);
-  const [searchText, setSearchText] = useState('');
+  const [expandedHotels, setExpandedHotels] = useState<string[]>([]);
   const [form] = Form.useForm();
+
+  // Client-side search hook
+  const {
+    searchTerm,
+    setSearchTerm,
+    searchResults,
+    clearSearch
+  } = useSearch(promotions, {
+    keys: ['tenKM', 'thongTinKM'],
+    threshold: 0.3
+  });
 
   useEffect(() => {
     loadPromotions();
@@ -46,24 +61,34 @@ const PromotionManagement = () => {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchText.trim()) {
-      loadPromotions();
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const data = await khuyenMaiService.search(searchText);
-      setPromotions(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error searching promotions:', error);
-      message.error('Lỗi khi tìm kiếm!');
-      setPromotions([]);
-    } finally {
-      setLoading(false);
-    }
+  const handleSearch = () => {
+    // Search is handled by the useSearch hook automatically
   };
+
+  const handleClearSearch = () => {
+    clearSearch();
+  };
+
+  const toggleHotelExpansion = (hotelId: string) => {
+    setExpandedHotels(prev => 
+      prev.includes(hotelId) 
+        ? prev.filter(id => id !== hotelId)
+        : [...prev, hotelId]
+    );
+  };
+
+  // Group promotions by hotel
+  const groupedPromotions = searchResults.reduce((acc, promotion) => {
+    const hotelId = promotion.maKS;
+    if (!acc[hotelId]) {
+      acc[hotelId] = {
+        hotel: hotels.find(h => h.maKS === hotelId),
+        promotions: []
+      };
+    }
+    acc[hotelId].promotions.push(promotion);
+    return acc;
+  }, {} as Record<string, { hotel: KhachSan | undefined; promotions: KhuyenMai[] }>);
 
   const handleAdd = () => {
     setEditingPromotion(null);
@@ -117,40 +142,63 @@ const PromotionManagement = () => {
 
   const columns = [
     {
+      title: 'Ảnh',
+      dataIndex: 'anh',
+      key: 'anh',
+      width: 80,
+      render: (images: string[]) => (
+        <ImageDisplay images={images} width={50} height={50} />
+      ),
+    },
+    {
       title: 'Tên khuyến mãi',
       dataIndex: 'tenKM',
       key: 'tenKM',
     },
     {
-      title: 'Khách sạn',
-      dataIndex: 'KhachSan',
-      key: 'hotel',
-      render: (khachSan: any) => khachSan?.tenKS || 'N/A',
+      title: 'Thông tin khuyến mãi',
+      key: 'promotionInfo',
+      render: (_: any, record: KhuyenMai) => (
+        <div>
+          <div style={{ marginBottom: '4px' }}>
+            {(record.phanTramGiam || 0) > 0 && (
+              <Tag color="blue">
+                Giảm {record.phanTramGiam}%
+              </Tag>
+            )}
+            {(record.giaTriGiam || 0) > 0 && (
+              <Tag color="green">
+                {(record.giaTriGiam || 0).toLocaleString()} VNĐ
+              </Tag>
+            )}
+            {(record.phanTramGiam || 0) <= 0 && (record.giaTriGiam || 0) <= 0 && (
+              <Tag color="default">
+                Không có giảm giá
+              </Tag>
+            )}
+          </div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {(record as any).thongTinKM && (record as any).thongTinKM.length > 50 
+              ? `${(record as any).thongTinKM.substring(0, 50)}...` 
+              : (record as any).thongTinKM || 'Không có mô tả'
+            }
+          </div>
+        </div>
+      ),
     },
-   
     {
-      title: 'Phần trăm giảm',
-      dataIndex: 'phanTramGiam',
-      key: 'phanTramGiam',
-      render: (percent: number) => percent ? `${percent}%` : '0%',
-    },
-    {
-      title: 'Giá trị giảm',
-      dataIndex: 'giaTriGiam',
-      key: 'giaTriGiam',
-      render: (value: number) => value ? `${value.toLocaleString()} VNĐ` : '0 VNĐ',
-    },
-    {
-      title: 'Ngày bắt đầu',
-      dataIndex: 'ngayBatDau',
-      key: 'ngayBatDau',
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
-    },
-    {
-      title: 'Ngày kết thúc',
-      dataIndex: 'ngayKetThuc',
-      key: 'ngayKetThuc',
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+      title: 'Thời gian áp dụng',
+      key: 'dateRange',
+      render: (_: any, record: KhuyenMai) => (
+        <div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            Từ: {dayjs(record.ngayBatDau).format('DD/MM/YYYY')}
+          </div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            Đến: {dayjs(record.ngayKetThuc).format('DD/MM/YYYY')}
+          </div>
+        </div>
+      ),
     },
     {
       title: 'Trạng thái',
@@ -196,26 +244,77 @@ const PromotionManagement = () => {
         </Button>
       </div>
 
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Tìm kiếm khuyến mãi..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          onPressEnter={handleSearch}
-          style={{ width: 300 }}
-        />
-        <Button icon={<SearchOutlined />} onClick={handleSearch}>
-          Tìm kiếm
-        </Button>
-      </Space>
-
-      <Table
-        columns={columns}
-        dataSource={promotions}
-        rowKey="maKM"
+      <SearchInput
+        placeholder="Tìm kiếm khuyến mãi..."
+        value={searchTerm}
+        onChange={setSearchTerm}
+        onSearch={handleSearch}
+        onClear={handleClearSearch}
         loading={loading}
-        pagination={{ pageSize: 10 }}
       />
+
+      <div style={{ background: '#fff', borderRadius: '8px', padding: '16px' }}>
+        {Object.entries(groupedPromotions).map(([hotelId, { hotel, promotions: hotelPromotions }]) => (
+          <div key={hotelId} style={{ marginBottom: '16px', border: '1px solid #f0f0f0', borderRadius: '8px' }}>
+            {/* Hotel Header */}
+            <div 
+              style={{ 
+                padding: '16px', 
+                background: '#fafafa', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderRadius: '8px 8px 0 0'
+              }}
+              onClick={() => toggleHotelExpansion(hotelId)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {expandedHotels.includes(hotelId) ? (
+                  <DownOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
+                ) : (
+                  <RightOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
+                )}
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>
+                    {hotel?.tenKS || 'Khách sạn không xác định'}
+                  </h3>
+                  <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+                    {hotel?.diaChi || ''} • {hotelPromotions.length} khuyến mãi
+                  </p>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  {hotelPromotions.filter(promo => promo.trangThai === 'Hoạt động').length} đang hoạt động
+                </div>
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  {hotelPromotions.filter(promo => promo.trangThai === 'Không hoạt động').length} không hoạt động
+                </div>
+              </div>
+            </div>
+
+            {/* Promotions Table */}
+            {expandedHotels.includes(hotelId) && (
+              <div style={{ padding: '16px' }}>
+                <Table
+                  columns={columns}
+                  dataSource={hotelPromotions}
+                  rowKey="maKM"
+                  pagination={false}
+                  size="small"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+        
+        {Object.keys(groupedPromotions).length === 0 && !loading && (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+            Không có khuyến mãi nào
+          </div>
+        )}
+      </div>
 
       <Modal
         title={editingPromotion ? 'Sửa khuyến mãi' : 'Thêm khuyến mãi'}
@@ -231,6 +330,21 @@ const PromotionManagement = () => {
             rules={[{ required: true, message: 'Vui lòng nhập tên khuyến mãi!' }]}
           >
             <Input />
+          </Form.Item>
+
+          <Form.Item
+            label="Thông tin khuyến mãi"
+            name="thongTinKM"
+            rules={[{ required: true, message: 'Vui lòng nhập thông tin khuyến mãi!' }]}
+          >
+            <Input.TextArea rows={3} placeholder="Nhập mô tả chi tiết về khuyến mãi..." />
+          </Form.Item>
+
+          <Form.Item
+            label="Ảnh khuyến mãi"
+            name="anh"
+          >
+            <ImageUpload maxCount={1} />
           </Form.Item>
 
           <Form.Item

@@ -259,7 +259,7 @@ export default function HotelSection(props: HotelSectionProps) {
                     <>
                       <Text className="text-xs text-gray-400">Chỉ từ</Text>
                       <Text className="text-base font-bold text-gray-800">
-                        {hotel.giaThapNhat.toLocaleString()}đ{" "}
+                        {hotel.giaThapNhat.toLocaleString()}đ
                         <Text className="font-normal text-gray-500">
                           / 2 giờ
                         </Text>

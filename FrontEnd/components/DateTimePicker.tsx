@@ -1,5 +1,5 @@
 // components/DateTimePicker.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,9 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface DateTimePickerProps {
   visible: boolean;
@@ -19,7 +19,7 @@ interface DateTimePickerProps {
     checkOutDate: Date;
     checkInTime: Date;
     checkOutTime: Date;
-    bookingType: 'hourly' | 'overnight' | 'daily';
+    bookingType: "hourly" | "overnight" | "daily";
     duration: number;
   }) => void;
   initialData?: {
@@ -27,7 +27,7 @@ interface DateTimePickerProps {
     checkOutDate: Date;
     checkInTime: Date;
     checkOutTime: Date;
-    bookingType: 'hourly' | 'overnight' | 'daily';
+    bookingType: "hourly" | "overnight" | "daily";
     duration: number;
   };
 }
@@ -50,21 +50,30 @@ export default function CustomDateTimePicker({
   const [checkOutTime, setCheckOutTime] = useState(
     initialData?.checkOutTime || new Date()
   );
-  const [bookingType, setBookingType] = useState<'hourly' | 'overnight' | 'daily'>(
-    initialData?.bookingType || 'hourly'
-  );
+  const [bookingType, setBookingType] = useState<
+    "hourly" | "overnight" | "daily"
+  >(initialData?.bookingType || "hourly");
   const [duration, setDuration] = useState(initialData?.duration || 2);
 
-  const [showDatePicker, setShowDatePicker] = useState<'checkin' | 'checkout' | null>(null);
-  const [showTimePicker, setShowTimePicker] = useState<'checkin' | 'checkout' | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<
+    "checkin" | "checkout" | null
+  >(null);
+  const [showTimePicker, setShowTimePicker] = useState<
+    "checkin" | "checkout" | null
+  >(null);
 
   // Function to calculate checkout date and time based on checkin and booking type
-  const calculateCheckoutDateTime = (checkInDate: Date, checkInTime: Date, bookingType: string, duration: number) => {
+  const calculateCheckoutDateTime = (
+    checkInDate: Date,
+    checkInTime: Date,
+    bookingType: string,
+    duration: number
+  ) => {
     const checkoutDate = new Date(checkInDate);
     const checkoutTime = new Date(checkInTime);
 
     switch (bookingType) {
-      case 'hourly':
+      case "hourly":
         // Add duration hours to checkout time
         checkoutTime.setHours(checkoutTime.getHours() + duration);
         // If checkout time goes to next day, update checkout date
@@ -73,68 +82,183 @@ export default function CustomDateTimePicker({
           checkoutTime.setHours(checkoutTime.getHours() - 24);
         }
         break;
-      case 'overnight':
+      case "overnight":
         // Add 1 day and set checkout time to 9:00 AM
         checkoutDate.setDate(checkoutDate.getDate() + 1);
         checkoutTime.setHours(9, 0, 0, 0);
+
         break;
-      case 'daily':
-        // Add 1 day and set checkout time to 12:00 PM
-        checkoutDate.setDate(checkoutDate.getDate() + 1);
+      case "daily":
+        // Add duration days and set checkout time to 12:00 PM
+        checkoutDate.setDate(checkoutDate.getDate() + duration);
         checkoutTime.setHours(12, 0, 0, 0);
+        // Ensure checkout is definitely after checkin
+        if (checkoutDate.getTime() <= checkInDate.getTime()) {
+          checkoutDate.setDate(checkInDate.getDate() + duration);
+        }
+
         break;
     }
 
     return { checkoutDate, checkoutTime };
   };
 
-  // Auto-calculate checkout when checkin, booking type, or duration changes (except for daily)
+  // Auto-calculate checkout when checkin, booking type, or duration changes
   useEffect(() => {
-    if (bookingType !== 'daily') {
-      const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(checkInDate, checkInTime, bookingType, duration);
-      setCheckOutDate(checkoutDate);
-      setCheckOutTime(checkoutTime);
-    }
+    const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(
+      checkInDate,
+      checkInTime,
+      bookingType,
+      duration
+    );
+    setCheckOutDate(checkoutDate);
+    setCheckOutTime(checkoutTime);
   }, [checkInDate, checkInTime, bookingType, duration]);
 
   const handleConfirm = () => {
-    onConfirm({
-      checkInDate,
-      checkOutDate,
-      checkInTime,
-      checkOutTime,
+    // Validation: Ensure checkout is after checkin
+    const checkInDateTime = new Date(checkInDate);
+    checkInDateTime.setHours(
+      checkInTime.getHours(),
+      checkInTime.getMinutes(),
+      checkInTime.getSeconds()
+    );
+
+    const checkOutDateTime = new Date(checkOutDate);
+    checkOutDateTime.setHours(
+      checkOutTime.getHours(),
+      checkOutTime.getMinutes(),
+      checkOutTime.getSeconds()
+    );
+
+    console.log("DateTimePicker validation:", {
+      checkInDateTime: checkInDateTime.toISOString(),
+      checkOutDateTime: checkOutDateTime.toISOString(),
+      isValid: checkOutDateTime > checkInDateTime,
       bookingType,
       duration,
+      checkInDate: checkInDate.toISOString(),
+      checkOutDate: checkOutDate.toISOString(),
+      checkInTime: checkInTime.toISOString(),
+      checkOutTime: checkOutTime.toISOString(),
     });
+
+    // Tính duration đúng cho daily và overnight booking dựa trên user input
+    let finalDuration = duration;
+    if (bookingType === "daily") {
+      const startDate = new Date(
+        checkInDate.getFullYear(),
+        checkInDate.getMonth(),
+        checkInDate.getDate()
+      );
+      const endDate = new Date(
+        checkOutDate.getFullYear(),
+        checkOutDate.getMonth(),
+        checkOutDate.getDate()
+      );
+      const timeDiff = endDate.getTime() - startDate.getTime();
+      const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+      finalDuration = Math.max(1, daysDiff);
+
+      console.log("DateTimePicker - Final duration calculation (daily):", {
+        checkInDate: checkInDate.toISOString(),
+        checkOutDate: checkOutDate.toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        timeDiff: timeDiff,
+        daysDiff: daysDiff,
+        originalDuration: duration,
+        finalDuration: finalDuration,
+      });
+    } else if (bookingType === "overnight") {
+      // For overnight, duration is always 1
+      finalDuration = 1;
+
+      console.log("DateTimePicker - Final duration calculation (overnight):", {
+        checkInDate: checkInDate.toISOString(),
+        checkOutDate: checkOutDate.toISOString(),
+        originalDuration: duration,
+        finalDuration: finalDuration,
+      });
+    }
+
+    // Validation: Ensure checkout is after checkin
+    if (checkOutDateTime <= checkInDateTime) {
+      console.log("❌ Invalid checkout time, auto-correcting...");
+      // Auto-correct checkout time to be after checkin
+      const { checkoutDate, checkoutTime } = calculateCheckoutDateTime(
+        checkInDate,
+        checkInTime,
+        bookingType,
+        finalDuration
+      );
+
+      console.log("Auto-correcting checkout time:", {
+        original: checkOutDateTime.toISOString(),
+        corrected: checkoutTime.toISOString(),
+        reason: "invalid time",
+        finalDuration: finalDuration,
+      });
+
+      onConfirm({
+        checkInDate,
+        checkOutDate: checkoutDate,
+        checkInTime,
+        checkOutTime: checkoutTime,
+        bookingType,
+        duration: finalDuration,
+      });
+    } else {
+      // Sử dụng user input trực tiếp cho overnight và daily
+      onConfirm({
+        checkInDate,
+        checkOutDate,
+        checkInTime,
+        checkOutTime,
+        bookingType,
+        duration: finalDuration,
+      });
+    }
     onClose();
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getDurationText = () => {
     switch (bookingType) {
-      case 'hourly':
+      case "hourly":
         return `${duration} giờ`;
-      case 'overnight':
-        return '1 đêm';
-      case 'daily':
+      case "overnight":
+        return "1 đêm";
+      case "daily":
         // Tính số ngày dựa trên khoảng cách giữa ngày nhận và ngày trả phòng
-        const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
-        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        const startDate = new Date(
+          checkInDate.getFullYear(),
+          checkInDate.getMonth(),
+          checkInDate.getDate()
+        );
+        const endDate = new Date(
+          checkOutDate.getFullYear(),
+          checkOutDate.getMonth(),
+          checkOutDate.getDate()
+        );
+        const timeDiff = endDate.getTime() - startDate.getTime();
+        const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
         const calculatedDays = Math.max(1, daysDiff);
+
         return `${calculatedDays} ngày`;
       default:
         return `${duration} giờ`;
@@ -142,7 +266,11 @@ export default function CustomDateTimePicker({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -161,9 +289,9 @@ export default function CustomDateTimePicker({
             <Text style={styles.sectionTitle}>Loại đặt phòng</Text>
             <View style={styles.typeContainer}>
               {[
-                { key: 'hourly', label: 'Theo giờ', icon: 'hourglass-outline' },
-                { key: 'overnight', label: 'Qua đêm', icon: 'moon-outline' },
-                { key: 'daily', label: 'Theo ngày', icon: 'business-outline' },
+                { key: "hourly", label: "Theo giờ", icon: "hourglass-outline" },
+                { key: "overnight", label: "Qua đêm", icon: "moon-outline" },
+                { key: "daily", label: "Theo ngày", icon: "business-outline" },
               ].map((type) => (
                 <TouchableOpacity
                   key={type.key}
@@ -176,7 +304,7 @@ export default function CustomDateTimePicker({
                   <Ionicons
                     name={type.icon as any}
                     size={20}
-                    color={bookingType === type.key ? '#FB923C' : '#6B7280'}
+                    color={bookingType === type.key ? "#FB923C" : "#6B7280"}
                   />
                   <Text
                     style={[
@@ -192,11 +320,11 @@ export default function CustomDateTimePicker({
           </View>
 
           {/* Duration for hourly */}
-          {bookingType === 'hourly' && (
+          {bookingType === "hourly" && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Thời gian</Text>
               <View style={styles.durationContainer}>
-                {[1, 2, 3, 4, 6, 8, 12].map((hours) => (
+                {[2, 3, 4, 6, 8, 12].map((hours) => (
                   <TouchableOpacity
                     key={hours}
                     style={[
@@ -224,7 +352,7 @@ export default function CustomDateTimePicker({
             <Text style={styles.sectionTitle}>Ngày nhận phòng</Text>
             <TouchableOpacity
               style={styles.dateTimeButton}
-              onPress={() => setShowDatePicker('checkin')}
+              onPress={() => setShowDatePicker("checkin")}
             >
               <Ionicons name="calendar-outline" size={20} color="#FB923C" />
               <Text style={styles.dateTimeText}>{formatDate(checkInDate)}</Text>
@@ -237,7 +365,7 @@ export default function CustomDateTimePicker({
             <Text style={styles.sectionTitle}>Giờ nhận phòng</Text>
             <TouchableOpacity
               style={styles.dateTimeButton}
-              onPress={() => setShowTimePicker('checkin')}
+              onPress={() => setShowTimePicker("checkin")}
             >
               <Ionicons name="time-outline" size={20} color="#FB923C" />
               <Text style={styles.dateTimeText}>{formatTime(checkInTime)}</Text>
@@ -247,22 +375,26 @@ export default function CustomDateTimePicker({
 
           {/* Check-out Date */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Ngày trả phòng {bookingType === 'daily' ? '(Chọn tay)' : '(Tự động)'}
-            </Text>
-            {bookingType === 'daily' ? (
+            <Text style={styles.sectionTitle}>Ngày trả phòng</Text>
+            {bookingType === "daily" ? (
               <TouchableOpacity
                 style={styles.dateTimeButton}
-                onPress={() => setShowDatePicker('checkout')}
+                onPress={() => setShowDatePicker("checkout")}
               >
                 <Ionicons name="calendar-outline" size={20} color="#FB923C" />
-                <Text style={styles.dateTimeText}>{formatDate(checkOutDate)}</Text>
+                <Text style={styles.dateTimeText}>
+                  {formatDate(checkOutDate)}
+                </Text>
                 <Ionicons name="chevron-down" size={20} color="#6B7280" />
               </TouchableOpacity>
             ) : (
-              <View style={[styles.dateTimeButton, { backgroundColor: '#F9FAFB' }]}>
+              <View
+                style={[styles.dateTimeButton, { backgroundColor: "#F9FAFB" }]}
+              >
                 <Ionicons name="calendar-outline" size={20} color="#10B981" />
-                <Text style={[styles.dateTimeText, { color: '#10B981' }]}>{formatDate(checkOutDate)}</Text>
+                <Text style={[styles.dateTimeText, { color: "#10B981" }]}>
+                  {formatDate(checkOutDate)}
+                </Text>
                 <Ionicons name="checkmark-circle" size={20} color="#10B981" />
               </View>
             )}
@@ -270,22 +402,26 @@ export default function CustomDateTimePicker({
 
           {/* Check-out Time */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Giờ trả phòng {bookingType === 'daily' ? '(Chọn tay)' : '(Tự động)'}
-            </Text>
-            {bookingType === 'daily' ? (
+            <Text style={styles.sectionTitle}>Giờ trả phòng</Text>
+            {bookingType === "daily" ? (
               <TouchableOpacity
                 style={styles.dateTimeButton}
-                onPress={() => setShowTimePicker('checkout')}
+                onPress={() => setShowTimePicker("checkout")}
               >
                 <Ionicons name="time-outline" size={20} color="#FB923C" />
-                <Text style={styles.dateTimeText}>{formatTime(checkOutTime)}</Text>
+                <Text style={styles.dateTimeText}>
+                  {formatTime(checkOutTime)}
+                </Text>
                 <Ionicons name="chevron-down" size={20} color="#6B7280" />
               </TouchableOpacity>
             ) : (
-              <View style={[styles.dateTimeButton, { backgroundColor: '#F9FAFB' }]}>
+              <View
+                style={[styles.dateTimeButton, { backgroundColor: "#F9FAFB" }]}
+              >
                 <Ionicons name="time-outline" size={20} color="#10B981" />
-                <Text style={[styles.dateTimeText, { color: '#10B981' }]}>{formatTime(checkOutTime)}</Text>
+                <Text style={[styles.dateTimeText, { color: "#10B981" }]}>
+                  {formatTime(checkOutTime)}
+                </Text>
                 <Ionicons name="checkmark-circle" size={20} color="#10B981" />
               </View>
             )}
@@ -316,12 +452,12 @@ export default function CustomDateTimePicker({
         {/* Date Picker */}
         {showDatePicker && (
           <DateTimePicker
-            value={showDatePicker === 'checkin' ? checkInDate : checkOutDate}
+            value={showDatePicker === "checkin" ? checkInDate : checkOutDate}
             mode="date"
             display="default"
             onChange={(event, selectedDate) => {
               if (selectedDate) {
-                if (showDatePicker === 'checkin') {
+                if (showDatePicker === "checkin") {
                   setCheckInDate(selectedDate);
                 } else {
                   setCheckOutDate(selectedDate);
@@ -335,12 +471,12 @@ export default function CustomDateTimePicker({
         {/* Time Picker */}
         {showTimePicker && (
           <DateTimePicker
-            value={showTimePicker === 'checkin' ? checkInTime : checkOutTime}
+            value={showTimePicker === "checkin" ? checkInTime : checkOutTime}
             mode="time"
             display="default"
             onChange={(event, selectedTime) => {
               if (selectedTime) {
-                if (showTimePicker === 'checkin') {
+                if (showTimePicker === "checkin") {
                   setCheckInTime(selectedTime);
                 } else {
                   setCheckOutTime(selectedTime);
@@ -358,26 +494,26 @@ export default function CustomDateTimePicker({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   confirmButton: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FB923C',
+    fontWeight: "600",
+    color: "#FB923C",
   },
   content: {
     flex: 1,
@@ -388,108 +524,108 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
     marginBottom: 12,
   },
   typeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   typeButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
     paddingHorizontal: 8,
     marginHorizontal: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
   typeButtonActive: {
-    borderColor: '#FB923C',
-    backgroundColor: '#FEF3E7',
+    borderColor: "#FB923C",
+    backgroundColor: "#FEF3E7",
   },
   typeButtonText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   typeButtonTextActive: {
-    color: '#FB923C',
-    fontWeight: '600',
+    color: "#FB923C",
+    fontWeight: "600",
   },
   durationContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   durationButton: {
-    width: '14%',
+    width: "14%",
     aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
   durationButtonActive: {
-    borderColor: '#FB923C',
-    backgroundColor: '#FEF3E7',
+    borderColor: "#FB923C",
+    backgroundColor: "#FEF3E7",
   },
   durationButtonText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   durationButtonTextActive: {
-    color: '#FB923C',
-    fontWeight: '600',
+    color: "#FB923C",
+    fontWeight: "600",
   },
   dateTimeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
   dateTimeText: {
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: '#1F2937',
+    color: "#1F2937",
   },
   summary: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     borderRadius: 8,
     padding: 16,
     marginTop: 16,
   },
   summaryTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
     marginBottom: 12,
   },
   summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   summaryValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
   },
 });

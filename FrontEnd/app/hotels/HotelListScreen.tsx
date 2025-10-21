@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Dimensions,
   FlatList,
@@ -16,7 +16,19 @@ import {
   KhachSanData,
   KhachSanServices,
 } from "../../services/KhachSanServices";
+import { PhongServices } from "../../services/PhongServices";
+import {
+  DatPhongServices,
+  DatPhongData,
+} from "../../services/DatPhongServices";
 import { getImageUrl } from "../../utils/getImageUrl";
+import {
+  FilterOptions,
+  SortOptions,
+  DEFAULT_FILTER_OPTIONS,
+  DEFAULT_SORT_OPTIONS,
+  SORT_OPTIONS,
+} from "../../types/filterTypes";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function HotelListScreen() {
@@ -25,9 +37,18 @@ export default function HotelListScreen() {
   const [sortVisible, setSortVisible] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(
+    DEFAULT_FILTER_OPTIONS
+  );
+  const [sortOptions, setSortOptions] =
+    useState<SortOptions>(DEFAULT_SORT_OPTIONS);
+  const [roomsData, setRoomsData] = useState<any[]>([]);
+  const [bookingsData, setBookingsData] = useState<DatPhongData[]>([]);
 
   useEffect(() => {
     loadHotels();
+    loadRoomsData();
+    loadBookingsData();
   }, []);
 
   const loadHotels = async () => {
@@ -39,6 +60,196 @@ export default function HotelListScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadRoomsData = async () => {
+    try {
+      const data = await PhongServices.getAll();
+      setRoomsData(data);
+    } catch (error) {
+      console.error("Error loading rooms:", error);
+    }
+  };
+
+  const loadBookingsData = async () => {
+    try {
+      const data = await DatPhongServices.getAll();
+      setBookingsData(data);
+    } catch (error) {
+      console.error("Error loading bookings:", error);
+    }
+  };
+
+  // Function to get available rooms count for a hotel
+  const getAvailableRoomsCount = (hotelId: string) => {
+    const hotelRooms = roomsData.filter((room) => room.maKS === hotelId);
+
+    // Lấy danh sách phòng đã được đặt từ bảng datphong
+    const bookedRoomIds = bookingsData
+      .filter(
+        (booking) =>
+          booking.trangThai !== "Đã hủy" && booking.trangThai !== "Hoàn thành"
+      )
+      .map((booking) => booking.maPhong);
+
+    // Chỉ tính phòng có thể đặt được: có giá phòng và chưa được đặt
+    const availableRooms = hotelRooms.filter((room) => {
+      const isBooked = bookedRoomIds.includes(room.maPhong);
+      const hasPrice = room.gia > 0;
+      const isAvailable = !isBooked && hasPrice;
+      return isAvailable;
+    });
+
+    return availableRooms.length;
+  };
+
+  // Function to get total rooms count for a hotel
+  const getTotalRoomsCount = (hotelId: string) => {
+    const hotelRooms = roomsData.filter((room) => room.maKS === hotelId);
+    return hotelRooms.length;
+  };
+
+  // Function to get booked rooms count for a hotel
+  const getBookedRoomsCount = (hotelId: string) => {
+    const hotelRooms = roomsData.filter((room) => room.maKS === hotelId);
+
+    // Đếm số phòng đã được đặt từ bảng datphong
+    const bookedRoomIds = bookingsData
+      .filter(
+        (booking) =>
+          booking.maKS === hotelId &&
+          booking.trangThai !== "Đã hủy" &&
+          booking.trangThai !== "Hoàn thành"
+      )
+      .map((booking) => booking.maPhong);
+
+    // Loại bỏ duplicate và đếm
+    const uniqueBookedRooms = [...new Set(bookedRoomIds)];
+    return uniqueBookedRooms.length;
+  };
+
+  // Filter hotels based on current filter options
+  const filteredHotels = useMemo(() => {
+    return hotels.filter((hotel) => {
+      // Filter by price range
+      if (hotel.giaThapNhat) {
+        const price = hotel.giaThapNhat;
+        if (
+          price < filterOptions.priceRange[0] ||
+          price > filterOptions.priceRange[1]
+        ) {
+          return false;
+        }
+      }
+
+      // Filter by rating
+      if (filterOptions.selectedRatings.length > 0) {
+        const hotelRating = hotel.hangSao || 0;
+        const hasMatchingRating = filterOptions.selectedRatings.some(
+          (rating) => {
+            const minRating = parseFloat(rating);
+            return hotelRating >= minRating;
+          }
+        );
+        if (!hasMatchingRating) return false;
+      }
+
+      // Filter by clean rating
+      if (filterOptions.selectedClean.length > 0) {
+        const hotelCleanRating = hotel.diemDanhGia || 0;
+        const hasMatchingCleanRating = filterOptions.selectedClean.some(
+          (cleanRating) => {
+            const minCleanRating = parseFloat(cleanRating);
+            return hotelCleanRating >= minCleanRating;
+          }
+        );
+        if (!hasMatchingCleanRating) return false;
+      }
+
+      // Filter by hotel type/status
+      if (filterOptions.selectedTypes.length > 0) {
+        const hotelStatus = hotel.trangThai || "";
+        const hasMatchingType = filterOptions.selectedTypes.some((type) => {
+          return hotelStatus.toLowerCase().includes(type.toLowerCase());
+        });
+        if (!hasMatchingType) return false;
+      }
+
+      // Filter by facilities
+      if (filterOptions.selectedFacilities.length > 0) {
+        const hotelFacilities = hotel.TienNghis || [];
+        const facilityNames = hotelFacilities.map(
+          (facility: any) => facility.tenTN || ""
+        );
+        const hasMatchingFacility = filterOptions.selectedFacilities.some(
+          (facility) => {
+            return facilityNames.some((name: string) =>
+              name.toLowerCase().includes(facility.toLowerCase())
+            );
+          }
+        );
+        if (!hasMatchingFacility) return false;
+      }
+
+      return true;
+    });
+  }, [hotels, filterOptions]);
+
+  // Sort hotels based on current sort options
+  const sortedHotels = useMemo(() => {
+    const hotelsToSort = [...filteredHotels];
+
+    switch (sortOptions.sortBy) {
+      case "relevance":
+        // Keep original order for relevance
+        return hotelsToSort;
+
+      case "distance":
+        // Mock distance calculation (you can implement real distance calculation)
+        return hotelsToSort.sort((a, b) => {
+          const distanceA = Math.random() * 20; // Mock distance
+          const distanceB = Math.random() * 20;
+          return sortOptions.sortOrder === "asc"
+            ? distanceA - distanceB
+            : distanceB - distanceA;
+        });
+
+      case "rating":
+        return hotelsToSort.sort((a, b) => {
+          const ratingA = a.hangSao || 0;
+          const ratingB = b.hangSao || 0;
+          return sortOptions.sortOrder === "desc"
+            ? ratingB - ratingA
+            : ratingA - ratingB;
+        });
+
+      case "price_low":
+        return hotelsToSort.sort((a, b) => {
+          const priceA = a.giaThapNhat || 0;
+          const priceB = b.giaThapNhat || 0;
+          return priceA - priceB;
+        });
+
+      case "price_high":
+        return hotelsToSort.sort((a, b) => {
+          const priceA = a.giaThapNhat || 0;
+          const priceB = b.giaThapNhat || 0;
+          return priceB - priceA;
+        });
+
+      default:
+        return hotelsToSort;
+    }
+  }, [filteredHotels, sortOptions]);
+
+  const handleFilterApply = (newFilterOptions: FilterOptions) => {
+    setFilterOptions(newFilterOptions);
+    setFilterVisible(false);
+  };
+
+  const handleSortApply = (newSortOptions: SortOptions) => {
+    setSortOptions(newSortOptions);
+    setSortVisible(false);
   };
   const openSearchScreen = () => {
     router.push("/other/search");
@@ -102,10 +313,10 @@ export default function HotelListScreen() {
           <View className="flex-row items-center ml-2">
             <Ionicons name="star" size={14} color="#FACC15" />
             <Text className="ml-1 text-sm text-gray-700">
-              {item.hangSao || 4.9}
+              {item.hangSao || 0.0}
             </Text>
             <Text className="ml-1 text-xs text-gray-500">
-              ({item.diemDanhGia || 8})
+              ({item.diemDanhGia || 0})
             </Text>
           </View>
         </View>
@@ -124,7 +335,34 @@ export default function HotelListScreen() {
               <Text className="text-sm text-gray-500 ml-1">/ 2 giờ</Text>
               <Text className="text-xl text-gray-400 mx-2"> • </Text>
               <Text className="text-xs" style={{ color: "#067FC4" }}>
-                Chỉ còn 1 phòng
+                {(() => {
+                  const availableRooms = getAvailableRoomsCount(item.maKS);
+                  const totalRooms = getTotalRoomsCount(item.maKS);
+                  const bookedRooms = getBookedRoomsCount(item.maKS);
+
+                  // Debug log để kiểm tra dữ liệu
+                  // console.log(`Hotel ${item.tenKS}:`, {
+                  //   availableRooms,
+                  //   totalRooms,
+                  //   bookedRooms,
+                  //   hotelId: item.maKS,
+                  //   roomsInHotel: roomsData
+                  //     .filter((room) => room.maKS === item.maKS)
+                  //     .map((room) => ({
+                  //       maPhong: room.maPhong,
+                  //       trangThai: room.trangThai,
+                  //       gia: room.gia,
+                  //     })),
+                  // });
+
+                  if (totalRooms === 0) {
+                    return "Chưa có phòng";
+                  } else if (availableRooms === 0) {
+                    return "Hết phòng";
+                  } else {
+                    return `${availableRooms}/${totalRooms} phòng trống`;
+                  }
+                })()}
               </Text>
             </View>
           </View>
@@ -234,7 +472,7 @@ export default function HotelListScreen() {
         </View>
       ) : (
         <FlatList
-          data={hotels}
+          data={sortedHotels}
           keyExtractor={(item) => item.maKS.toString()}
           renderItem={renderHotel}
           showsVerticalScrollIndicator={false}
@@ -273,10 +511,17 @@ export default function HotelListScreen() {
         </Text>
       </TouchableOpacity>
       {/* Modal */}
-      <SortModal visible={sortVisible} onClose={() => setSortVisible(false)} />
+      <SortModal
+        visible={sortVisible}
+        onClose={() => setSortVisible(false)}
+        onApply={handleSortApply}
+        currentSort={sortOptions}
+      />
       <FilterModal
         visible={filterVisible}
         onClose={() => setFilterVisible(false)}
+        onApply={handleFilterApply}
+        currentFilter={filterOptions}
       />
     </SafeAreaView>
   );
