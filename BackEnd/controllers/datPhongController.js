@@ -760,26 +760,13 @@ exports.updateStatus = async (req, res) => {
     if (trangThai === "Hoàn thành") {
       let transaction;
       try {
-        console.log("🔄 Creating database transaction...");
         transaction = await sequelize.transaction();
-        console.log("✅ Transaction created successfully");
       } catch (transactionError) {
-        console.error("❌ Error creating transaction:", transactionError);
+        console.error("Error creating transaction:", transactionError);
         throw transactionError;
       }
 
       try {
-        console.log("📝 Creating completed booking object...");
-        console.log("📊 Booking data:", {
-          maDatPhong: booking.maDatPhong,
-          maND: booking.maND,
-          maPhong: booking.maPhong,
-          maKS: booking.maKS,
-          NguoiDung: booking.NguoiDung,
-          KhachSan: booking.KhachSan,
-          Phong: booking.Phong,
-        });
-
         // Tạo bản sao lưu để lưu vào completedBookings.json
         const completedBooking = {
           maDP: booking.maDatPhong,
