@@ -289,7 +289,7 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
             </View>
 
             {/* Loading indicator */}
-            {loading && (
+            {loading ? (
               <View
                 style={{
                   padding: 16,
@@ -306,10 +306,10 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
                   Đang tải danh sách tỉnh thành...
                 </Text>
               </View>
-            )}
+            ) : null}
 
             {/* Empty state */}
-            {!loading && provinces.length === 0 && (
+            {!loading && provinces.length === 0 ? (
               <View
                 style={{
                   padding: 16,
@@ -322,14 +322,13 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
                     textAlign: "center",
                   }}
                 >
-                  Không thể tải danh sách tỉnh thành.{'\n'}
-                  Vui lòng kiểm tra kết nối internet.
+                  {"Không thể tải danh sách tỉnh thành.\nVui lòng kiểm tra kết nối internet."}
                 </Text>
               </View>
-            )}
+            ) : null}
 
             {/* Provinces List */}
-            {!loading && (
+            {!loading ? (
               <FlatList
                 data={provinces}
                 keyExtractor={(item) => item.code}
@@ -362,20 +361,20 @@ export default function HomeHeader({ isCollapsed = false }: HomeHeaderProps) {
                       >
                         {item.name}
                       </Text>
-                      {selectedProvince === item.name && (
+                      {selectedProvince === item.name ? (
                         <Ionicons
                           name="checkmark"
                           size={20}
                           color="#FB923C"
                           style={{ marginLeft: "auto" }}
                         />
-                      )}
+                      ) : null}
                     </View>
                   </TouchableOpacity>
                 )}
                 showsVerticalScrollIndicator={false}
               />
-            )}
+            ) : null}
           </View>
         </View>
       </Modal>

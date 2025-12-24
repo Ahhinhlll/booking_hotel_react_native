@@ -246,7 +246,7 @@ export default function QRCodeModal({
               onPress={handleConfirmPayment}
             >
               <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.confirmButtonText}>Đã thanh toán</Text>
+              <Text style={styles.confirmButtonText}>Xác nhận</Text>
             </TouchableOpacity>
           </View>
         </View>

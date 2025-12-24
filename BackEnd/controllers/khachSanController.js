@@ -113,6 +113,8 @@ exports.update = async (req, res) => {
       hangSao,
       diemDanhGia,
       loaiHinh,
+      latitude,
+      longitude,
     } = req.body;
 
     const khachSan = await KhachSan.findByPk(maKS);
@@ -129,6 +131,8 @@ exports.update = async (req, res) => {
         hangSao,
         diemDanhGia,
         loaiHinh,
+        latitude,
+        longitude,
       });
       res.status(200).json(khachSan);
     } else {

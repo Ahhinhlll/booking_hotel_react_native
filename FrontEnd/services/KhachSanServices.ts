@@ -13,6 +13,8 @@ export interface KhachSanData {
   noiBat?: string;
   hangSao?: number;
   diemDanhGia?: number;
+  latitude?: number;
+  longitude?: number;
   // Related data from backend
   Phongs?: any[];
   KhuyenMais?: any[];

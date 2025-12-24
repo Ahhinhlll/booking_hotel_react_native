@@ -325,43 +325,26 @@ export default function HotelListScreen() {
           📍 9.9km | {item.diaChi}
         </Text>
 
-        {item.giaThapNhat && (
+        {item.giaThapNhat != null && (
           <View className="mt-6">
             <Text className="text-xs text-gray-400">Chỉ từ</Text>
+
             <View className="flex-row items-center mt-1">
               <Text className="text-xl text-gray-800">
                 {item.giaThapNhat.toLocaleString()}đ
               </Text>
+
               <Text className="text-sm text-gray-500 ml-1">/ 2 giờ</Text>
               <Text className="text-xl text-gray-400 mx-2"> • </Text>
+
               <Text className="text-xs" style={{ color: "#067FC4" }}>
                 {(() => {
                   const availableRooms = getAvailableRoomsCount(item.maKS);
                   const totalRooms = getTotalRoomsCount(item.maKS);
-                  const bookedRooms = getBookedRoomsCount(item.maKS);
 
-                  // Debug log để kiểm tra dữ liệu
-                  // console.log(`Hotel ${item.tenKS}:`, {
-                  //   availableRooms,
-                  //   totalRooms,
-                  //   bookedRooms,
-                  //   hotelId: item.maKS,
-                  //   roomsInHotel: roomsData
-                  //     .filter((room) => room.maKS === item.maKS)
-                  //     .map((room) => ({
-                  //       maPhong: room.maPhong,
-                  //       trangThai: room.trangThai,
-                  //       gia: room.gia,
-                  //     })),
-                  // });
-
-                  if (totalRooms === 0) {
-                    return "Chưa có phòng";
-                  } else if (availableRooms === 0) {
-                    return "Hết phòng";
-                  } else {
-                    return `${availableRooms}/${totalRooms} phòng trống`;
-                  }
+                  if (totalRooms === 0) return "Chưa có phòng";
+                  if (availableRooms === 0) return "Hết phòng";
+                  return `${availableRooms}/${totalRooms} phòng trống`;
                 })()}
               </Text>
             </View>

@@ -21,12 +21,27 @@ interface FilterModalProps {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-export default function FilterModal({ visible, onClose, onApply, currentFilter }: FilterModalProps) {
-  const [priceRange, setPriceRange] = useState<[number, number]>(currentFilter.priceRange);
-  const [selectedRatings, setSelectedRatings] = useState<string[]>(currentFilter.selectedRatings);
-  const [selectedClean, setSelectedClean] = useState<string[]>(currentFilter.selectedClean);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(currentFilter.selectedTypes);
-  const [selectedFacilities, setSelectedFacilities] = useState<string[]>(currentFilter.selectedFacilities);
+export default function FilterModal({
+  visible,
+  onClose,
+  onApply,
+  currentFilter,
+}: FilterModalProps) {
+  const [priceRange, setPriceRange] = useState<[number, number]>(
+    currentFilter.priceRange
+  );
+  const [selectedRatings, setSelectedRatings] = useState<string[]>(
+    currentFilter.selectedRatings
+  );
+  const [selectedClean, setSelectedClean] = useState<string[]>(
+    currentFilter.selectedClean
+  );
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(
+    currentFilter.selectedTypes
+  );
+  const [selectedFacilities, setSelectedFacilities] = useState<string[]>(
+    currentFilter.selectedFacilities
+  );
 
   useEffect(() => {
     setPriceRange(currentFilter.priceRange);
@@ -127,7 +142,9 @@ export default function FilterModal({ visible, onClose, onApply, currentFilter }
                 min={20000}
                 max={10000000}
                 step={10000}
-                onValuesChange={(values) => setPriceRange(values)}
+                onValuesChange={(values) =>
+                  setPriceRange([values[0], values[1]])
+                }
                 selectedStyle={{ backgroundColor: "#f97316" }}
                 markerStyle={{
                   height: 32,

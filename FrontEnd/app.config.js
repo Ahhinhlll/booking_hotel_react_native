@@ -39,6 +39,13 @@ export default {
     },
     ios: {
       supportsTablet: true,
+      config: {
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || "YOUR_IOS_API_KEY",
+      },
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: "Ứng dụng cần quyền truy cập vị trí để hiển thị khách sạn gần bạn trên bản đồ",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Ứng dụng cần quyền truy cập vị trí để hiển thị khách sạn gần bạn trên bản đồ",
+      },
     },
     android: {
       adaptiveIcon: {
@@ -46,6 +53,15 @@ export default {
         backgroundColor: "#ffffff",
       },
       package: "com.frontend", // Thêm package name cho Android
+      config: {
+        googleMaps: {
+          apiKey: process.env.GOOGLE_MAPS_API_KEY || "YOUR_ANDROID_API_KEY",
+        },
+      },
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+      ],
     },
     web: {
       bundler: "metro",

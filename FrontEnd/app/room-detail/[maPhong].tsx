@@ -33,6 +33,7 @@ import {
   RoomBookingStatus,
 } from "../../services/DatPhongServices";
 import { getImageUrl } from "../../utils/getImageUrl";
+import { isPromotionActive, getPromotionStatusText, sortPromotionsByStatus } from "../../utils/promotionUtils";
 import CustomDateTimePicker from "../../components/DateTimePicker";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -838,10 +839,9 @@ export default function RoomDetailScreen() {
             </View>
           )}
 
-          {/* Promotion Banner */}
           {promotions &&
             promotions.length > 0 &&
-            !roomBookingStatus?.isBooked && (
+            !roomBookingStatus?.isBooked ? (
               <TouchableOpacity
                 onPress={handleViewPromotions}
                 style={{
@@ -878,7 +878,7 @@ export default function RoomDetailScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#FB923C" />
               </TouchableOpacity>
-            )}
+            ) : null}
 
           {/* Booking Benefits */}
           <View style={{ marginBottom: 24 }}>
@@ -1491,7 +1491,6 @@ export default function RoomDetailScreen() {
         </View>
       </Modal>
 
-      {/* Promotions Modal */}
       <Modal
         visible={showPromotionsModal}
         animationType="slide"
@@ -1499,7 +1498,6 @@ export default function RoomDetailScreen() {
         onRequestClose={() => setShowPromotionsModal(false)}
       >
         <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-          {/* Modal Header */}
           <View
             style={{
               flexDirection: "row",
@@ -1520,8 +1518,6 @@ export default function RoomDetailScreen() {
             </Text>
             <View style={{ width: 24 }} />
           </View>
-
-          {/* Content */}
           <View style={{ flex: 1, padding: 16 }}>
             <Text
               style={{
@@ -1537,91 +1533,115 @@ export default function RoomDetailScreen() {
             <FlatList
               data={promotions.length > 0 ? promotions : []}
               keyExtractor={(item) => item.maKM || `promo-${Math.random()}`}
-              renderItem={({ item }) => (
-                <View
-                  style={{
-                    backgroundColor: "#FFFFFF",
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 16,
-                    borderWidth: 1,
-                    borderColor: "#F3F4F6",
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 3,
-                  }}
-                >
-                  <View style={{ flexDirection: "row" }}>
-                    {/* Image */}
-                    <View style={{ marginRight: 16 }}>
-                      <Image
-                        source={{
-                          uri: (() => {
-                            if (item.anh) {
-                              if (
-                                Array.isArray(item.anh) &&
-                                item.anh.length > 0
-                              ) {
-                                const imageUrl = getImageUrl(item.anh[0]);
-                                return imageUrl || undefined;
-                              } else if (typeof item.anh === "string") {
-                                const imageUrl = getImageUrl(item.anh);
-                                return imageUrl || undefined;
+              renderItem={({ item }) => {
+                const isActive = isPromotionActive(item);
+                const statusText = getPromotionStatusText(item);
+                
+                return (
+                  <View
+                    style={{
+                      backgroundColor: isActive ? "#FFFFFF" : "#F3F4F6",
+                      borderRadius: 12,
+                      padding: 16,
+                      marginBottom: 16,
+                      borderWidth: 1,
+                      borderColor: isActive ? "#F3F4F6" : "#D1D5DB",
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: isActive ? 0.1 : 0.05,
+                      shadowRadius: 4,
+                      elevation: isActive ? 3 : 1,
+                      opacity: isActive ? 1 : 0.7,
+                    }}
+                  >{!isActive && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 8,
+                          right: 8,
+                          backgroundColor: "#EF4444",
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 4,
+                          zIndex: 1,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#FFFFFF",
+                            fontSize: 10,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {statusText}
+                        </Text>
+                      </View>
+                    )}<View style={{ flexDirection: "row" }}>
+                      <View style={{ marginRight: 16 }}>
+                        <Image
+                          source={{
+                            uri: (() => {
+                              if (item.anh) {
+                                if (
+                                  Array.isArray(item.anh) &&
+                                  item.anh.length > 0
+                                ) {
+                                  const imageUrl = getImageUrl(item.anh[0]);
+                                  return imageUrl || undefined;
+                                } else if (typeof item.anh === "string") {
+                                  const imageUrl = getImageUrl(item.anh);
+                                  return imageUrl || undefined;
+                                }
                               }
-                            }
-                            return "../../assets/images/giamgia.jpg";
-                          })(),
-                        }}
-                        style={{ width: 110, height: 110 }}
-                        resizeMode="cover"
-                      />
-                    </View>
-
-                    {/* Content */}
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          fontSize: 16,
-                          fontWeight: "600",
-                          color: "#1F2937",
-                          marginBottom: 4,
-                        }}
-                      >
-                        {item.tenKM}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          color: "#6B7280",
-                          marginBottom: 8,
-                        }}
-                      >
-                        {item.thongTinKM}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: "#FB923C",
-                          fontWeight: "600",
-                          marginBottom: 4,
-                        }}
-                      >
-                        Tất cả loại đặt phòng
-                      </Text>
-                      <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                        Hạn sử dụng:
-                        {item.ngayKetThuc
-                          ? new Date(item.ngayKetThuc).toLocaleDateString(
-                              "vi-VN"
-                            )
-                          : "12/10/2025"}
-                      </Text>
+                              return "../../assets/images/giamgia.jpg";
+                            })(),
+                          }}
+                          style={{ 
+                            width: 110, 
+                            height: 110,
+                            opacity: isActive ? 1 : 0.5,
+                          }}
+                          resizeMode="cover"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "600",
+                            color: isActive ? "#1F2937" : "#9CA3AF",
+                            marginBottom: 4,
+                          }}
+                        >
+                          {item.tenKM || "Khuyến mãi"}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            color: isActive ? "#6B7280" : "#9CA3AF",
+                            marginBottom: 8,
+                          }}
+                        >
+                          {item.thongTinKM || ""}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: isActive ? "#FB923C" : "#9CA3AF",
+                            fontWeight: "600",
+                            marginBottom: 4,
+                          }}
+                        >
+                          {isActive ? "Tất cả loại đặt phòng" : "Đã hết hạn"}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: isActive ? "#9CA3AF" : "#D1D5DB" }}>
+                          {`Hạn sử dụng: ${item.ngayKetThuc ? new Date(item.ngayKetThuc).toLocaleDateString("vi-VN") : "12/10/2025"}`}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              )}
+                );
+              }}
               showsVerticalScrollIndicator={false}
             />
           </View>

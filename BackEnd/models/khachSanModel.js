@@ -59,6 +59,14 @@ const KhachSan = sequelize.define(
       type: DataTypes.STRING,
       defaultValue: "Nổi bật",
     },
+    latitude: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+    },
+    longitude: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+    },
   },
   {
     tableName: "KhachSan",

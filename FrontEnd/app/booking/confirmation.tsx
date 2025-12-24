@@ -13,6 +13,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { PAYMENT_METHODS } from "../../services/DatPhongServices";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { PhongServices } from "../../services/PhongServices";
 import { KhachSanServices } from "../../services/KhachSanServices";
@@ -27,6 +28,11 @@ import {
 } from "../../services/KhuyenMaiServices";
 import { VietQRService, VietQRPaymentData } from "../../services/VietQRService";
 import { validateTokenBeforeRequest } from "../../utils/tokenUtils";
+import {
+  isPromotionActive,
+  getPromotionStatusText,
+  sortPromotionsByStatus,
+} from "../../utils/promotionUtils";
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
@@ -164,6 +170,15 @@ export default function BookingConfirmationScreen() {
   };
 
   const handleSelectPromotion = (promotion: KhuyenMaiData) => {
+    // Kiểm tra khuyến mãi còn hiệu lực không
+    if (!isPromotionActive(promotion)) {
+      Alert.alert(
+        "Khuyến mãi không khả dụng",
+        "Chương trình khuyến mãi này đã hết hạn hoặc chưa bắt đầu."
+      );
+      return;
+    }
+
     // Nếu đã chọn khuyến mãi này rồi thì bỏ chọn
     if (selectedPromotion?.maKM === promotion.maKM) {
       setSelectedPromotion(null);
@@ -812,16 +827,76 @@ export default function BookingConfirmationScreen() {
         </View>
 
         {/* Chọn phương thức thanh toán */}
-        <TouchableOpacity
-          style={styles.paymentMethodSection}
-          onPress={() => setShowPaymentModal(true)}
-        >
-          <Ionicons name="card" size={20} color="#FB923C" />
-          <Text style={styles.paymentMethodTitle}>
-            Chọn phương thức thanh toán
-          </Text>
-          <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-        </TouchableOpacity>
+        <View style={styles.paymentMethodContainer}>
+          <TouchableOpacity
+            style={[
+              styles.paymentMethodSection,
+              selectedPaymentMethod && styles.paymentMethodSectionSelected,
+            ]}
+            onPress={() => setShowPaymentModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.paymentMethodLeft}>
+              <View
+                style={[
+                  styles.paymentMethodIconWrapper,
+                  selectedPaymentMethod && styles.paymentMethodIconWrapperSelected,
+                ]}
+              >
+                <Ionicons
+                  name={selectedPaymentMethod ? "wallet" : "card"}
+                  size={24}
+                  color={selectedPaymentMethod ? "#FFFFFF" : "#FB923C"}
+                />
+              </View>
+              <View style={styles.paymentMethodTextContainer}>
+                <Text style={styles.paymentMethodTitle}>
+                  {selectedPaymentMethod
+                    ? "Phương thức thanh toán"
+                    : "Chọn phương thức thanh toán"}
+                </Text>
+                {selectedPaymentMethod ? (
+                  <View style={styles.selectedPaymentRow}>
+                    <View
+                      style={[
+                        styles.selectedPaymentDot,
+                        {
+                          backgroundColor:
+                            PAYMENT_METHODS.find(
+                              (m) => m.id === selectedPaymentMethod
+                            )?.color || "#FB923C",
+                        },
+                      ]}
+                    />
+                    <Text style={styles.selectedPaymentName}>
+                      {PAYMENT_METHODS.find((m) => m.id === selectedPaymentMethod)
+                        ?.name || "Đã chọn"}
+                    </Text>
+                    <View style={styles.selectedPaymentBadge}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={14}
+                        color="#10B981"
+                      />
+                      <Text style={styles.selectedPaymentBadgeText}>Đã chọn</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.paymentMethodHint}>
+                    Nhấn để chọn phương thức thanh toán
+                  </Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.paymentMethodArrow}>
+              <Ionicons
+                name="chevron-forward"
+                size={22}
+                color={selectedPaymentMethod ? "#FB923C" : "#9CA3AF"}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Bottom Bar */}
@@ -938,7 +1013,6 @@ export default function BookingConfirmationScreen() {
         onRequestClose={() => setShowPromotionsModal(false)}
       >
         <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-          {/* Modal Header */}
           <View
             style={{
               flexDirection: "row",
@@ -959,8 +1033,6 @@ export default function BookingConfirmationScreen() {
             </Text>
             <View style={{ width: 24 }} />
           </View>
-
-          {/* Content */}
           <View style={{ flex: 1, padding: 16 }}>
             <View
               style={{
@@ -979,7 +1051,7 @@ export default function BookingConfirmationScreen() {
               >
                 Ưu đãi sẵn có
               </Text>
-              {selectedPromotion && (
+              {selectedPromotion ? (
                 <TouchableOpacity
                   onPress={handleClearPromotion}
                   style={{
@@ -999,134 +1071,169 @@ export default function BookingConfirmationScreen() {
                     Bỏ chọn
                   </Text>
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
-
             <ScrollView showsVerticalScrollIndicator={false}>
               {promotions.length > 0 ? (
-                promotions.map((item) => (
-                  <TouchableOpacity
-                    key={item.maKM || `promo-${Math.random()}`}
-                    onPress={() => handleSelectPromotion(item)}
-                    style={{
-                      backgroundColor:
-                        selectedPromotion?.maKM === item.maKM
-                          ? "#FEF3E7"
-                          : "#FFFFFF",
-                      borderRadius: 12,
-                      padding: 16,
-                      marginBottom: 16,
-                      borderWidth: 1,
-                      borderColor:
-                        selectedPromotion?.maKM === item.maKM
-                          ? "#FB923C"
-                          : "#F3F4F6",
-                      shadowColor: "#000",
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                      elevation: 3,
-                    }}
-                  >
-                    <View style={{ flexDirection: "row" }}>
-                      {/* Image */}
-                      <View style={{ marginRight: 16 }}>
-                        <Image
-                          source={{
-                            uri: (() => {
-                              if (item.anh) {
-                                if (
-                                  Array.isArray(item.anh) &&
-                                  item.anh.length > 0
-                                ) {
-                                  const imageUrl = getImageUrl(item.anh[0]);
-                                  return imageUrl || undefined;
-                                } else if (typeof item.anh === "string") {
-                                  const imageUrl = getImageUrl(item.anh);
-                                  return imageUrl || undefined;
+                sortPromotionsByStatus(promotions).map((item) => {
+                  const isActive = isPromotionActive(item);
+                  const statusText = getPromotionStatusText(item);
+
+                  return (
+                    <TouchableOpacity
+                      key={item.maKM || `promo-${Math.random()}`}
+                      onPress={() => handleSelectPromotion(item)}
+                      style={{
+                        backgroundColor: !isActive
+                          ? "#F3F4F6"
+                          : selectedPromotion?.maKM === item.maKM
+                            ? "#FEF3E7"
+                            : "#FFFFFF",
+                        borderRadius: 12,
+                        padding: 16,
+                        marginBottom: 16,
+                        borderWidth: 1,
+                        borderColor: !isActive
+                          ? "#D1D5DB"
+                          : selectedPromotion?.maKM === item.maKM
+                            ? "#FB923C"
+                            : "#F3F4F6",
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: isActive ? 0.1 : 0.05,
+                        shadowRadius: 4,
+                        elevation: isActive ? 3 : 1,
+                        opacity: isActive ? 1 : 0.7,
+                      }}
+                    >
+                      {!isActive && (
+                        <View
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            backgroundColor: "#EF4444",
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 4,
+                            zIndex: 1,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: "#FFFFFF",
+                              fontSize: 10,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {statusText}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={{ flexDirection: "row" }}>
+                        <View style={{ marginRight: 16 }}>
+                          <Image
+                            source={{
+                              uri: (() => {
+                                if (item.anh) {
+                                  if (
+                                    Array.isArray(item.anh) &&
+                                    item.anh.length > 0
+                                  ) {
+                                    const imageUrl = getImageUrl(item.anh[0]);
+                                    return imageUrl || undefined;
+                                  } else if (typeof item.anh === "string") {
+                                    const imageUrl = getImageUrl(item.anh);
+                                    return imageUrl || undefined;
+                                  }
                                 }
-                              }
-                              return "../../assets/images/giamgia.jpg";
-                            })(),
-                          }}
-                          style={{ width: 110, height: 110 }}
-                          resizeMode="cover"
-                        />
+                                return "../../assets/images/giamgia.jpg";
+                              })(),
+                            }}
+                            style={{
+                              width: 110,
+                              height: 110,
+                              opacity: isActive ? 1 : 0.5,
+                            }}
+                            resizeMode="cover"
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontSize: 16,
+                              fontWeight: "600",
+                              color: isActive ? "#1F2937" : "#9CA3AF",
+                              marginBottom: 4,
+                            }}
+                          >
+                            {item.tenKM || "Khuyến mãi"}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              color: isActive ? "#6B7280" : "#9CA3AF",
+                              marginBottom: 8,
+                            }}
+                          >
+                            {item.thongTinKM || ""}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: isActive ? "#FB923C" : "#9CA3AF",
+                              fontWeight: "600",
+                              marginBottom: 4,
+                            }}
+                          >
+                            {isActive ? "Tất cả loại đặt phòng" : "Đã hết hạn"}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: isActive ? "#9CA3AF" : "#D1D5DB",
+                            }}
+                          >
+                            {`Hạn sử dụng: ${item.ngayKetThuc ? new Date(item.ngayKetThuc).toLocaleDateString("vi-VN") : "12/10/2025"}`}
+                          </Text>
+                        </View>
                       </View>
-
-                      {/* Content */}
-                      <View style={{ flex: 1 }}>
-                        <Text
+                      <View style={{ marginTop: 12, alignItems: "flex-end" }}>
+                        <TouchableOpacity
                           style={{
-                            fontSize: 16,
-                            fontWeight: "600",
-                            color: "#1F2937",
-                            marginBottom: 4,
+                            backgroundColor: !isActive
+                              ? "#D1D5DB"
+                              : selectedPromotion?.maKM === item.maKM
+                                ? "#FB923C"
+                                : "#F3F4F6",
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                            borderRadius: 20,
                           }}
+                          disabled={!isActive}
                         >
-                          {item.tenKM}
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 14,
-                            color: "#6B7280",
-                            marginBottom: 8,
-                          }}
-                        >
-                          {item.thongTinKM}
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 12,
-                            color: "#FB923C",
-                            fontWeight: "600",
-                            marginBottom: 4,
-                          }}
-                        >
-                          Tất cả loại đặt phòng
-                        </Text>
-                        <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                          Hạn sử dụng:
-                          {item.ngayKetThuc
-                            ? new Date(item.ngayKetThuc).toLocaleDateString(
-                                "vi-VN"
-                              )
-                            : "12/10/2025"}
-                        </Text>
+                          <Text
+                            style={{
+                              color: !isActive
+                                ? "#9CA3AF"
+                                : selectedPromotion?.maKM === item.maKM
+                                  ? "#FFFFFF"
+                                  : "#6B7280",
+                              fontSize: 12,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {!isActive
+                              ? "Hết hạn"
+                              : selectedPromotion?.maKM === item.maKM
+                                ? "Đã chọn"
+                                : "Chọn"}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
-                    </View>
-
-                    {/* Select Button */}
-                    <View style={{ marginTop: 12, alignItems: "flex-end" }}>
-                      <TouchableOpacity
-                        style={{
-                          backgroundColor:
-                            selectedPromotion?.maKM === item.maKM
-                              ? "#FB923C"
-                              : "#F3F4F6",
-                          paddingHorizontal: 16,
-                          paddingVertical: 8,
-                          borderRadius: 20,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color:
-                              selectedPromotion?.maKM === item.maKM
-                                ? "#FFFFFF"
-                                : "#6B7280",
-                            fontSize: 12,
-                            fontWeight: "600",
-                          }}
-                        >
-                          {selectedPromotion?.maKM === item.maKM
-                            ? "Đã chọn"
-                            : "Chọn"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                ))
+                    </TouchableOpacity>
+                  );
+                })
               ) : (
                 <View style={{ alignItems: "center", paddingVertical: 40 }}>
                   <Text style={{ fontSize: 16, color: "#6B7280" }}>
@@ -1475,25 +1582,96 @@ const styles = {
   },
 
   // Payment Method Section
+  paymentMethodContainer: {
+    marginBottom: 30,
+  },
   paymentMethodSection: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
+    justifyContent: "space-between" as const,
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 30,
+    borderWidth: 2,
+    borderColor: "#F3F4F6",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  paymentMethodSectionSelected: {
+    borderColor: "#FB923C",
+    backgroundColor: "#FFFBF5",
+  },
+  paymentMethodLeft: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    flex: 1,
+  },
+  paymentMethodIconWrapper: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#FEF3E7",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+    marginRight: 14,
+  },
+  paymentMethodIconWrapperSelected: {
+    backgroundColor: "#FB923C",
+  },
+  paymentMethodTextContainer: {
+    flex: 1,
   },
   paymentMethodTitle: {
     fontSize: 16,
-    fontWeight: "600" as const,
+    fontWeight: "700" as const,
     color: "#1F2937",
-    marginLeft: 8,
-    flex: 1,
+    marginBottom: 4,
+  },
+  paymentMethodHint: {
+    fontSize: 13,
+    color: "#9CA3AF",
+  },
+  selectedPaymentRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    marginTop: 2,
+  },
+  selectedPaymentDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  selectedPaymentName: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: "#374151",
+    marginRight: 8,
+  },
+  selectedPaymentBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  selectedPaymentBadgeText: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    color: "#10B981",
+    marginLeft: 3,
+  },
+  paymentMethodArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#F9FAFB",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
   },
 
   // Bottom Bar

@@ -132,40 +132,27 @@ export default function HotelSection(props: HotelSectionProps) {
               {title}
             </Text>
             {/* Countdown timer for Flash Sale */}
-            {title === "Flash Sale" && isFlashSaleActive && (
+            {title === "Flash Sale" && isFlashSaleActive ? (
               <View className="ml-2 flex-row items-center">
-                {/* Giờ */}
                 <View className="px-1 py-1 bg-orange-500/70 rounded">
                   <Text className="text-xs text-white font-bold">
                     {String(Math.floor(timer / 3600)).padStart(2, "0")}
                   </Text>
                 </View>
-
-                {/* Dấu : */}
-                <Text className="mx-1 text-xs font-bold text-orange-600">
-                  :
-                </Text>
-
-                {/* Phút */}
+                <Text className="mx-1 text-xs font-bold text-orange-600">:</Text>
                 <View className="px-1 py-1 bg-orange-500/70 rounded">
                   <Text className="text-xs text-white font-bold">
                     {String(Math.floor((timer % 3600) / 60)).padStart(2, "0")}
                   </Text>
                 </View>
-
-                {/* Dấu : */}
-                <Text className="mx-1 text-xs font-bold text-orange-600">
-                  :
-                </Text>
-
-                {/* Giây */}
+                <Text className="mx-1 text-xs font-bold text-orange-600">:</Text>
                 <View className="px-1 py-1 bg-orange-500/70 rounded">
                   <Text className="text-xs text-white font-bold">
                     {String(timer % 60).padStart(2, "0")}
                   </Text>
                 </View>
               </View>
-            )}
+            ) : null}
           </View>
           {title === "Flash Sale" && !isFlashSaleActive ? null : (
             <Text className="text-sm text-gray-500 mt-1">{subtitle}</Text>
@@ -198,7 +185,7 @@ export default function HotelSection(props: HotelSectionProps) {
                 />
 
                 {/* Badge Nổi bật */}
-                {hotel.noiBat === "Nổi bật" && (
+                {hotel.noiBat === "Nổi bật" ? (
                   <View
                     className="bg-red-500"
                     style={{
@@ -207,7 +194,6 @@ export default function HotelSection(props: HotelSectionProps) {
                       left: 10,
                       flexDirection: "row",
                       alignItems: "center",
-
                       paddingHorizontal: 4,
                       paddingVertical: 3,
                       borderRadius: 5,
@@ -225,7 +211,7 @@ export default function HotelSection(props: HotelSectionProps) {
                       {hotel.noiBat}
                     </Text>
                   </View>
-                )}
+                ) : null}
               </View>
 
               {/* Nội dung thông tin */}
@@ -242,10 +228,10 @@ export default function HotelSection(props: HotelSectionProps) {
                 <View className="flex-row items-center mb-6">
                   <Ionicons name="star" size={14} color="#FCD34D" />
                   <Text className="text-sm font-semibold text-gray-800 ml-1">
-                    {`${hotel.hangSao}.0`}
+                    {`${hotel.hangSao || 0}.0`}
                   </Text>
                   <Text className="text-sm text-gray-600 ml-1">
-                    {`(${hotel.diemDanhGia})`}
+                    {`(${hotel.diemDanhGia || 0})`}
                   </Text>
                   <Text className="text-xl text-gray-500 mx-1">•</Text>
                   <Text className="text-sm text-gray-600" numberOfLines={1}>
@@ -255,7 +241,7 @@ export default function HotelSection(props: HotelSectionProps) {
 
                 {/* Giá */}
                 <View>
-                  {hotel.giaThapNhat && (
+                  {hotel.giaThapNhat ? (
                     <>
                       <Text className="text-xs text-gray-400">Chỉ từ</Text>
                       <Text className="text-base font-bold text-gray-800">
@@ -265,7 +251,7 @@ export default function HotelSection(props: HotelSectionProps) {
                         </Text>
                       </Text>
                     </>
-                  )}
+                  ) : null}
                 </View>
               </View>
             </View>
@@ -285,9 +271,9 @@ export default function HotelSection(props: HotelSectionProps) {
               <Ionicons name="flash" size={20} color="#F97316" />
               <Text className="text-lg font-bold ml-1">{title}</Text>
             </View>
-            {subtitle && (
+            {subtitle ? (
               <Text className="text-sm text-gray-500 mt-1">{subtitle}</Text>
-            )}
+            ) : null}
           </View>
         </View>
         <View className="flex-row items-center justify-center py-8">
@@ -325,9 +311,9 @@ export default function HotelSection(props: HotelSectionProps) {
               <Ionicons name="flash" size={20} color="#F97316" />
               <Text className="text-lg font-bold ml-1">{title}</Text>
             </View>
-            {subtitle && (
+            {subtitle ? (
               <Text className="text-sm text-gray-500 mt-1">{subtitle}</Text>
-            )}
+            ) : null}
           </View>
         </View>
         <View className="flex-row items-center justify-center py-8">
@@ -364,9 +350,9 @@ export default function HotelSection(props: HotelSectionProps) {
               <Ionicons name="flash" size={20} color="#F97316" />
               <Text className="text-lg font-bold ml-1">{title}</Text>
             </View>
-            {subtitle && (
+            {subtitle ? (
               <Text className="text-sm text-gray-500 mt-1">{subtitle}</Text>
-            )}
+            ) : null}
           </View>
         </View>
         <View className="flex-row items-center justify-center py-8">

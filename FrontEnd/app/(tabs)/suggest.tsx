@@ -95,7 +95,7 @@ export default function SuggestScreen() {
               fontWeight: "600",
             }}
           >
-            {item.hangSao ? item.hangSao.toFixed(1) : "5.0"} (19)
+            {item.hangSao ? item.hangSao.toFixed(1) : "0.0"} (0)
           </Text>
           <View
             style={{

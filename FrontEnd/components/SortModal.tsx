@@ -11,14 +11,19 @@ interface SortModalProps {
 }
 
 const options = [
-  { key: 'relevance', label: "Phù hợp nhất" },
-  { key: 'distance', label: "Khoảng cách từ gần đến xa" },
-  { key: 'rating', label: "Điểm đánh giá từ cao đến thấp" },
-  { key: 'price_low', label: "Giá từ thấp đến cao" },
-  { key: 'price_high', label: "Giá từ cao đến thấp" },
+  { key: "relevance", label: "Phù hợp nhất" },
+  { key: "distance", label: "Khoảng cách từ gần đến xa" },
+  { key: "rating", label: "Điểm đánh giá từ cao đến thấp" },
+  { key: "price_low", label: "Giá từ thấp đến cao" },
+  { key: "price_high", label: "Giá từ cao đến thấp" },
 ];
 
-export default function SortModal({ visible, onClose, onApply, currentSort }: SortModalProps) {
+export default function SortModal({
+  visible,
+  onClose,
+  onApply,
+  currentSort,
+}: SortModalProps) {
   const [selected, setSelected] = useState<string>(currentSort.sortBy);
 
   useEffect(() => {
@@ -28,7 +33,7 @@ export default function SortModal({ visible, onClose, onApply, currentSort }: So
   const handleApply = () => {
     const newSortOptions: SortOptions = {
       sortBy: selected as any,
-      sortOrder: selected === 'rating' ? 'desc' : 'asc'
+      sortOrder: selected === "rating" ? "desc" : "asc",
     };
     onApply(newSortOptions);
   };
@@ -58,7 +63,6 @@ export default function SortModal({ visible, onClose, onApply, currentSort }: So
             </Text>
             <View style={{ width: 24 }} />
           </View>
-
           {/* Options */}
           {options.map((opt, i) => (
             <View key={i}>
@@ -93,7 +97,6 @@ export default function SortModal({ visible, onClose, onApply, currentSort }: So
               {i < options.length - 1 && <View className="h-px bg-gray-200" />}
             </View>
           ))}
-
           {/* Apply Button */}
           <TouchableOpacity
             onPress={handleApply}

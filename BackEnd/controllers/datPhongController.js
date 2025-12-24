@@ -10,6 +10,8 @@ const sequelize = require("../config/config");
 const nguoiDungController = require("./nguoiDungController");
 const fs = require("fs");
 const path = require("path");
+const { sendBookingConfirmationEmail } = require("../utils/emailService");
+
 
 // Helper function để lấy thông tin user từ JWT token
 const getUserFromToken = async (req, transaction = null) => {
@@ -526,6 +528,63 @@ exports.insert = async (req, res) => {
       }
 
       await transaction.commit();
+
+      // Gửi email xác nhận đặt phòng
+      if (paymentResult.success) {
+        try {
+          const fullBookingInfo = await db.DatPhong.findByPk(newBooking.maDatPhong, {
+            include: [
+              { model: db.NguoiDung, attributes: ['email', 'hoTen', 'sdt'] },
+              {
+                model: db.Phong,
+                attributes: ['tenPhong', 'dienTich'],
+                include: [{ model: db.KhachSan, attributes: ['tenKS', 'diaChi', 'tinhThanh', 'hangSao'] }]
+              },
+              { model: db.KhuyenMai, attributes: ['tenKM'] }
+            ]
+          });
+
+          if (fullBookingInfo?.NguoiDung?.email) {
+            const emailData = {
+              userEmail: fullBookingInfo.NguoiDung.email,
+              userName: fullBookingInfo.NguoiDung.hoTen,
+              userPhone: fullBookingInfo.NguoiDung.sdt || '',
+              bookingId: newBooking.maDatPhong,
+              hotelName: fullBookingInfo.Phong?.KhachSan?.tenKS || 'Khách sạn',
+              hotelAddress: `${fullBookingInfo.Phong?.KhachSan?.diaChi || ''}, ${fullBookingInfo.Phong?.KhachSan?.tinhThanh || ''}`,
+              tinhThanh: fullBookingInfo.Phong?.KhachSan?.tinhThanh || '',
+              hangSao: fullBookingInfo.Phong?.KhachSan?.hangSao || 0,
+              roomName: fullBookingInfo.Phong?.tenPhong || 'Phòng',
+              dienTich: fullBookingInfo.Phong?.dienTich || '',
+              checkInDate: fullBookingInfo.ngayNhan,
+              checkOutDate: fullBookingInfo.ngayTra,
+              bookingType: fullBookingInfo.loaiDat,
+              soGio: fullBookingInfo.soGio,
+              soNgay: fullBookingInfo.soNgay,
+              soNguoiLon: fullBookingInfo.soNguoiLon || 1,
+              soTreEm: fullBookingInfo.soTreEm || 0,
+              basePrice: newBooking.tongTienGoc,
+              discountAmount: newBooking.tongTienGoc - finalPrice,
+              finalPrice: finalPrice,
+              paymentMethod: paymentMethod,
+              promotionName: fullBookingInfo.KhuyenMai?.tenKM || null,
+              trangThai: fullBookingInfo.trangThai || 'Đã xác nhận',
+              ngayDat: fullBookingInfo.ngayDat,
+              ghiChu: fullBookingInfo.ghiChu || ''
+            };
+
+            console.log('📧 Email Data - userPhone:', emailData.userPhone);
+            console.log('📧 NguoiDung.sdt:', fullBookingInfo.NguoiDung?.sdt);
+
+            // Gửi email bất đồng bộ
+            sendBookingConfirmationEmail(emailData).catch(err => {
+              console.error('Lỗi gửi email:', err.message);
+            });
+          }
+        } catch (emailError) {
+          console.error('Lỗi chuẩn bị email:', emailError.message);
+        }
+      }
 
       res.status(201).json({
         success: true,
@@ -1236,138 +1295,7 @@ exports.confirmBooking = async (req, res) => {
   }
 };
 
-// Helper function để xử lý thanh toán sau khi insert thành công
-async function handlePaymentProcessing(
-  bookingData,
-  paymentMethod,
-  finalPrice,
-  res
-) {
-  try {
-    // Tạo payment record
-    const paymentData = {
-      maDatPhong: bookingData.maDatPhong,
-      phuongThuc: paymentMethod,
-      soTien: finalPrice,
-      trangThai: "Chưa thanh toán",
-      maGiaoDich: `TXN_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`,
-    };
 
-    console.log("Creating payment with data:", paymentData); // Debug log
-
-    const payment = await db.ThanhToan.create(paymentData);
-
-    // Xử lý thanh toán dựa trên phương thức
-    let paymentResult = { success: false, message: "Chưa xử lý thanh toán" };
-
-    switch (paymentMethod) {
-      case "momo":
-        paymentResult = await processMoMoPayment(
-          finalPrice,
-          bookingData.maDatPhong
-        );
-        break;
-      case "zalopay":
-        paymentResult = await processZaloPayPayment(
-          finalPrice,
-          bookingData.maDatPhong
-        );
-        break;
-      case "shopeepay":
-        paymentResult = await processShopeePayPayment(
-          finalPrice,
-          bookingData.maDatPhong
-        );
-        break;
-      case "credit":
-        paymentResult = await processCreditCardPayment(
-          finalPrice,
-          bookingData.maDatPhong
-        );
-        break;
-      case "atm":
-        paymentResult = await processATMPayment(
-          finalPrice,
-          bookingData.maDatPhong
-        );
-        break;
-      case "hotel":
-        paymentResult = { success: true, message: "Thanh toán tại khách sạn" };
-        break;
-      default:
-        paymentResult = {
-          success: false,
-          message: "Phương thức thanh toán không hỗ trợ",
-        };
-    }
-
-    // Cập nhật trạng thái dựa trên kết quả thanh toán
-    if (paymentResult.success) {
-      // Đối với ATM, chỉ cập nhật trạng thái khi có xác nhận thanh toán
-      if (paymentMethod === "atm" && paymentResult.requiresConfirmation) {
-        // Giữ nguyên trạng thái "Chờ thanh toán" cho ATM
-        console.log(
-          `ATM payment QR generated for booking ${bookingData.maDatPhong}`
-        );
-        await payment.update({ trangThai: "Chờ xác nhận" });
-      } else if (paymentMethod !== "hotel") {
-        // Nếu thanh toán online thành công -> "Đã xác nhận"
-        await db.DatPhong.update(
-          { trangThai: "Đã xác nhận" },
-          { where: { maDatPhong: bookingData.maDatPhong } }
-        );
-        await payment.update({ trangThai: "Đã thanh toán" });
-      }
-      // Nếu thanh toán tại khách sạn -> vẫn giữ "Chờ thanh toán"
-    } else {
-      await db.DatPhong.update(
-        { trangThai: "Thanh toán thất bại" },
-        { where: { maDatPhong: bookingData.maDatPhong } }
-      );
-      await payment.update({ trangThai: "Thanh toán thất bại" });
-    }
-
-    console.log("Booking created successfully:", bookingData.maDatPhong); // Debug log
-
-    res.status(200).json({
-      success: true,
-      data: {
-        bookingId: bookingData.maDatPhong,
-        finalAmount: finalPrice,
-        basePrice: bookingData.tongTienGoc,
-        discountAmount: bookingData.tongTienGoc - finalPrice,
-        paymentStatus: paymentResult.success ? "success" : "failed",
-        paymentMessage: paymentResult.message,
-        // Thêm QR data cho ATM
-        qrData:
-          paymentMethod === "atm" && paymentResult.qrData
-            ? paymentResult.qrData
-            : null,
-        requiresConfirmation:
-          paymentMethod === "atm" && paymentResult.requiresConfirmation,
-        promotion: appliedPromotion
-          ? {
-              name: appliedPromotion.tenKM,
-              discount:
-                appliedPromotion.phanTramGiam || appliedPromotion.giaTriGiam,
-            }
-          : null,
-      },
-      message: paymentResult.success
-        ? "Đặt phòng và thanh toán thành công"
-        : "Đặt phòng thành công, thanh toán thất bại",
-    });
-  } catch (error) {
-    console.error("Lỗi khi xử lý thanh toán:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi hệ thống khi xử lý thanh toán",
-      error: error.message,
-    });
-  }
-}
 
 // API để tính giá trước khi đặt phòng
 exports.calculatePrice = async (req, res) => {

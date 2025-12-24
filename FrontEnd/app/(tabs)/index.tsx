@@ -63,7 +63,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Flash Sale Section */}
-        {showFlashSale && (
+        {showFlashSale ? (
           <HotelSection
             title="Flash Sale"
             subtitle="Nhanh tay săn deal hot 🔥 – chỉ trong hôm nay!"
@@ -72,7 +72,7 @@ export default function HomeScreen() {
             titleColor="#F97316"
             onExpired={() => setShowFlashSale(false)}
           />
-        )}
+        ) : null}
 
         {/* Special Deals Section */}
         <HotelSection

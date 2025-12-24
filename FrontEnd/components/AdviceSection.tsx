@@ -47,9 +47,9 @@ export default function AdviceSection(props: AdviceSectionProps) {
       <View style={styles.header}>
         <View>
           <Text style={styles.sectionTitle}>{props.title}</Text>
-          {props.subtitle && (
+          {props.subtitle ? (
             <Text style={styles.subtitle}>{props.subtitle}</Text>
-          )}
+          ) : null}
         </View>
         <TouchableOpacity
           style={styles.linkContainer}
