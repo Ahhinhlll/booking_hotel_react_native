@@ -24,7 +24,8 @@ import SearchInput from "../components/SearchInput";
 import { phongService } from "../services/phongService";
 import { khachSanService } from "../services/khachSanService";
 import { loaiPhongService } from "../services/loaiPhongService";
-import { Phong, KhachSan, LoaiPhong } from "../types";
+import { datPhongService } from "../services/datPhongService";
+import { Phong, KhachSan, LoaiPhong, DatPhong } from "../types";
 import ImageUpload from "../components/ImageUpload";
 import ImageDisplay from "../components/ImageDisplay";
 
@@ -32,6 +33,7 @@ const RoomManagement = () => {
   const [rooms, setRooms] = useState<Phong[]>([]);
   const [hotels, setHotels] = useState<KhachSan[]>([]);
   const [roomTypes, setRoomTypes] = useState<LoaiPhong[]>([]);
+  const [bookings, setBookings] = useState<DatPhong[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Phong | null>(null);
@@ -51,6 +53,7 @@ const RoomManagement = () => {
     loadRooms();
     loadHotels();
     loadRoomTypes();
+    loadBookings();
   }, []);
 
   const loadRooms = async () => {
@@ -75,6 +78,28 @@ const RoomManagement = () => {
       console.error("Error loading hotels:", error);
       setHotels([]);
     }
+  };
+
+  const loadBookings = async () => {
+    try {
+      const data = await datPhongService.getAll();
+      // Lọc các đơn đặt phòng đang hoạt động (TRỪ "Hoàn thành" và "Đã hủy")
+      const activeBookings = (Array.isArray(data) ? data : []).filter(
+        (booking: DatPhong) =>
+          booking.trangThai !== "Hoàn thành" &&
+          booking.trangThai !== "Đã hủy"
+      );
+      setBookings(activeBookings);
+    } catch (error) {
+      console.error("Error loading bookings:", error);
+      setBookings([]);
+    }
+  };
+
+  // Hàm kiểm tra phòng có đang được đặt hay không
+  // Phòng được coi là "Đã đặt" nếu có bất kỳ đơn nào không phải "Hoàn thành" hoặc "Đã hủy"
+  const isRoomBooked = (maPhong: string): boolean => {
+    return bookings.some((booking) => booking.maPhong === maPhong);
   };
 
   const loadRoomTypes = async () => {
@@ -193,6 +218,13 @@ const RoomManagement = () => {
 
   const roomColumns = [
     {
+      title: "#",
+      key: "stt",
+      width: 60,
+      align: "center" as const,
+      render: (_: any, __: any, index: number) => index + 1,
+    },
+    {
       title: "Ảnh",
       dataIndex: "anh",
       key: "anh",
@@ -238,21 +270,16 @@ const RoomManagement = () => {
     },
     {
       title: "Trạng thái",
-      dataIndex: "trangThai",
       key: "trangThai",
-      render: (status: string) => (
-        <Tag
-          color={
-            status === "Trống"
-              ? "green"
-              : status === "Đã đặt"
-              ? "red"
-              : "orange"
-          }
-        >
-          {status}
-        </Tag>
-      ),
+      render: (_: any, record: Phong) => {
+        const booked = isRoomBooked(record.maPhong);
+        const status = booked ? "Đã đặt" : "Trống";
+        return (
+          <Tag color={booked ? "red" : "green"}>
+            {status}
+          </Tag>
+        );
+      },
     },
     {
       title: "Thao tác",
@@ -355,19 +382,19 @@ const RoomManagement = () => {
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "14px", color: "#666" }}>
+                  <div style={{ fontSize: "14px", color: "#52c41a" }}>
                     {
-                      hotelRooms.filter((room) => room.trangThai === "Trống")
+                      hotelRooms.filter((room) => !isRoomBooked(room.maPhong))
                         .length
                     }
-                    trống
+                    {" "}trống
                   </div>
-                  <div style={{ fontSize: "14px", color: "#666" }}>
+                  <div style={{ fontSize: "14px", color: "#f5222d" }}>
                     {
-                      hotelRooms.filter((room) => room.trangThai === "Đã đặt")
+                      hotelRooms.filter((room) => isRoomBooked(room.maPhong))
                         .length
                     }
-                    đã đặt
+                    {" "}đã đặt
                   </div>
                 </div>
               </div>

@@ -337,42 +337,42 @@ async function sendBookingConfirmationEmail(bookingInfo) {
         ngayDat: bookingInfo.ngayDat || new Date(),
         loaiDat: bookingType,
         trangThai: bookingInfo.trangThai || "Đã xác nhận",
-        
+
         // Thông tin khách hàng
         tenKhachHang: userName,
         email: userEmail,
         sdt: (() => {
           // Ưu tiên lấy từ userPhone
           if (bookingInfo.userPhone) return bookingInfo.userPhone;
-          
+
           // Fallback: trích xuất từ ghiChu (format: "Thông tin người đặt: Tên - 0xxxxxxxxx")
           const ghiChu = bookingInfo.ghiChu || bookingInfo.notes || "";
           const phoneMatch = ghiChu.match(/(\d{10,11})/);
           if (phoneMatch) return phoneMatch[1];
-          
+
           return "";
         })(),
-        
+
         // Thông tin khách sạn
         tenKhachSan: hotelName,
         diaChiKhachSan: hotelAddress,
         tinhThanh: bookingInfo.tinhThanh || "",
         hangSao: bookingInfo.hangSao || 0,
-        
+
         // Thông tin phòng
         tenPhong: roomName,
         dienTich: bookingInfo.dienTich || "",
-        
+
         // Thời gian đặt phòng
         ngayNhan: checkInDate,
         ngayTra: checkOutDate,
         soGio: bookingInfo.soGio || bookingInfo.duration || null,
         soNgay: bookingInfo.soNgay || null,
-        
+
         // Số người
         soNguoiLon: bookingInfo.soNguoiLon || 1,
         soTreEm: bookingInfo.soTreEm || 0,
-        
+
         // Thanh toán
         giaPhong: basePrice,
         giamGia: discountAmount || 0,
@@ -380,16 +380,12 @@ async function sendBookingConfirmationEmail(bookingInfo) {
         tongTien: finalPrice,
         phuongThucThanhToan: paymentMethodNames[paymentMethod] || paymentMethod,
         trangThaiThanhToan: bookingInfo.paymentStatus || "Đã thanh toán",
-        
+
         // Ghi chú
         ghiChu: bookingInfo.ghiChu || bookingInfo.notes || "",
       };
-      
-      console.log('📄 PDF Data - sdt:', pdfData.sdt);
-      console.log('📄 bookingInfo.userPhone:', bookingInfo.userPhone);
-      
+
       pdfBuffer = await generateInvoicePDF(pdfData);
-      console.log("PDF invoice generated successfully");
     } catch (pdfError) {
       console.error("Error generating PDF invoice:", pdfError);
       // Tiếp tục gửi email mà không có PDF
@@ -476,4 +472,198 @@ async function verifyEmailConfig() {
 module.exports = {
   sendBookingConfirmationEmail,
   verifyEmailConfig,
+  sendCompletedBookingsReport,
 };
+
+/**
+ * Gửi email báo cáo danh sách đơn đặt phòng hoàn thành
+ * @param {Array} completedBookings - Danh sách đơn đặt phòng hoàn thành
+ * @param {string} recipientEmail - Email người nhận (mặc định là EMAIL_USER)
+ */
+async function sendCompletedBookingsReport(
+  completedBookings,
+  recipientEmail = null
+) {
+  try {
+    const toEmail = recipientEmail || process.env.EMAIL_USER;
+
+    if (!completedBookings || completedBookings.length === 0) {
+      return {
+        success: false,
+        error: "Không có dữ liệu để gửi",
+      };
+    }
+
+    // Format tiền tệ
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+      }).format(amount || 0);
+    };
+
+    // Format ngày giờ
+    const formatDateTime = (dateString) => {
+      if (!dateString) return "N/A";
+      const date = new Date(dateString);
+      return date.toLocaleString("vi-VN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    // Tính tổng doanh thu
+    const totalRevenue = completedBookings.reduce(
+      (sum, b) => sum + (b.tongTienSauGiam || 0),
+      0
+    );
+    const reportDate = new Date().toLocaleDateString("vi-VN");
+
+    // Tạo HTML content
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Báo cáo đơn đặt phòng hoàn thành</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+    .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #1890ff, #52c41a); color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 10px 0 0; opacity: 0.9; }
+    .summary { display: flex; justify-content: space-around; padding: 20px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+    .summary-item { text-align: center; }
+    .summary-value { font-size: 28px; font-weight: bold; color: #1890ff; }
+    .summary-label { color: #666; font-size: 14px; margin-top: 5px; }
+    .content { padding: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #1890ff; color: white; padding: 12px 8px; text-align: left; }
+    td { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; }
+    tr:hover { background: #f5f5f5; }
+    .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; background: #52c41a; color: white; }
+    .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
+    .amount { color: #1890ff; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>BÁO CÁO ĐƠN ĐẶT PHÒNG HOÀN THÀNH</h1>
+      <p>Ngày xuất báo cáo: ${reportDate}</p>
+    </div>
+    
+    <div class="summary">
+      <div class="summary-item">
+        <div class="summary-value">${completedBookings.length}</div>
+        <div class="summary-label">Tổng đơn hoàn thành</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value" style="color: #52c41a;">${formatCurrency(
+          totalRevenue
+        )}</div>
+        <div class="summary-label">Tổng doanh thu</div>
+      </div>
+    </div>
+    
+    <div class="content">
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Khách hàng</th>
+            <th>Khách sạn</th>
+            <th>Phòng</th>
+            <th>Loại đặt</th>
+            <th>Ngày nhận</th>
+            <th>Ngày trả</th>
+            <th>Tổng tiền</th>
+            <th>Hoàn thành</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${completedBookings
+            .map(
+              (booking, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${booking.tenNguoiDat || "N/A"}</td>
+              <td>${booking.tenKS || "N/A"}</td>
+              <td>${booking.tenPhong || "N/A"}</td>
+              <td>${booking.loaiDat || "N/A"}</td>
+              <td>${formatDateTime(booking.ngayNhan)}</td>
+              <td>${formatDateTime(booking.ngayTra)}</td>
+              <td class="amount">${formatCurrency(booking.tongTienSauGiam)}</td>
+              <td>${formatDateTime(booking.completedAt)}</td>
+            </tr>
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="footer">
+      <p><strong>Hệ thống Booking Hotel</strong></p>
+      <p>Email tự động - Vui lòng không phản hồi</p>
+      <p>© ${new Date().getFullYear()} Booking Hotel</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    // Cấu hình email
+    const mailOptions = {
+      from: {
+        name: "Booking Hotel Admin",
+        address: process.env.EMAIL_USER,
+      },
+      to: toEmail,
+      subject: `Báo cáo đơn đặt phòng hoàn thành - ${reportDate} (${completedBookings.length} đơn)`,
+      html: htmlContent,
+      text: `
+BÁO CÁO ĐƠN ĐẶT PHÒNG HOÀN THÀNH
+Ngày: ${reportDate}
+
+TỔNG QUAN:
+- Số đơn hoàn thành: ${completedBookings.length}
+- Tổng doanh thu: ${formatCurrency(totalRevenue)}
+
+CHI TIẾT:
+${completedBookings
+  .map(
+    (b, i) =>
+      `${i + 1}. ${b.tenNguoiDat} - ${b.tenKS} - ${
+        b.tenPhong
+      } - ${formatCurrency(b.tongTienSauGiam)}`
+  )
+  .join("\n")}
+
+---
+Hệ thống Booking Hotel
+      `,
+    };
+
+    // Gửi email
+    const info = await transporter.sendMail(mailOptions);
+
+    return {
+      success: true,
+      messageId: info.messageId,
+      sentTo: toEmail,
+      bookingsCount: completedBookings.length,
+      totalRevenue: totalRevenue,
+    };
+  } catch (error) {
+    console.error("Error sending completed bookings report:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}

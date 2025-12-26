@@ -139,13 +139,17 @@ export default function HotelSection(props: HotelSectionProps) {
                     {String(Math.floor(timer / 3600)).padStart(2, "0")}
                   </Text>
                 </View>
-                <Text className="mx-1 text-xs font-bold text-orange-600">:</Text>
+                <Text className="mx-1 text-xs font-bold text-orange-600">
+                  :
+                </Text>
                 <View className="px-1 py-1 bg-orange-500/70 rounded">
                   <Text className="text-xs text-white font-bold">
                     {String(Math.floor((timer % 3600) / 60)).padStart(2, "0")}
                   </Text>
                 </View>
-                <Text className="mx-1 text-xs font-bold text-orange-600">:</Text>
+                <Text className="mx-1 text-xs font-bold text-orange-600">
+                  :
+                </Text>
                 <View className="px-1 py-1 bg-orange-500/70 rounded">
                   <Text className="text-xs text-white font-bold">
                     {String(timer % 60).padStart(2, "0")}

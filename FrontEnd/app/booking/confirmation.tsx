@@ -11,6 +11,8 @@ import {
   TextInput,
   Modal,
   SafeAreaView,
+  Linking,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PAYMENT_METHODS } from "../../services/DatPhongServices";
@@ -27,6 +29,7 @@ import {
   KhuyenMaiData,
 } from "../../services/KhuyenMaiServices";
 import { VietQRService, VietQRPaymentData } from "../../services/VietQRService";
+import MoMoServices from "../../services/MoMoServices";
 import { validateTokenBeforeRequest } from "../../utils/tokenUtils";
 import {
   isPromotionActive,
@@ -62,6 +65,7 @@ export default function BookingConfirmationScreen() {
     null
   );
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
+  const [momoProcessing, setMomoProcessing] = useState(false);
 
   useEffect(() => {
     if (params.bookingData) {
@@ -526,6 +530,67 @@ export default function BookingConfirmationScreen() {
       if (selectedPaymentMethod === "atm") {
         // Đảm bảo QR modal được hiển thị với bookingId mới
         setShowQRModal(true);
+      } else if (selectedPaymentMethod === "momo") {
+        // Xử lý thanh toán MoMo
+        setMomoProcessing(true);
+        try {
+          // Lấy bookingId từ response
+          const resultAny = result as any;
+          const bookingId = resultAny.data?.data?.bookingId 
+            || resultAny.data?.bookingId 
+            || resultAny.data?.data?.maDatPhong
+            || resultAny.data?.maDatPhong 
+            || currentBookingId;
+          
+          if (!bookingId) {
+            Alert.alert("Lỗi", "Không tìm thấy mã đặt phòng để thanh toán MoMo");
+            setMomoProcessing(false);
+            return;
+          }
+          
+          const momoResponse = await MoMoServices.createPayment({
+            bookingId: bookingId,
+            amount: finalPrice,
+            orderInfo: `Thanh toán đặt phòng #${bookingId}`,
+          });
+
+          if (momoResponse.success && momoResponse.data?.payUrl) {
+            
+            // Thứ tự ưu tiên: deeplink (mở app) > payUrl (mở web)
+            const deeplink = momoResponse.data.deeplink;
+            const payUrl = momoResponse.data.payUrl;
+            
+            // Lưu successData vào state để dùng khi MoMo callback
+            // MoMo sẽ redirect về exp://192.168.1.161:8081/--/booking/momo-result sau khi thanh toán
+            
+            // Thử mở app MoMo bằng deeplink trước
+            if (deeplink) {
+              try {
+                const canOpenDeeplink = await Linking.canOpenURL(deeplink);
+                
+                if (canOpenDeeplink) {
+                  // Mở app MoMo - sau khi thanh toán xong, MoMo sẽ tự động redirect về app
+                  await Linking.openURL(deeplink);
+                  setMomoProcessing(false);
+                  // Không cần Alert - MoMo sẽ callback về momo-result.tsx
+                  return;
+                }
+              } catch (deeplinkError) {
+              }
+            }
+            
+            // Fallback: mở payUrl trên browser
+            await Linking.openURL(payUrl);
+            // Không cần Alert - MoMo sẽ callback về momo-result.tsx
+          } else {
+            Alert.alert("Lỗi", momoResponse.message || "Không thể tạo link thanh toán MoMo");
+          }
+        } catch (momoError: any) {
+          console.error("MoMo payment error:", momoError);
+          Alert.alert("Lỗi", "Không thể kết nối đến MoMo. Vui lòng thử lại sau.");
+        } finally {
+          setMomoProcessing(false);
+        }
       } else {
         router.push({
           pathname: "/booking/success",

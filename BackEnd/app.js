@@ -15,6 +15,8 @@ const thanhToanRoutes = require("./routes/thanhToanRoutes");
 const danhGiaRoutes = require("./routes/danhGiaRoutes");
 const suCoRoutes = require("./routes/suCoRoutes");
 const uploadRoutes = require("./routes/upLoadRoutes");
+const chatBoxRoutes = require("./routes/chatBoxRoutes");
+const momoRoutes = require("./routes/momoRoutes");
 require("dotenv").config();
 const app = express();
 
@@ -46,6 +48,8 @@ app.use("/api", danhGiaRoutes);
 app.use("/api", suCoRoutes);
 
 app.use("/api", uploadRoutes);
+app.use("/api/chatbox", chatBoxRoutes);
+app.use("/api", momoRoutes);
 // Thêm middleware để phục vụ files tĩnh
 app.use("/uploads", express.static("public/uploads"));
 

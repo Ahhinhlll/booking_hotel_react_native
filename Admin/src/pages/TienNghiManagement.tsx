@@ -151,6 +151,13 @@ const TienNghiManagement: React.FC = () => {
 
   const columns = [
     {
+      title: "#",
+      key: "stt",
+      width: 60,
+      align: "center" as const,
+      render: (_: any, __: any, index: number) => index + 1,
+    },
+    {
       title: "Tên tiện ích",
       dataIndex: "tenTienNghi",
       key: "tenTienNghi",
@@ -327,13 +334,7 @@ const TienNghiManagement: React.FC = () => {
           dataSource={tienNghiList}
           rowKey="maTienNghi"
           loading={loading}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} của ${total} tiện ích`,
-          }}
+          pagination={{ pageSize: 10 }}
         />
       </Card>
 

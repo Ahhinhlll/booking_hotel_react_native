@@ -15,6 +15,7 @@ const {
   getCompletedBookings,
   getCompletedBookingsByUserId,
   confirmATMPayment,
+  sendCompletedBookingsReportEmail,
 } = require("../controllers/datPhongController");
 const { verifyToken } = require("../middlewares/authMiddleware");
 const router = express.Router();
@@ -41,5 +42,8 @@ router.get("/datphong/completed/user/:userId", getCompletedBookingsByUserId);
 
 // API endpoint for ATM payment confirmation
 router.post("/datphong/confirm-atm-payment", verifyToken, confirmATMPayment);
+
+// API endpoint for sending completed bookings report via email
+router.post("/datphong/completed/send-report", sendCompletedBookingsReportEmail);
 
 module.exports = router;

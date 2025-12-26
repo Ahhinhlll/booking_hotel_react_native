@@ -12,7 +12,6 @@ const fs = require("fs");
 const path = require("path");
 const { sendBookingConfirmationEmail } = require("../utils/emailService");
 
-
 // Helper function để lấy thông tin user từ JWT token
 const getUserFromToken = async (req, transaction = null) => {
   try {
@@ -532,30 +531,40 @@ exports.insert = async (req, res) => {
       // Gửi email xác nhận đặt phòng
       if (paymentResult.success) {
         try {
-          const fullBookingInfo = await db.DatPhong.findByPk(newBooking.maDatPhong, {
-            include: [
-              { model: db.NguoiDung, attributes: ['email', 'hoTen', 'sdt'] },
-              {
-                model: db.Phong,
-                attributes: ['tenPhong', 'dienTich'],
-                include: [{ model: db.KhachSan, attributes: ['tenKS', 'diaChi', 'tinhThanh', 'hangSao'] }]
-              },
-              { model: db.KhuyenMai, attributes: ['tenKM'] }
-            ]
-          });
+          const fullBookingInfo = await db.DatPhong.findByPk(
+            newBooking.maDatPhong,
+            {
+              include: [
+                { model: db.NguoiDung, attributes: ["email", "hoTen", "sdt"] },
+                {
+                  model: db.Phong,
+                  attributes: ["tenPhong", "dienTich"],
+                  include: [
+                    {
+                      model: db.KhachSan,
+                      attributes: ["tenKS", "diaChi", "tinhThanh", "hangSao"],
+                    },
+                  ],
+                },
+                { model: db.KhuyenMai, attributes: ["tenKM"] },
+              ],
+            }
+          );
 
           if (fullBookingInfo?.NguoiDung?.email) {
             const emailData = {
               userEmail: fullBookingInfo.NguoiDung.email,
               userName: fullBookingInfo.NguoiDung.hoTen,
-              userPhone: fullBookingInfo.NguoiDung.sdt || '',
+              userPhone: fullBookingInfo.NguoiDung.sdt || "",
               bookingId: newBooking.maDatPhong,
-              hotelName: fullBookingInfo.Phong?.KhachSan?.tenKS || 'Khách sạn',
-              hotelAddress: `${fullBookingInfo.Phong?.KhachSan?.diaChi || ''}, ${fullBookingInfo.Phong?.KhachSan?.tinhThanh || ''}`,
-              tinhThanh: fullBookingInfo.Phong?.KhachSan?.tinhThanh || '',
+              hotelName: fullBookingInfo.Phong?.KhachSan?.tenKS || "Khách sạn",
+              hotelAddress: `${
+                fullBookingInfo.Phong?.KhachSan?.diaChi || ""
+              }, ${fullBookingInfo.Phong?.KhachSan?.tinhThanh || ""}`,
+              tinhThanh: fullBookingInfo.Phong?.KhachSan?.tinhThanh || "",
               hangSao: fullBookingInfo.Phong?.KhachSan?.hangSao || 0,
-              roomName: fullBookingInfo.Phong?.tenPhong || 'Phòng',
-              dienTich: fullBookingInfo.Phong?.dienTich || '',
+              roomName: fullBookingInfo.Phong?.tenPhong || "Phòng",
+              dienTich: fullBookingInfo.Phong?.dienTich || "",
               checkInDate: fullBookingInfo.ngayNhan,
               checkOutDate: fullBookingInfo.ngayTra,
               bookingType: fullBookingInfo.loaiDat,
@@ -568,21 +577,18 @@ exports.insert = async (req, res) => {
               finalPrice: finalPrice,
               paymentMethod: paymentMethod,
               promotionName: fullBookingInfo.KhuyenMai?.tenKM || null,
-              trangThai: fullBookingInfo.trangThai || 'Đã xác nhận',
+              trangThai: fullBookingInfo.trangThai || "Đã xác nhận",
               ngayDat: fullBookingInfo.ngayDat,
-              ghiChu: fullBookingInfo.ghiChu || ''
+              ghiChu: fullBookingInfo.ghiChu || "",
             };
 
-            console.log('📧 Email Data - userPhone:', emailData.userPhone);
-            console.log('📧 NguoiDung.sdt:', fullBookingInfo.NguoiDung?.sdt);
-
             // Gửi email bất đồng bộ
-            sendBookingConfirmationEmail(emailData).catch(err => {
-              console.error('Lỗi gửi email:', err.message);
+            sendBookingConfirmationEmail(emailData).catch((err) => {
+              console.error("Lỗi gửi email:", err.message);
             });
           }
         } catch (emailError) {
-          console.error('Lỗi chuẩn bị email:', emailError.message);
+          console.error("Lỗi chuẩn bị email:", emailError.message);
         }
       }
 
@@ -808,7 +814,6 @@ exports.updateStatus = async (req, res) => {
     });
 
     if (!booking) {
-      console.log("❌ Booking not found:", id);
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy đặt phòng",
@@ -861,13 +866,7 @@ exports.updateStatus = async (req, res) => {
           status: "completed",
         };
 
-        console.log(
-          "✅ Completed booking object created:",
-          completedBooking.maDP
-        );
-
         // Lưu vào file completedBookings.json
-        console.log("💾 Preparing to save to JSON file...");
         const fs = require("fs");
         const path = require("path");
         const dataDir = path.join(__dirname, "../data");
@@ -876,12 +875,8 @@ exports.updateStatus = async (req, res) => {
           "completedBookings.json"
         );
 
-        console.log("📁 Data directory:", dataDir);
-        console.log("📄 JSON file path:", completedBookingsPath);
-
         // Tạo thư mục data nếu chưa tồn tại
         if (!fs.existsSync(dataDir)) {
-          console.log("📁 Creating data directory...");
           fs.mkdirSync(dataDir, { recursive: true });
         }
 
@@ -892,19 +887,17 @@ exports.updateStatus = async (req, res) => {
 
         // Đọc file hiện tại nếu tồn tại
         if (fs.existsSync(completedBookingsPath)) {
-          console.log("📖 Reading existing JSON file...");
           try {
             const existingData = fs.readFileSync(completedBookingsPath, "utf8");
             completedBookingsData = JSON.parse(existingData);
-            console.log("✅ Successfully read existing file");
           } catch (error) {
             console.log(
-              "❌ Error reading completedBookings.json, creating new file:",
+              "Error reading completedBookings.json, creating new file:",
               error.message
             );
           }
         } else {
-          console.log("📄 JSON file does not exist, will create new one");
+          console.log("JSON file does not exist, will create new one");
         }
 
         // Thêm booking mới vào đầu mảng
@@ -917,13 +910,9 @@ exports.updateStatus = async (req, res) => {
             completedBookingsPath,
             JSON.stringify(completedBookingsData, null, 2)
           );
-          console.log(
-            "✅ Completed booking saved to JSON file:",
-            completedBooking.maDP
-          );
         } catch (writeError) {
           console.error(
-            "❌ Error writing to completedBookings.json:",
+            "Error writing to completedBookings.json:",
             writeError
           );
           throw new Error(`Không thể lưu vào file JSON: ${writeError.message}`);
@@ -940,7 +929,7 @@ exports.updateStatus = async (req, res) => {
         });
       } catch (error) {
         await transaction.rollback();
-        console.error("❌ Transaction rolled back due to error:", error);
+        console.error("Transaction rolled back due to error:", error);
         throw error;
       }
     } else {
@@ -1022,7 +1011,7 @@ exports.confirmBooking = async (req, res) => {
     const checkOutDate = new Date(checkOutDateTime);
 
     if (checkInDate >= checkOutDate) {
-      console.log("❌ Date validation failed:", {
+      console.log("Date validation failed:", {
         checkInDate: checkInDate.toISOString(),
         checkOutDate: checkOutDate.toISOString(),
         checkInDateTime: checkInDateTime,
@@ -1294,8 +1283,6 @@ exports.confirmBooking = async (req, res) => {
     });
   }
 };
-
-
 
 // API để tính giá trước khi đặt phòng
 exports.calculatePrice = async (req, res) => {
@@ -1742,6 +1729,64 @@ exports.getCompletedBookingsByUserId = async (req, res) => {
         "Lấy danh sách đơn đặt phòng hoàn thành của người dùng thành công",
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// Gửi email báo cáo đơn hoàn thành
+exports.sendCompletedBookingsReportEmail = async (req, res) => {
+  try {
+    const { sendCompletedBookingsReport } = require("../utils/emailService");
+
+    // Đọc dữ liệu từ completedBookings.json
+    const completedBookingsPath = path.join(
+      __dirname,
+      "../data/completedBookings.json"
+    );
+
+    if (!fs.existsSync(completedBookingsPath)) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy file dữ liệu đơn hoàn thành",
+      });
+    }
+
+    const data = JSON.parse(fs.readFileSync(completedBookingsPath, "utf8"));
+    const completedBookings = data.completedBookings || [];
+
+    if (completedBookings.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Không có dữ liệu đơn hoàn thành để gửi",
+      });
+    }
+
+    // Gửi email báo cáo
+    const result = await sendCompletedBookingsReport(completedBookings);
+
+    if (result.success) {
+      res.status(200).json({
+        success: true,
+        data: {
+          messageId: result.messageId,
+          sentTo: result.sentTo,
+          bookingsCount: result.bookingsCount,
+          totalRevenue: result.totalRevenue,
+        },
+        message: `Đã gửi báo cáo ${result.bookingsCount} đơn hoàn thành đến ${result.sentTo}`,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Lỗi khi gửi email báo cáo",
+        error: result.error,
+      });
+    }
+  } catch (error) {
+    console.error("Error sending completed bookings report email:", error);
     res.status(500).json({
       success: false,
       error: error.message,

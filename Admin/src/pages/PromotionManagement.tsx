@@ -77,6 +77,21 @@ const PromotionManagement = () => {
     );
   };
 
+  // Hàm kiểm tra khuyến mãi còn hạn hay không
+  const isPromotionActive = (promotion: KhuyenMai): 'active' | 'expired' | 'upcoming' => {
+    const now = dayjs();
+    const startDate = dayjs(promotion.ngayBatDau);
+    const endDate = dayjs(promotion.ngayKetThuc);
+    
+    if (now.isBefore(startDate)) {
+      return 'upcoming'; // Chưa bắt đầu
+    } else if (now.isAfter(endDate)) {
+      return 'expired'; // Đã hết hạn
+    } else {
+      return 'active'; // Đang hoạt động
+    }
+  };
+
   // Group promotions by hotel
   const groupedPromotions = searchResults.reduce((acc, promotion) => {
     const hotelId = promotion.maKS;
@@ -142,6 +157,13 @@ const PromotionManagement = () => {
 
   const columns = [
     {
+      title: '#',
+      key: 'stt',
+      width: 60,
+      align: 'center' as const,
+      render: (_: any, __: any, index: number) => index + 1,
+    },
+    {
       title: 'Ảnh',
       dataIndex: 'anh',
       key: 'anh',
@@ -202,11 +224,16 @@ const PromotionManagement = () => {
     },
     {
       title: 'Trạng thái',
-      dataIndex: 'trangThai',
       key: 'trangThai',
-      render: (status: string) => (
-        <Tag color={status === 'Hoạt động' ? 'green' : 'red'}>{status}</Tag>
-      ),
+      render: (_: any, record: KhuyenMai) => {
+        const status = isPromotionActive(record);
+        const statusConfig = {
+          active: { text: 'Còn hạn', color: 'green' },
+          expired: { text: 'Hết hạn', color: 'red' },
+          upcoming: { text: 'Sắp diễn ra', color: 'blue' },
+        };
+        return <Tag color={statusConfig[status].color}>{statusConfig[status].text}</Tag>;
+      },
     },
     {
       title: 'Thao tác',
@@ -285,11 +312,14 @@ const PromotionManagement = () => {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  {hotelPromotions.filter(promo => promo.trangThai === 'Hoạt động').length} đang hoạt động
+                <div style={{ fontSize: '14px', color: '#52c41a' }}>
+                  {hotelPromotions.filter(promo => isPromotionActive(promo) === 'active').length} còn hạn
                 </div>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  {hotelPromotions.filter(promo => promo.trangThai === 'Không hoạt động').length} không hoạt động
+                <div style={{ fontSize: '14px', color: '#f5222d' }}>
+                  {hotelPromotions.filter(promo => isPromotionActive(promo) === 'expired').length} hết hạn
+                </div>
+                <div style={{ fontSize: '14px', color: '#1890ff' }}>
+                  {hotelPromotions.filter(promo => isPromotionActive(promo) === 'upcoming').length} sắp diễn ra
                 </div>
               </div>
             </div>

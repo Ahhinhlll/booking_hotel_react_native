@@ -62,6 +62,14 @@ export default {
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
       ],
+      // Cho phép query MoMo app
+      intentFilters: [
+        {
+          action: "VIEW",
+          data: [{ scheme: "momo" }],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
     },
     web: {
       bundler: "metro",

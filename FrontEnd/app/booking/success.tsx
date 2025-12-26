@@ -40,10 +40,8 @@ export default function BookingSuccessScreen() {
         const parsed = JSON.parse(params.bookingData as string);
         setBookingInfo(parsed);
       } catch (error) {
-        console.error("Error parsing booking data:", error);
+        // Error parsing booking data
       }
-    } else {
-      console.log("❌ No bookingData in params:", params);
     }
   }, [params.bookingData]);
 

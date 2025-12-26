@@ -96,5 +96,20 @@ export const datPhongService = {
     const response = await request.get(`/datphong/completed/user/${userId}`);
     return response.data.data || [];
   },
+
+  // API để gửi email báo cáo đơn hoàn thành
+  sendCompletedBookingsReportEmail: async (): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      messageId: string;
+      sentTo: string;
+      bookingsCount: number;
+      totalRevenue: number;
+    };
+  }> => {
+    const response = await request.post('/datphong/completed/send-report');
+    return response.data;
+  },
 };
 

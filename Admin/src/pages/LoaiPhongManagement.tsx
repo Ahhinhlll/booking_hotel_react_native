@@ -90,6 +90,13 @@ const LoaiPhongManagement = () => {
 
   const columns = [
     {
+      title: '#',
+      key: 'stt',
+      width: 60,
+      align: 'center' as const,
+      render: (_: any, __: any, index: number) => index + 1,
+    },
+    {
       title: 'Tên loại phòng',
       dataIndex: 'tenLoaiPhong',
       key: 'tenLoaiPhong',

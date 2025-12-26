@@ -28,6 +28,9 @@ import {
   PictureOutlined,
   CheckCircleOutlined,
   HistoryOutlined,
+  FileExcelOutlined,
+  PrinterOutlined,
+  MailOutlined,
 } from "@ant-design/icons";
 import { datPhongService } from "../services/datPhongService";
 import { nguoiDungService } from "../services/nguoiDungService";
@@ -38,6 +41,8 @@ import dayjs from "dayjs";
 import ImageDisplay from "../components/ImageDisplay";
 import useSearch from "../hooks/useSearch";
 import SearchInput from "../components/SearchInput";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { RangePicker } = DatePicker;
 
@@ -231,14 +236,159 @@ const BookingManagement = () => {
     }
   };
 
+  // Xuất Excel cho đơn hoàn thành
+  const handleExportExcel = () => {
+    if (completedBookings.length === 0) {
+      message.warning("Không có dữ liệu để xuất!");
+      return;
+    }
+
+    const exportData = completedBookings.map((booking, index) => ({
+      "STT": index + 1,
+      "Khách hàng": booking.tenNguoiDat || "N/A",
+      "Email": booking.emailNguoiDat || "N/A",
+      "SĐT": booking.sdtNguoiDat || "N/A",
+      "Khách sạn": booking.tenKS || "N/A",
+      "Phòng": booking.tenPhong || "N/A",
+      "Loại đặt": booking.loaiDat || "N/A",
+      "Ngày đặt": dayjs(booking.ngayDat).format("DD/MM/YYYY HH:mm"),
+      "Ngày nhận": dayjs(booking.ngayNhan).format("DD/MM/YYYY HH:mm"),
+      "Ngày trả": dayjs(booking.ngayTra).format("DD/MM/YYYY HH:mm"),
+      "Tổng tiền gốc": booking.tongTienGoc?.toLocaleString() + " VNĐ",
+      "Tổng tiền sau giảm": booking.tongTienSauGiam?.toLocaleString() + " VNĐ",
+      "Trạng thái": booking.trangThai || "N/A",
+      "Ngày hoàn thành": dayjs(booking.completedAt).format("DD/MM/YYYY HH:mm"),
+      "Đã đánh giá": booking.hasReviewed ? "Có" : "Chưa",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn hoàn thành");
+
+    const colWidths = Object.keys(exportData[0] || {}).map((key) => ({
+      wch: Math.max(key.length, 20),
+    }));
+    worksheet["!cols"] = colWidths;
+
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    saveAs(data, `DonDatPhongHoanThanh_${dayjs().format("DDMMYYYY_HHmmss")}.xlsx`);
+    message.success("Xuất Excel thành công!");
+  };
+
+  // In danh sách đơn hoàn thành
+  const handlePrint = () => {
+    if (completedBookings.length === 0) {
+      message.warning("Không có dữ liệu để in!");
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Danh sách đơn đặt phòng hoàn thành</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { text-align: center; color: #1890ff; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+          th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+          th { background-color: #1890ff; color: white; }
+          tr:nth-child(even) { background-color: #f2f2f2; }
+          .print-date { text-align: right; color: #666; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <h1>DANH SÁCH ĐƠN ĐẶT PHÒNG HOÀN THÀNH</h1>
+        <p class="print-date">Ngày in: ${dayjs().format("DD/MM/YYYY HH:mm")}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Khách hàng</th>
+              <th>Khách sạn</th>
+              <th>Phòng</th>
+              <th>Loại đặt</th>
+              <th>Ngày nhận</th>
+              <th>Ngày trả</th>
+              <th>Tổng tiền</th>
+              <th>Hoàn thành</th>
+              <th>Đánh giá</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${completedBookings.map((booking, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${booking.tenNguoiDat || "N/A"}</td>
+                <td>${booking.tenKS || "N/A"}</td>
+                <td>${booking.tenPhong || "N/A"}</td>
+                <td>${booking.loaiDat || "N/A"}</td>
+                <td>${dayjs(booking.ngayNhan).format("DD/MM/YYYY")}</td>
+                <td>${dayjs(booking.ngayTra).format("DD/MM/YYYY")}</td>
+                <td>${booking.tongTienSauGiam?.toLocaleString() || 0} VNĐ</td>
+                <td>${dayjs(booking.completedAt).format("DD/MM/YYYY HH:mm")}</td>
+                <td>${booking.hasReviewed ? "Đã đánh giá" : "Chưa"}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+        <p style="text-align: center; margin-top: 30px; color: #666;">
+          Tổng: ${completedBookings.length} đơn | 
+          Tổng doanh thu: ${completedBookings.reduce((sum, b) => sum + (b.tongTienSauGiam || 0), 0).toLocaleString()} VNĐ
+        </p>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  // Gửi email báo cáo
+  const handleSendEmail = async () => {
+    if (completedBookings.length === 0) {
+      message.warning("Không có dữ liệu để gửi!");
+      return;
+    }
+
+    try {
+      message.loading({ content: "Đang gửi email báo cáo...", key: "sendEmail" });
+      
+      const result = await datPhongService.sendCompletedBookingsReportEmail();
+      
+      if (result.success) {
+        message.success({
+          content: `Đã gửi báo cáo ${result.data?.bookingsCount} đơn hoàn thành đến ${result.data?.sentTo}`,
+          key: "sendEmail",
+          duration: 5,
+        });
+      } else {
+        message.error({
+          content: result.message || "Lỗi khi gửi email báo cáo",
+          key: "sendEmail",
+        });
+      }
+    } catch (error: any) {
+      message.error({
+        content: error.response?.data?.message || "Lỗi khi gửi email báo cáo",
+        key: "sendEmail",
+      });
+    }
+  };
+
   const columns = [
-    // {
-    //   title: "STT",
-    //   key: "stt",
-    //   render: (_: any, __: any, index: number) => index + 1, // đánh số tự động
-    //   width: 60,
-    //   align: "center",
-    // },
+    {
+      title: "#",
+      key: "stt",
+      width: 60,
+      align: "center" as const,
+      render: (_: any, __: any, index: number) => index + 1,
+    },
     {
       title: "Khách hàng",
       dataIndex: "NguoiDung",
@@ -347,6 +497,13 @@ const BookingManagement = () => {
   ];
 
   const completedColumns = [
+    {
+      title: "#",
+      key: "stt",
+      width: 60,
+      align: "center" as const,
+      render: (_: any, __: any, index: number) => index + 1,
+    },
     {
       title: "Khách hàng",
       dataIndex: "tenNguoiDat",
@@ -472,12 +629,34 @@ const BookingManagement = () => {
             ),
             children: (
               <div>
+                <Space style={{ marginBottom: 16 }}>
+                  <Button
+                    type="primary"
+                    icon={<FileExcelOutlined />}
+                    onClick={handleExportExcel}
+                    style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+                  >
+                    Xuất Excel
+                  </Button>
+                  <Button
+                    icon={<PrinterOutlined />}
+                    onClick={handlePrint}
+                  >
+                    In danh sách
+                  </Button>
+                  <Button
+                    icon={<MailOutlined />}
+                    onClick={handleSendEmail}
+                  >
+                    Gửi Email
+                  </Button>
+                </Space>
                 <Table
                   columns={completedColumns}
                   dataSource={completedBookings}
                   rowKey="maDP"
                   loading={completedLoading}
-                  pagination={{ pageSize: 10 }}
+                  pagination={{ pageSize: 10, showSizeChanger: false }}
                   scroll={{ x: 1200 }}
                 />
               </div>
@@ -730,10 +909,6 @@ const BookingManagement = () => {
                     images={selectedBooking.KhachSan?.anh || []}
                     width={200}
                     height={150}
-                    style={{
-                      borderRadius: "8px",
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                    }}
                   />
                 </div>
                 <div style={{ textAlign: "center" }}>
@@ -745,10 +920,6 @@ const BookingManagement = () => {
                     images={selectedBooking.Phong?.anh || []}
                     width={200}
                     height={150}
-                    style={{
-                      borderRadius: "8px",
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                    }}
                   />
                 </div>
               </div>
